@@ -22,7 +22,7 @@ const rooms: Room[] = [
     size: '45 m²',
     capacity: '2-3 Guests',
     price: '₹4,500',
-    amenities: ['King Bed', 'Private Balcony', 'Ocean View', 'AC', 'Free WiFi', 'Hot Shower'],
+    amenities: ['King Bed', 'Private Balcony', 'Garden View', 'AC', 'Free WiFi', 'Hot Shower'],
     image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800',
   },
   {
@@ -93,8 +93,8 @@ const RoomsSection = () => {
           <h2 className="text-display text-5xl md:text-7xl text-foreground mb-4">
             ROOMS
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Wake up to ocean breezes and the sound of waves. Each room is designed for comfort and connection with nature.
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            Wake up to ocean breezes and waves doing their ASMR thing. You'll sleep so well you'll question if your mattress at home is actively sabotaging you.
           </p>
         </div>
 

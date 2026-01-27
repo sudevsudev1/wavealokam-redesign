@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Plus, Minus, Bed, Users, Bike, Calendar, Calculator } from 'lucide-react';
+import OTAIcons from './OTAIcons';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -73,14 +74,20 @@ const ItineraryBuilder = () => {
       className="relative py-24 md:py-32 bg-background overflow-hidden"
     >
       <div className="container mx-auto px-4">
+        {/* OTA Icons above itinerary */}
+        <div className="mb-12">
+          <p className="text-center text-muted-foreground mb-4">Book directly on your preferred platform</p>
+          <OTAIcons />
+        </div>
+
         {/* Section Header */}
         <div className="text-center mb-12">
           <p className="text-lg font-medium text-wave-orange mb-2">PLAN YOUR STAY</p>
           <h2 className="text-display text-5xl md:text-7xl text-foreground mb-4">
             BUILD YOUR ITINERARY
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Customize your perfect Wavealokam experience. Add rooms, amenities, and extras.
+          <p className="text-base md:text-lg text-muted-foreground max-w-3xl mx-auto px-4">
+            Our itinerary app lets you customize everything - rooms, surf lessons, toddy tastings, beach time, costs. Plot it all out perfectly, then discover you've scheduled six days of activities into a two-day trip. Math is hard. Varkala is harder to leave.
           </p>
         </div>
 

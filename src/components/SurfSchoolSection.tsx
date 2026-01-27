@@ -6,9 +6,18 @@ import { Award, Users, Waves } from 'lucide-react';
 gsap.registerPlugin(ScrollTrigger);
 
 const levels = [
-  { name: 'Beginners', description: 'First-time surfers welcome. Learn the basics in calm waters.' },
-  { name: 'Intermediate', description: 'Perfect your technique and ride bigger waves.' },
-  { name: 'Advanced', description: 'Challenge yourself with Varkala\'s legendary swells.' },
+  { 
+    name: 'Beginners', 
+    description: "Safe, gentle surf lessons for first-timers. Calm waters, patient instructors, and camera angles that turn your wobbly three-second stand into \"extreme sports legend.\" We provide the board. You provide the creative captioning." 
+  },
+  { 
+    name: 'Intermediate', 
+    description: "Ready for bigger waves? Our intermediate program will elevate your technique and humble you in entirely new ways. You thought you had this figured out. The ocean has notes. Many notes." 
+  },
+  { 
+    name: 'Advanced', 
+    description: "Challenge yourself with Varkala's legendary swells. Advanced surfers only. Beginners who lie about their level also welcome. The sea sorts everyone out immediately. These waves have reputations. So do the rocks. May the best entity win. Spoiler: it's never the rocks, but it's also never you." 
+  },
 ];
 
 const SurfSchoolSection = () => {
@@ -68,8 +77,8 @@ const SurfSchoolSection = () => {
           <h2 className="surf-title text-display text-5xl md:text-7xl text-white mb-4">
             SURF SCHOOL
           </h2>
-          <p className="surf-title text-lg text-white/80 max-w-2xl mx-auto">
-            Learn to surf with Varkala's finest instructors. Whether you're catching your first wave or mastering advanced techniques.
+          <p className="surf-title text-lg text-white/80 max-w-3xl mx-auto">
+            Varkala's best surf instructors will get you riding waves in no time. Beginner or expert, they'll teach you that the ocean has a sense of humor and you're the punchline.
           </p>
         </div>
 
@@ -78,30 +87,30 @@ const SurfSchoolSection = () => {
           <div className="w-32 h-32 rounded-full bg-wave-orange flex items-center justify-center">
             <Waves className="w-16 h-16 text-white" />
           </div>
-          <div className="text-center md:text-left">
+          <div className="text-center md:text-left max-w-xl">
             <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
               <Award className="w-5 h-5 text-wave-orange" />
               <span className="text-wave-orange font-medium">Brand Ambassador</span>
             </div>
             <h3 className="text-3xl md:text-4xl font-bold text-white mb-2">Sudev Nair</h3>
-            <p className="text-white/70">Professional surfer & certified instructor with 10+ years of experience in Varkala waves</p>
+            <p className="text-white/70 text-sm md:text-base">Award winning Actor, gymnast, dancer, martial artist, Sudev Nair is a lot of things. Surfer... well he did finally upgrade from foam to hardboard last Monday without crying... more than once. On an unrelated note, did we mention he is also the owner of Wavealokam? yeah...</p>
           </div>
         </div>
 
         {/* Skill Levels */}
-        <div ref={contentRef} className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto perspective-1000">
+        <div ref={contentRef} className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto perspective-1000">
           {levels.map((level, index) => (
             <div
               key={level.name}
-              className="level-card p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:bg-white/20 transition-all duration-300 hover:-translate-y-2"
+              className="level-card p-6 md:p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:bg-white/20 transition-all duration-300 hover:-translate-y-2"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-wave-orange flex items-center justify-center text-white font-bold">
                   {index + 1}
                 </div>
-                <h3 className="text-2xl font-bold text-white">{level.name}</h3>
+                <h3 className="text-xl md:text-2xl font-bold text-white">{level.name}</h3>
               </div>
-              <p className="text-white/70">{level.description}</p>
+              <p className="text-white/70 text-sm md:text-base leading-relaxed">{level.description}</p>
             </div>
           ))}
         </div>
