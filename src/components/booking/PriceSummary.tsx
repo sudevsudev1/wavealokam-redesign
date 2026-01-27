@@ -1,5 +1,5 @@
+import { MessageCircle, BadgePercent } from 'lucide-react';
 import { PriceBreakdown } from '@/types/booking';
-import { MessageCircle, Percent } from 'lucide-react';
 
 interface PriceSummaryProps {
   breakdown: PriceBreakdown;
@@ -10,78 +10,91 @@ interface PriceSummaryProps {
 
 const PriceSummary = ({ breakdown, nights, onBookNow, isValid }: PriceSummaryProps) => {
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-2xl sticky top-24">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">
-        Price Summary
-      </h3>
-
-      <div className="space-y-3 text-sm">
-        {breakdown.roomsTotal > 0 && (
-          <div className="flex justify-between">
-            <span className="text-gray-600">Accommodation ({nights} nights)</span>
-            <span className="font-medium">₹{breakdown.roomsTotal.toLocaleString()}</span>
-          </div>
-        )}
+    <div className="sticky top-24 bg-white rounded-2xl p-6 border border-border shadow-lg">
+      <h3 className="text-xl font-bold text-foreground mb-4">Price Estimate</h3>
+      
+      <div className="space-y-3 mb-6">
+        {/* Room costs */}
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Rooms ({nights} nights)</span>
+          <span className="font-medium text-foreground">₹{breakdown.roomsTotal.toLocaleString()}</span>
+        </div>
         
+        {/* Activities */}
         {breakdown.activitiesTotal > 0 && (
-          <div className="flex justify-between">
-            <span className="text-gray-600">Activities</span>
-            <span className="font-medium">₹{breakdown.activitiesTotal.toLocaleString()}</span>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Activities</span>
+            <span className="font-medium text-foreground">₹{breakdown.activitiesTotal.toLocaleString()}</span>
           </div>
         )}
         
-        {breakdown.scooterTotal > 0 && (
-          <div className="flex justify-between">
-            <span className="text-gray-600">Scooter Rental</span>
-            <span className="font-medium">₹{breakdown.scooterTotal.toLocaleString()}</span>
+        {/* Transport */}
+        {breakdown.transportTotal > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Transport</span>
+            <span className="font-medium text-foreground">₹{breakdown.transportTotal.toLocaleString()}</span>
           </div>
         )}
-
-        <div className="border-t border-gray-200 pt-3">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Subtotal</span>
-            <span className="font-medium">₹{breakdown.subtotal.toLocaleString()}</span>
+        
+        {/* Scooter */}
+        {breakdown.scooterTotal > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Two Wheeler</span>
+            <span className="font-medium text-foreground">₹{breakdown.scooterTotal.toLocaleString()}</span>
+          </div>
+        )}
+        
+        <div className="border-t border-border pt-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="font-medium text-foreground">₹{breakdown.subtotal.toLocaleString()}</span>
           </div>
         </div>
-
+        
+        {/* Discount */}
         {breakdown.discount > 0 && (
-          <div className="flex justify-between text-green-600 bg-green-50 p-2 rounded-lg">
+          <div className="flex justify-between text-sm text-green-600">
             <span className="flex items-center gap-1">
-              <Percent className="w-4 h-4" />
+              <BadgePercent className="w-4 h-4" />
               Discount ({breakdown.discountPercentage}%)
             </span>
             <span className="font-medium">-₹{breakdown.discount.toLocaleString()}</span>
           </div>
         )}
-
-        <div className="border-t-2 border-gray-900 pt-3">
-          <div className="flex justify-between text-xl font-bold">
-            <span>Total</span>
-            <span className="text-wave-orange">₹{breakdown.grandTotal.toLocaleString()}</span>
+        
+        {/* Grand total */}
+        <div className="border-t border-border pt-3">
+          <div className="flex justify-between">
+            <span className="font-bold text-foreground">Total Estimate</span>
+            <span className="text-2xl font-bold text-wave-orange">
+              ₹{breakdown.grandTotal.toLocaleString()}
+            </span>
           </div>
         </div>
       </div>
-
-      {breakdown.discountPercentage > 0 && (
-        <p className="text-xs text-gray-500 mt-3 text-center">
-          🎉 You're saving ₹{breakdown.discount.toLocaleString()} with your {breakdown.discountPercentage}% discount!
-        </p>
+      
+      {/* Discount hint */}
+      {breakdown.discountPercentage === 0 && nights > 0 && nights < 3 && (
+        <div className="mb-4 p-3 bg-wave-orange/10 rounded-xl border border-wave-orange/20">
+          <p className="text-xs text-wave-orange font-medium">
+            💡 Stay 3+ nights for 10% off!
+          </p>
+        </div>
       )}
-
+      
+      {/* Book button */}
       <button
         onClick={onBookNow}
         disabled={!isValid}
-        className="w-full mt-6 py-4 bg-wave-orange text-white font-bold text-lg rounded-xl hover:bg-wave-orange-dark transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 pulse-glow"
+        className="w-full py-4 bg-wave-orange text-white font-bold rounded-xl hover:bg-wave-orange/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
       >
         <MessageCircle className="w-5 h-5" />
-        Book on WhatsApp
+        Send via WhatsApp
       </button>
-
-      {!isValid && (
-        <p className="text-red-500 text-xs mt-2 text-center">
-          Please select dates and ensure room capacity matches guests
-        </p>
-      )}
+      
+      <p className="text-xs text-muted-foreground text-center mt-3">
+        Prices are estimates. Final rates may vary seasonally.
+      </p>
     </div>
   );
 };

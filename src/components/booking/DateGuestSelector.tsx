@@ -49,23 +49,23 @@ const DateGuestSelector = ({
   };
 
   return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-      <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-        <CalendarIcon className="w-5 h-5" />
+    <div className="bg-white rounded-2xl p-6 border border-border shadow-sm">
+      <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+        <CalendarIcon className="w-5 h-5 text-wave-orange" />
         When are you visiting?
       </h3>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Check-in Date */}
         <div>
-          <label className="text-white/80 text-sm mb-2 block">Check-in</label>
+          <label className="text-muted-foreground text-sm mb-2 block">Check-in</label>
           <Popover open={checkInOpen} onOpenChange={setCheckInOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full justify-start text-left font-normal bg-white/20 border-white/30 text-white hover:bg-white/30 hover:text-white",
-                  !checkIn && "text-white/60"
+                  "w-full justify-start text-left font-normal h-12 border-border",
+                  !checkIn && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -87,14 +87,14 @@ const DateGuestSelector = ({
 
         {/* Check-out Date */}
         <div>
-          <label className="text-white/80 text-sm mb-2 block">Check-out</label>
+          <label className="text-muted-foreground text-sm mb-2 block">Check-out</label>
           <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full justify-start text-left font-normal bg-white/20 border-white/30 text-white hover:bg-white/30 hover:text-white",
-                  !checkOut && "text-white/60"
+                  "w-full justify-start text-left font-normal h-12 border-border",
+                  !checkOut && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -116,21 +116,21 @@ const DateGuestSelector = ({
 
         {/* Guest Count */}
         <div>
-          <label className="text-white/80 text-sm mb-2 block">Guests</label>
-          <div className="flex items-center justify-between bg-white/20 border border-white/30 rounded-md px-3 py-2">
+          <label className="text-muted-foreground text-sm mb-2 block">Guests</label>
+          <div className="flex items-center justify-between h-12 px-4 bg-muted/50 rounded-lg border border-border">
             <button
               onClick={() => onGuestsChange(Math.max(1, guests - 1))}
-              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/40 transition-colors text-white"
+              className="w-8 h-8 rounded-full bg-wave-orange/20 flex items-center justify-center hover:bg-wave-orange/40 transition-colors text-wave-orange"
             >
               <Minus className="w-4 h-4" />
             </button>
-            <div className="flex items-center gap-2 text-white">
-              <Users className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-foreground">
+              <Users className="w-4 h-4 text-muted-foreground" />
               <span className="font-bold text-lg">{guests}</span>
             </div>
             <button
               onClick={() => onGuestsChange(Math.min(12, guests + 1))}
-              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/40 transition-colors text-white"
+              className="w-8 h-8 rounded-full bg-wave-orange flex items-center justify-center hover:bg-wave-orange/90 transition-colors text-white"
             >
               <Plus className="w-4 h-4" />
             </button>

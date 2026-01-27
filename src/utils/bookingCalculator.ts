@@ -4,7 +4,7 @@ import {
   ACTIVITIES, 
   ROOM_PRICES, 
   SCOOTER_PRICE_PER_DAY,
-  ActivityType 
+  ActivitySelection
 } from '@/types/booking';
 
 export function calculateNights(checkIn: Date | null, checkOut: Date | null): number {
@@ -37,6 +37,37 @@ export function validateRoomSelection(guests: number, rooms: BookingState['rooms
   return calculateRoomCapacity(rooms) >= guests;
 }
 
+function calculateActivityCost(selection: ActivitySelection | null): { activityCost: number; transportCost: number } {
+  if (!selection || !selection.activityId) {
+    return { activityCost: 0, transportCost: 0 };
+  }
+  
+  const activity = ACTIVITIES.find(a => a.id === selection.activityId);
+  if (!activity) {
+    return { activityCost: 0, transportCost: 0 };
+  }
+  
+  // Calculate activity cost
+  let activityCost = 0;
+  if (activity.perPerson) {
+    activityCost = activity.price * selection.participants;
+  } else {
+    activityCost = activity.price;
+  }
+  
+  // Calculate transport cost
+  let transportCost = 0;
+  if (selection.transport && activity.transportOptions) {
+    if (selection.transport === 'auto' && activity.transportOptions.auto) {
+      transportCost = activity.transportOptions.auto;
+    } else if (selection.transport === 'cab' && activity.transportOptions.cab) {
+      transportCost = activity.transportOptions.cab;
+    }
+  }
+  
+  return { activityCost, transportCost };
+}
+
 export function calculatePriceBreakdown(state: BookingState): PriceBreakdown {
   const nights = calculateNights(state.checkIn, state.checkOut);
   
@@ -47,23 +78,23 @@ export function calculatePriceBreakdown(state: BookingState): PriceBreakdown {
     (state.rooms.extraBeds * ROOM_PRICES.extraBed)
   ) * nights;
   
-  // Calculate activity costs
+  // Calculate activity and transport costs
   let activitiesTotal = 0;
+  let transportTotal = 0;
+  
   state.dayPlans.forEach(day => {
-    const slots: (ActivityType)[] = [day.morning, day.afternoon, day.evening, day.night];
-    slots.forEach(activityId => {
-      if (activityId) {
-        const activity = ACTIVITIES.find(a => a.id === activityId);
-        if (activity) {
-          // Multiply by guest count for per-person activities
-          const perPerson = ['surf-lesson', 'toddy-tasting', 'mangrove-kayak', 'jatayu-trip'];
-          if (perPerson.includes(activityId)) {
-            activitiesTotal += activity.price * state.guests;
-          } else {
-            activitiesTotal += activity.price;
-          }
-        }
-      }
+    const slots: (ActivitySelection | null)[] = [
+      day.morning,
+      day.morningSecondary,
+      day.afternoon,
+      day.evening,
+      day.night
+    ];
+    
+    slots.forEach(selection => {
+      const { activityCost, transportCost } = calculateActivityCost(selection);
+      activitiesTotal += activityCost;
+      transportTotal += transportCost;
     });
   });
   
@@ -71,7 +102,7 @@ export function calculatePriceBreakdown(state: BookingState): PriceBreakdown {
   const scooterTotal = state.scooterDays * SCOOTER_PRICE_PER_DAY;
   
   // Calculate totals
-  const subtotal = roomsTotal + activitiesTotal + scooterTotal;
+  const subtotal = roomsTotal + activitiesTotal + transportTotal + scooterTotal;
   const discountPercentage = getDiscountPercentage(nights, state.guests);
   const discount = Math.round(subtotal * (discountPercentage / 100));
   const grandTotal = subtotal - discount;
@@ -79,6 +110,7 @@ export function calculatePriceBreakdown(state: BookingState): PriceBreakdown {
   return {
     roomsTotal,
     activitiesTotal,
+    transportTotal,
     scooterTotal,
     subtotal,
     discount,
@@ -103,6 +135,25 @@ export function generateWhatsAppMessage(state: BookingState, breakdown: PriceBre
   
   if (state.scooterDays > 0) {
     message += `\n🛵 *Scooter Rental:* ${state.scooterDays} days\n`;
+  }
+  
+  // Add activities summary
+  const activitiesSelected: string[] = [];
+  state.dayPlans.forEach((day, i) => {
+    const slots = [day.morning, day.morningSecondary, day.afternoon, day.evening, day.night];
+    slots.forEach(selection => {
+      if (selection?.activityId) {
+        const activity = ACTIVITIES.find(a => a.id === selection.activityId);
+        if (activity && activity.price > 0) {
+          activitiesSelected.push(`Day ${i + 1}: ${activity.name} (${selection.participants} pax)`);
+        }
+      }
+    });
+  });
+  
+  if (activitiesSelected.length > 0) {
+    message += `\n🎯 *Activities:*\n`;
+    activitiesSelected.forEach(a => { message += `  • ${a}\n`; });
   }
   
   message += `\n💰 *Estimated Total:* ₹${breakdown.grandTotal.toLocaleString()}`;

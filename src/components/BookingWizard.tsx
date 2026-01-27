@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { addDays, differenceInDays } from 'date-fns';
 import { Calculator } from 'lucide-react';
 
-import { BookingState, DayPlan, TimeSlot, ActivityType } from '@/types/booking';
+import { BookingState, DayPlan, TimeSlot, ActivitySelection } from '@/types/booking';
 import { 
   calculateNights, 
   calculatePriceBreakdown, 
@@ -43,11 +43,13 @@ const BookingWizard = () => {
       const nights = differenceInDays(bookingState.checkOut, bookingState.checkIn);
       const newDayPlans: DayPlan[] = [];
       
-      for (let i = 0; i < nights; i++) {
+      // We need nights + 1 days (e.g., 2 nights = 3 days: check-in day, full day, check-out day)
+      for (let i = 0; i <= nights; i++) {
         const existingPlan = bookingState.dayPlans[i];
         newDayPlans.push({
           date: addDays(bookingState.checkIn, i),
           morning: existingPlan?.morning || null,
+          morningSecondary: existingPlan?.morningSecondary || null,
           afternoon: existingPlan?.afternoon || null,
           evening: existingPlan?.evening || null,
           night: existingPlan?.night || null,
@@ -58,12 +60,19 @@ const BookingWizard = () => {
     }
   }, [bookingState.checkIn, bookingState.checkOut]);
 
-  const updateDayPlan = (dayIndex: number, slot: TimeSlot, activity: ActivityType) => {
+  const updateDayPlan = (dayIndex: number, slot: TimeSlot | 'morningSecondary', selection: ActivitySelection | null) => {
     setBookingState(prev => ({
       ...prev,
-      dayPlans: prev.dayPlans.map((plan, i) =>
-        i === dayIndex ? { ...plan, [slot]: activity } : plan
-      ),
+      dayPlans: prev.dayPlans.map((plan, i) => {
+        if (i !== dayIndex) return plan;
+        
+        // If changing primary morning and it's no longer breakfast, clear secondary
+        if (slot === 'morning' && selection?.activityId !== 'breakfast') {
+          return { ...plan, [slot]: selection, morningSecondary: null };
+        }
+        
+        return { ...plan, [slot]: selection };
+      }),
     }));
   };
 
@@ -104,25 +113,25 @@ const BookingWizard = () => {
     <section
       ref={sectionRef}
       id="itinerary"
-      className="relative py-24 md:py-32 bg-wave-orange overflow-hidden"
+      className="relative py-24 md:py-32 bg-background overflow-hidden"
     >
       <div className="container mx-auto px-4">
         {/* OTA Icons */}
-        <div className="mb-12 p-6 bg-white/10 backdrop-blur-sm rounded-2xl">
-          <p className="text-center text-white font-medium mb-4">
+        <div className="mb-12 p-6 bg-muted/50 rounded-2xl border border-border">
+          <p className="text-center text-foreground font-medium mb-4">
             Book directly on your preferred platform
           </p>
-          <OTAIcons darkMode={true} />
+          <OTAIcons darkMode={false} />
         </div>
 
         {/* Section Header */}
         <div className="text-center mb-12">
-          <p className="text-lg font-medium text-white/80 mb-2">PLAN YOUR STAY</p>
-          <h2 className="text-display text-5xl md:text-7xl text-white mb-4">
+          <p className="text-lg font-medium text-wave-orange mb-2">PLAN YOUR STAY</p>
+          <h2 className="text-display text-5xl md:text-7xl text-foreground mb-6">
             BUILD YOUR ITINERARY
           </h2>
-          <p className="text-base md:text-lg text-white/80 max-w-3xl mx-auto px-4">
-            Our itinerary app lets you customize everything - rooms, surf lessons, toddy tastings, beach time, costs. Plot it all out perfectly, then discover you've scheduled six days of activities into a two-day trip. Math is hard. Varkala is harder to leave.
+          <p className="text-sm md:text-base text-muted-foreground max-w-4xl mx-auto px-4 leading-relaxed">
+            Cost estimates to help you budget and plan your time before Varkala makes you irrational. We connect you directly with vendors and cab/auto at cost price. We are not middlemen. We only handle logistics, so you can handle having fun. Also this isn't a booking engine, availability is a beautiful mystery, room rates are seasonal like fashion trends, and you'll need to actually book via WhatsApp or an OTA like a normal person. We're curators, not wizards.
           </p>
         </div>
 
@@ -132,14 +141,14 @@ const BookingWizard = () => {
             {/* Left Column - Selections */}
             <div className="lg:col-span-2 space-y-6">
               {/* Header Card */}
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30">
+              <div className="bg-wave-orange rounded-2xl p-6 shadow-lg">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-white rounded-xl">
                     <Calculator className="w-8 h-8 text-wave-orange" />
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-white">Itinerary Calculator</h3>
-                    <p className="text-white/80">Add items to calculate your stay</p>
+                    <p className="text-white/80">Plan your perfect Varkala trip</p>
                   </div>
                 </div>
               </div>
@@ -171,7 +180,7 @@ const BookingWizard = () => {
               {/* Day Planners */}
               {bookingState.dayPlans.length > 0 && (
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
                     🗓️ Plan Your Days
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -180,8 +189,9 @@ const BookingWizard = () => {
                         key={index}
                         dayPlan={dayPlan}
                         dayNumber={index + 1}
+                        totalDays={bookingState.dayPlans.length}
                         guests={bookingState.guests}
-                        onUpdate={(slot, activity) => updateDayPlan(index, slot, activity)}
+                        onUpdate={(slot, selection) => updateDayPlan(index, slot, selection)}
                       />
                     ))}
                   </div>
