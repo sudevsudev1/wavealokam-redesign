@@ -79,9 +79,9 @@ const SurfboardScrollSection = () => {
         {scrollMessages.map((message, index) => (
           <div
             key={index}
-            className="scroll-message min-h-[60vh] flex items-center justify-center px-4"
+            className="scroll-message min-h-[60vh] flex items-center justify-center px-2"
           >
-            <h2 className="text-display-xl text-5xl sm:text-6xl md:text-8xl lg:text-[10rem] xl:text-[14rem] text-white/90 text-center whitespace-nowrap">
+            <h2 className="text-display-xl text-[15vw] sm:text-[14vw] md:text-[13vw] lg:text-[12vw] text-white/90 text-center whitespace-nowrap">
               {message}
             </h2>
           </div>

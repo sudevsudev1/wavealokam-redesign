@@ -25,55 +25,8 @@ const Surfboard = forwardRef<HTMLDivElement, SurfboardProps>(
     };
 
     useEffect(() => {
-      if (!enableScrollAnimation) return;
-
-      const surfboard = surfboardRef.current;
-      const button = buttonRef.current;
-      const container = containerRef.current;
-
-      if (!surfboard || !container) return;
-
-      // Create a timeline for the surfboard scroll animation
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: '#hero',
-          start: 'top top',
-          end: '+=300%',
-          scrub: 1,
-          pin: container,
-          pinSpacing: false,
-        },
-      });
-
-      // Surfboard moves down and rotates on Y-axis (like TakeBoost bottle)
-      tl.to(surfboard, {
-        y: '150vh',
-        rotateY: 720,
-        duration: 1,
-        ease: 'none',
-      });
-
-      // Button follows straight down without rotation
-      if (button) {
-        gsap.to(button, {
-          y: '150vh',
-          scrollTrigger: {
-            trigger: '#hero',
-            start: 'top top',
-            end: '+=300%',
-            scrub: 1,
-          },
-          ease: 'none',
-        });
-      }
-
-      return () => {
-        ScrollTrigger.getAll().forEach(trigger => {
-          if (trigger.vars.trigger === '#hero') {
-            trigger.kill();
-          }
-        });
-      };
+      // Animation disabled - keeping surfboard static for now
+      return () => {};
     }, [enableScrollAnimation]);
 
     return (

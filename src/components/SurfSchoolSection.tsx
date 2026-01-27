@@ -68,12 +68,12 @@ const SurfSchoolSection = () => {
     <section
       ref={sectionRef}
       id="surf-school"
-      className="relative py-24 md:py-32 bg-gradient-to-b from-wave-blue-ocean to-wave-purple overflow-hidden"
+      className="relative py-24 md:py-32 bg-wave-orange overflow-hidden"
     >
       <div className="container mx-auto px-4">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <p className="surf-title text-lg font-medium text-wave-orange mb-2">LEARN FROM THE BEST</p>
+          <p className="surf-title text-lg font-medium text-white/80 mb-2">LEARN FROM THE BEST</p>
           <h2 className="surf-title text-display text-5xl md:text-7xl text-white mb-4">
             SURF SCHOOL
           </h2>
@@ -83,17 +83,17 @@ const SurfSchoolSection = () => {
         </div>
 
         {/* Brand Ambassador */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 mb-16 p-8 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 max-w-4xl mx-auto">
-          <div className="w-32 h-32 rounded-full bg-wave-orange flex items-center justify-center">
-            <Waves className="w-16 h-16 text-white" />
+        <div className="flex flex-col md:flex-row items-center justify-center gap-8 mb-16 p-8 bg-white/20 backdrop-blur-md rounded-3xl border border-white/30 max-w-4xl mx-auto">
+          <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center">
+            <Waves className="w-16 h-16 text-wave-orange" />
           </div>
           <div className="text-center md:text-left max-w-xl">
             <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-              <Award className="w-5 h-5 text-wave-orange" />
-              <span className="text-wave-orange font-medium">Brand Ambassador</span>
+              <Award className="w-5 h-5 text-white" />
+              <span className="text-white font-medium">Brand Ambassador</span>
             </div>
             <h3 className="text-3xl md:text-4xl font-bold text-white mb-2">Sudev Nair</h3>
-            <p className="text-white/70 text-sm md:text-base">Award winning Actor, gymnast, dancer, martial artist, Sudev Nair is a lot of things. Surfer... well he did finally upgrade from foam to hardboard last Monday without crying... more than once. On an unrelated note, did we mention he is also the owner of Wavealokam? yeah...</p>
+            <p className="text-white/90 text-sm md:text-base">Award winning Actor, gymnast, dancer, martial artist, Sudev Nair is a lot of things. Surfer... well he did finally upgrade from foam to hardboard last Monday without crying... more than once. On an unrelated note, did we mention he is also the owner of Wavealokam? yeah...</p>
           </div>
         </div>
 
@@ -102,15 +102,15 @@ const SurfSchoolSection = () => {
           {levels.map((level, index) => (
             <div
               key={level.name}
-              className="level-card p-6 md:p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:bg-white/20 transition-all duration-300 hover:-translate-y-2"
+              className="level-card p-6 md:p-8 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 hover:bg-white/30 transition-all duration-300 hover:-translate-y-2"
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-wave-orange flex items-center justify-center text-white font-bold">
+                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-wave-orange font-bold">
                   {index + 1}
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white">{level.name}</h3>
               </div>
-              <p className="text-white/70 text-sm md:text-base leading-relaxed">{level.description}</p>
+              <p className="text-white/90 text-sm md:text-base leading-relaxed">{level.description}</p>
             </div>
           ))}
         </div>
@@ -122,7 +122,7 @@ const SurfSchoolSection = () => {
               const element = document.querySelector('#itinerary');
               if (element) element.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="px-8 py-4 bg-wave-orange text-white font-bold text-lg rounded-full hover:bg-wave-orange-dark transition-all duration-300 hover:scale-105 shadow-xl"
+            className="px-8 py-4 bg-white text-wave-orange font-bold text-lg rounded-full hover:bg-white/90 transition-all duration-300 hover:scale-105 shadow-xl"
           >
             Book Your Surf Lesson
           </button>
