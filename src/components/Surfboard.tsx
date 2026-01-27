@@ -1,13 +1,22 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import surfboardImage from '@/assets/surfboard.png';
+
+gsap.registerPlugin(ScrollTrigger);
 
 interface SurfboardProps {
   showBookButton?: boolean;
   className?: string;
+  enableScrollAnimation?: boolean;
 }
 
 const Surfboard = forwardRef<HTMLDivElement, SurfboardProps>(
-  ({ showBookButton = true, className = '' }, ref) => {
+  ({ showBookButton = true, className = '', enableScrollAnimation = false }, ref) => {
+    const surfboardRef = useRef<HTMLImageElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
     const handleBookNow = () => {
       const element = document.querySelector('#itinerary');
       if (element) {
@@ -15,27 +24,83 @@ const Surfboard = forwardRef<HTMLDivElement, SurfboardProps>(
       }
     };
 
+    useEffect(() => {
+      if (!enableScrollAnimation) return;
+
+      const surfboard = surfboardRef.current;
+      const button = buttonRef.current;
+      const container = containerRef.current;
+
+      if (!surfboard || !container) return;
+
+      // Create a timeline for the surfboard scroll animation
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: '#hero',
+          start: 'top top',
+          end: '+=300%',
+          scrub: 1,
+          pin: container,
+          pinSpacing: false,
+        },
+      });
+
+      // Surfboard moves down and rotates on Y-axis (like TakeBoost bottle)
+      tl.to(surfboard, {
+        y: '150vh',
+        rotateY: 720,
+        duration: 1,
+        ease: 'none',
+      });
+
+      // Button follows straight down without rotation
+      if (button) {
+        gsap.to(button, {
+          y: '150vh',
+          scrollTrigger: {
+            trigger: '#hero',
+            start: 'top top',
+            end: '+=300%',
+            scrub: 1,
+          },
+          ease: 'none',
+        });
+      }
+
+      return () => {
+        ScrollTrigger.getAll().forEach(trigger => {
+          if (trigger.vars.trigger === '#hero') {
+            trigger.kill();
+          }
+        });
+      };
+    }, [enableScrollAnimation]);
+
     return (
       <div
         ref={ref}
         className={`relative flex items-center justify-center ${className}`}
       >
-        {/* Surfboard Image */}
-        <div className="relative">
+        <div ref={containerRef} className="relative" style={{ perspective: '1000px' }}>
+          {/* Surfboard Image with 3D transform */}
           <img
+            ref={surfboardRef}
             src={surfboardImage}
             alt="Orange Surfboard"
             className="h-[60vh] md:h-[70vh] w-auto object-contain drop-shadow-2xl"
             style={{
               filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.3))',
+              transformStyle: 'preserve-3d',
             }}
           />
           
-          {/* Pulsating Book Now Button - Anchored to Surfboard */}
+          {/* Pulsating Book Now Button - Follows straight down without rotation */}
           {showBookButton && (
             <button
+              ref={buttonRef}
               onClick={handleBookNow}
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-8 py-4 bg-white text-wave-orange font-bold text-lg md:text-xl rounded-full pulse-glow transition-all duration-300 hover:bg-white/90 shadow-2xl z-10"
+              style={{ transformStyle: 'preserve-3d' }}
             >
               BOOK NOW
             </button>

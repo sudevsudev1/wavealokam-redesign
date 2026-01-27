@@ -78,45 +78,52 @@ const ActivitiesSection = () => {
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      const section = sectionRef.current;
-      const container = containerRef.current;
+    const section = sectionRef.current;
+    const container = containerRef.current;
 
-      if (!section || !container) return;
+    if (!section || !container) return;
 
-      // Pin the section during scroll
-      ScrollTrigger.create({
-        trigger: section,
-        start: 'top top',
-        end: `+=${activities.length * 100}%`,
-        pin: true,
-        pinSpacing: true,
-        onUpdate: (self) => {
-          const progress = self.progress;
-          const newIndex = Math.min(
-            Math.floor(progress * activities.length),
-            activities.length - 1
-          );
-          setActiveIndex(newIndex);
-        },
-      });
+    // Create ScrollTrigger for pinning and activity transitions
+    const trigger = ScrollTrigger.create({
+      trigger: section,
+      start: 'top top',
+      end: `+=${activities.length * 100}%`,
+      pin: true,
+      pinSpacing: true,
+      scrub: 0.5,
+      onUpdate: (self) => {
+        const progress = self.progress;
+        const newIndex = Math.min(
+          Math.floor(progress * activities.length),
+          activities.length - 1
+        );
+        setActiveIndex(newIndex);
+        
+        // Update background color based on progress
+        const startHue = 33; // orange
+        const midHue = 275; // purple
+        const endHue = 200; // blue
+        
+        let hue, saturation, lightness;
+        if (progress < 0.5) {
+          const t = progress * 2;
+          hue = startHue + (midHue - startHue) * t;
+          saturation = 100;
+          lightness = 50 - (25 * t);
+        } else {
+          const t = (progress - 0.5) * 2;
+          hue = midHue + (endHue - midHue) * t;
+          saturation = 100;
+          lightness = 25 + (10 * t);
+        }
+        
+        section.style.background = `linear-gradient(180deg, hsl(${hue}, ${saturation}%, ${lightness}%) 0%, hsl(${hue + 20}, ${saturation}%, ${lightness - 5}%) 100%)`;
+      },
+    });
 
-      // Background color transitions
-      gsap.to(section, {
-        scrollTrigger: {
-          trigger: section,
-          start: 'top top',
-          end: `+=${activities.length * 100}%`,
-          scrub: true,
-        },
-        background: `linear-gradient(180deg, 
-          hsl(275, 100%, 25%) 0%, 
-          hsl(240, 100%, 30%) 50%, 
-          hsl(200, 100%, 35%) 100%)`,
-      });
-    }, sectionRef);
-
-    return () => ctx.revert();
+    return () => {
+      trigger.kill();
+    };
   }, []);
 
   return (

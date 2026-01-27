@@ -22,10 +22,13 @@ const Index = () => {
       toggleActions: 'play none none reverse',
     });
 
-    // Refresh ScrollTrigger on page load
-    ScrollTrigger.refresh();
+    // Refresh ScrollTrigger after DOM is fully ready
+    const timer = setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 500);
 
     return () => {
+      clearTimeout(timer);
       ScrollTrigger.killAll();
     };
   }, []);
