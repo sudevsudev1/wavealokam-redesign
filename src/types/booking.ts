@@ -9,7 +9,6 @@ export type ActivityType =
   | 'jatayu-trip'
   | 'rooftop-dinner'
   | 'nightlife'
-  | 'breakfast'
   | 'rest'
   | 'checkout'
   | 'kalari-payattu'
@@ -138,8 +137,8 @@ export const ACTIVITIES: Activity[] = [
   },
   {
     id: 'rooftop-dinner',
-    name: 'Rooftop Dinner',
-    price: 2500,
+    name: 'Rooftop Dinner (BYOB/Food)',
+    price: 0,
     duration: '2-3 hours',
     description: 'Private cliff-top dining',
     availableSlots: ['evening', 'night'],
@@ -154,16 +153,6 @@ export const ACTIVITIES: Activity[] = [
     availableSlots: ['night'],
     perPerson: false,
     transportOptions: { auto: 500 },
-  },
-  {
-    id: 'breakfast',
-    name: "Chechi's Breakfast",
-    price: 0,
-    duration: '1 hour',
-    description: 'Homemade Kerala breakfast',
-    availableSlots: ['morning'],
-    perPerson: false,
-    allowWithBreakfast: true,
   },
   {
     id: 'rest',

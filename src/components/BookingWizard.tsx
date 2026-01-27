@@ -60,17 +60,11 @@ const BookingWizard = () => {
     }
   }, [bookingState.checkIn, bookingState.checkOut]);
 
-  const updateDayPlan = (dayIndex: number, slot: TimeSlot | 'morningSecondary', selection: ActivitySelection | null) => {
+  const updateDayPlan = (dayIndex: number, slot: TimeSlot, selection: ActivitySelection | null) => {
     setBookingState(prev => ({
       ...prev,
       dayPlans: prev.dayPlans.map((plan, i) => {
         if (i !== dayIndex) return plan;
-        
-        // If changing primary morning and it's no longer breakfast, clear secondary
-        if (slot === 'morning' && selection?.activityId !== 'breakfast') {
-          return { ...plan, [slot]: selection, morningSecondary: null };
-        }
-        
         return { ...plan, [slot]: selection };
       }),
     }));
@@ -113,12 +107,22 @@ const BookingWizard = () => {
     <section
       ref={sectionRef}
       id="itinerary"
-      className="relative py-24 md:py-32 bg-background overflow-hidden"
+      className="relative py-24 md:py-32 overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, #fef3e2 0%, #fde6c4 30%, #fcd9a8 60%, #fef3e2 100%)',
+      }}
     >
-      <div className="container mx-auto px-4">
+      {/* Decorative elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-wave-orange/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-orange-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-wave-orange/5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="container mx-auto px-4 relative z-10">
         {/* OTA Icons */}
-        <div className="mb-12 p-6 bg-muted/50 rounded-2xl border border-border">
-          <p className="text-center text-foreground font-medium mb-4">
+        <div className="mb-12 p-6 bg-white/60 backdrop-blur-sm rounded-2xl border-2 border-wave-orange/20 shadow-lg">
+          <p className="text-center text-foreground font-semibold mb-4">
             Book directly on your preferred platform
           </p>
           <OTAIcons darkMode={false} />
@@ -126,11 +130,11 @@ const BookingWizard = () => {
 
         {/* Section Header */}
         <div className="text-center mb-12">
-          <p className="text-lg font-medium text-wave-orange mb-2">PLAN YOUR STAY</p>
-          <h2 className="text-display text-5xl md:text-7xl text-foreground mb-6">
+          <p className="text-lg font-bold text-wave-orange mb-2 tracking-widest uppercase">PLAN YOUR STAY</p>
+          <h2 className="text-display text-5xl md:text-7xl text-foreground mb-6 drop-shadow-sm">
             BUILD YOUR ITINERARY
           </h2>
-          <p className="text-sm md:text-base text-muted-foreground max-w-4xl mx-auto px-4 leading-relaxed">
+          <p className="text-sm md:text-base text-foreground/80 max-w-4xl mx-auto px-4 leading-relaxed">
             Cost estimates to help you budget and plan your time before Varkala makes you irrational. We connect you directly with vendors and cab/auto at cost price. We are not middlemen. We only handle logistics, so you can handle having fun. Also this isn't a booking engine, availability is a beautiful mystery, room rates are seasonal like fashion trends, and you'll need to actually book via WhatsApp or an OTA like a normal person. We're curators, not wizards.
           </p>
         </div>
@@ -141,14 +145,14 @@ const BookingWizard = () => {
             {/* Left Column - Selections */}
             <div className="lg:col-span-2 space-y-6">
               {/* Header Card */}
-              <div className="bg-wave-orange rounded-2xl p-6 shadow-lg">
+              <div className="bg-gradient-to-r from-wave-orange to-orange-500 rounded-2xl p-6 shadow-xl shadow-wave-orange/20">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-white rounded-xl">
+                  <div className="p-3 bg-white/90 rounded-xl shadow-md">
                     <Calculator className="w-8 h-8 text-wave-orange" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white">Itinerary Calculator</h3>
-                    <p className="text-white/80">Plan your perfect Varkala trip</p>
+                    <h3 className="text-2xl font-bold text-white drop-shadow-sm">Itinerary Calculator</h3>
+                    <p className="text-white/90">Plan your perfect Varkala trip</p>
                   </div>
                 </div>
               </div>

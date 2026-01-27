@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { DayPlan, ActivitySelection, TimeSlot, ACTIVITIES } from '@/types/booking';
+import { DayPlan, ActivitySelection, TimeSlot } from '@/types/booking';
 import ActivitySelector from './ActivitySelector';
 
 interface DayPlannerProps {
@@ -7,39 +7,33 @@ interface DayPlannerProps {
   dayNumber: number;
   totalDays: number;
   guests: number;
-  onUpdate: (slot: TimeSlot | 'morningSecondary', selection: ActivitySelection | null) => void;
+  onUpdate: (slot: TimeSlot, selection: ActivitySelection | null) => void;
 }
 
 const DayPlanner = ({ dayPlan, dayNumber, totalDays, guests, onUpdate }: DayPlannerProps) => {
   const isCheckInDay = dayNumber === 1;
   const isCheckOutDay = dayNumber === totalDays;
-  
-  // Check if breakfast is selected as primary morning activity
-  const hasBreakfastSelected = dayPlan.morning?.activityId === 'breakfast';
-  
-  // Filter activities for secondary morning slot (only activities that can go with breakfast)
-  const secondaryMorningActivities = ACTIVITIES.filter(a => 
-    a.availableSlots.includes('morning') && 
-    a.id !== 'breakfast' &&
-    // These activities are quick enough to do after breakfast
-    ['surf-lesson', 'cliff-walk', 'beach-time', 'kalari-payattu', 'kalari-massage', 'padmanabha-temple', 'rest'].includes(a.id as string)
-  );
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-border shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-bold text-foreground">
-          Day {dayNumber}
-          {isCheckInDay && <span className="text-sm font-normal text-muted-foreground ml-2">(Check-in)</span>}
-          {isCheckOutDay && <span className="text-sm font-normal text-muted-foreground ml-2">(Check-out)</span>}
+    <div className="bg-gradient-to-br from-white to-gray-50/50 rounded-2xl p-6 border-2 border-border/50 shadow-lg hover:shadow-xl transition-shadow duration-300">
+      <div className="flex items-center justify-between mb-5">
+        <h4 className="text-lg font-bold text-foreground flex items-center gap-2">
+          <span className="w-8 h-8 rounded-full bg-gradient-to-br from-wave-orange to-orange-600 text-white flex items-center justify-center text-sm font-bold shadow-md">
+            {dayNumber}
+          </span>
+          <span>
+            Day {dayNumber}
+            {isCheckInDay && <span className="text-xs font-normal text-wave-orange ml-2 bg-wave-orange/10 px-2 py-1 rounded-full">(Check-in 2PM)</span>}
+            {isCheckOutDay && <span className="text-xs font-normal text-wave-orange ml-2 bg-wave-orange/10 px-2 py-1 rounded-full">(Check-out 11AM)</span>}
+          </span>
         </h4>
-        <span className="text-muted-foreground text-sm">
+        <span className="text-muted-foreground text-sm font-medium bg-muted/50 px-3 py-1 rounded-full">
           {format(dayPlan.date, 'EEE, MMM d')}
         </span>
       </div>
 
-      <div className="space-y-4">
-        {/* Morning - disabled on check-in day */}
+      <div className="space-y-5">
+        {/* Morning - disabled on check-in day, enabled on check-out day */}
         <ActivitySelector
           selectedActivity={dayPlan.morning}
           slot="morning"
@@ -48,19 +42,6 @@ const DayPlanner = ({ dayPlan, dayNumber, totalDays, guests, onUpdate }: DayPlan
           disabled={isCheckInDay}
           disabledMessage="Check-in is at 2 PM"
         />
-        
-        {/* Secondary morning slot - only shows when breakfast is selected */}
-        {hasBreakfastSelected && !isCheckInDay && (
-          <div className="ml-4 border-l-2 border-wave-orange/30 pl-4">
-            <p className="text-xs text-muted-foreground mb-2">+ After breakfast</p>
-            <ActivitySelector
-              selectedActivity={dayPlan.morningSecondary}
-              slot="morning"
-              guests={guests}
-              onSelect={(selection) => onUpdate('morningSecondary', selection)}
-            />
-          </div>
-        )}
         
         {/* Afternoon - disabled on check-out day */}
         <ActivitySelector
