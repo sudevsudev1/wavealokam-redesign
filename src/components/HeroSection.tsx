@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import Surfboard from './Surfboard';
+import ScrollVideo from './ScrollVideo';
 import OTAIcons from './OTAIcons';
 
 const HeroSection = () => {
@@ -96,9 +96,9 @@ const HeroSection = () => {
         </div>
       </div>
 
-      {/* Surfboard - Positioned for scroll animation */}
+      {/* Scroll-controlled Video */}
       <div className="hero-surfboard relative z-20 mt-auto">
-        <Surfboard enableScrollAnimation={true} />
+        <ScrollVideo />
       </div>
 
       {/* Scroll Indicator */}
