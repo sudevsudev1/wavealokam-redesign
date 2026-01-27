@@ -10,7 +10,7 @@ import ActivitiesSection from '@/components/ActivitiesSection';
 import RoomsSection from '@/components/RoomsSection';
 // DiningSection removed as per user request
 import SurfSchoolSection from '@/components/SurfSchoolSection';
-import ItineraryBuilder from '@/components/ItineraryBuilder';
+import BookingWizard from '@/components/BookingWizard';
 import Footer from '@/components/Footer';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -47,7 +47,7 @@ const Index = () => {
       <ActivitiesSection />
       <RoomsSection />
       <SurfSchoolSection />
-      <ItineraryBuilder />
+      <BookingWizard />
       <Footer />
     </div>
   );
