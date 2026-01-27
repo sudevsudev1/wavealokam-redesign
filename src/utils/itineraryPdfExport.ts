@@ -71,7 +71,17 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
   doc.setFont('helvetica', 'normal');
   doc.text('Your Varkala Itinerary', margin, 38);
   
-  y = 60;
+  y = 55;
+
+  // Disclaimer Section
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  
+  const disclaimer = 'Disclaimer: this document is still aspirational fiction, NOT confirmation - a gorgeous mirage, a potential timeline, organized daydreaming. Your ideal Varkala days exist only in the theoretical realm until you perform the ancient ritual of "booking" - via phone, WhatsApp, or OTA. We provide the vision. You provide the commitment. Teamwork.';
+  const disclaimerLines = doc.splitTextToSize(disclaimer, contentWidth);
+  doc.text(disclaimerLines, margin, y);
+  y += disclaimerLines.length * 4 + 10;
 
   // Trip Details Section
   doc.setTextColor(51, 51, 51);
@@ -153,40 +163,70 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
       slots.forEach(({ label, selection }) => {
         const formatted = formatSelection(selection, bookingState.guests);
         if (formatted) {
-          checkNewPage(12);
+          checkNewPage(16);
+          
+          // Activity name column (limited width to prevent overlap)
+          const labelWidth = 22;
+          const activityWidth = 85;
+          const priceWidth = contentWidth - labelWidth - activityWidth - 5;
+          
           doc.setFont('helvetica', 'bold');
           doc.text(`${label}:`, margin + 3, y);
+          
           doc.setFont('helvetica', 'normal');
           
+          // Truncate activity text if too long
           let activityText = formatted.name;
           if (formatted.subtext) {
             activityText += ` ${formatted.subtext}`;
           }
-          doc.text(activityText, margin + 25, y);
+          
+          // Split into multiple lines if needed
+          const activityLines = doc.splitTextToSize(activityText, activityWidth);
+          doc.text(activityLines[0], margin + labelWidth + 3, y);
+          
+          // Price on the right (use rupee symbol properly)
           doc.setTextColor(100, 100, 100);
-          doc.text(formatted.details, pageWidth - margin - 5, y, { align: 'right' });
+          const priceText = formatted.details.replace(/₹/g, 'Rs.');
+          doc.text(priceText, pageWidth - margin - 3, y, { align: 'right' });
           doc.setTextColor(51, 51, 51);
-          y += 6;
+          
+          // If activity text wrapped, show second line
+          if (activityLines.length > 1) {
+            y += 5;
+            doc.text(activityLines[1], margin + labelWidth + 3, y);
+          }
+          
+          y += 7;
         }
       });
       
-      y += 8;
+      y += 6;
     });
   }
 
   // Price Summary Section
-  checkNewPage(70);
+  const priceLineCount = 1 + 
+    (breakdown.activitiesTotal > 0 ? 1 : 0) + 
+    (breakdown.transportTotal > 0 ? 1 : 0) + 
+    (breakdown.scooterTotal > 0 ? 1 : 0) +
+    (breakdown.discount > 0 ? 1 : 0) + 2; // subtotal line + total line
+  
+  const priceBoxHeight = 20 + priceLineCount * 8;
+  
+  checkNewPage(priceBoxHeight + 20);
   y += 5;
   
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(51, 51, 51);
   doc.text('PRICE ESTIMATE', margin, y);
   y += 10;
   
   doc.setFillColor(250, 250, 250);
   doc.setDrawColor(230, 230, 230);
-  doc.roundedRect(margin, y, contentWidth, 55, 3, 3, 'FD');
-  y += 8;
+  doc.roundedRect(margin, y, contentWidth, priceBoxHeight, 3, 3, 'FD');
+  y += 10;
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -197,7 +237,7 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
       doc.setFontSize(12);
     }
     doc.text(label, margin + 5, y);
-    doc.text(`₹${amount.toLocaleString()}`, pageWidth - margin - 5, y, { align: 'right' });
+    doc.text(`Rs. ${amount.toLocaleString()}`, pageWidth - margin - 5, y, { align: 'right' });
     if (isTotal) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
@@ -218,7 +258,7 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
   if (breakdown.discount > 0) {
     doc.setTextColor(34, 139, 34);
     doc.text(`Discount (${breakdown.discountPercentage}%)`, margin + 5, y);
-    doc.text(`-₹${breakdown.discount.toLocaleString()}`, pageWidth - margin - 5, y, { align: 'right' });
+    doc.text(`-Rs. ${breakdown.discount.toLocaleString()}`, pageWidth - margin - 5, y, { align: 'right' });
     doc.setTextColor(51, 51, 51);
     y += 7;
   }
