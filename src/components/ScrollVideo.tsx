@@ -20,25 +20,20 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
     return `/frames/frame_${paddedNumber}.jpg`;
   }, []);
 
-  // Preload images with priority for first frame
+  // Preload ALL images before allowing interaction
   useEffect(() => {
     let loadedCount = 0;
     const images: HTMLImageElement[] = [];
     
-    // Load first frame immediately for instant display
-    const firstImg = new Image();
-    firstImg.src = getFramePath(1);
-    firstImg.onload = () => {
-      setIsLoaded(true); // Show immediately when first frame loads
-    };
-    images[0] = firstImg;
-
-    // Load remaining frames in background
-    for (let i = 2; i <= TOTAL_FRAMES; i++) {
+    for (let i = 1; i <= TOTAL_FRAMES; i++) {
       const img = new Image();
       img.src = getFramePath(i);
       img.onload = () => {
         loadedCount++;
+        // Only set loaded when ALL frames are ready
+        if (loadedCount === TOTAL_FRAMES) {
+          setIsLoaded(true);
+        }
       };
       images[i - 1] = img;
     }
@@ -96,23 +91,19 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
       ref={containerRef} 
       className={`relative w-screen h-[60vh] md:h-[70vh] overflow-hidden ${className}`}
     >
-      {/* Display current frame - edge to edge with cropping */}
-      <img
-        src={getFramePath(currentFrame)}
-        alt="Surfing animation"
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{
-          objectPosition: 'center center',
-        }}
-      />
+      {/* Display current frame from preloaded images */}
+      {preloadedImagesRef.current[currentFrame - 1] && (
+        <img
+          src={preloadedImagesRef.current[currentFrame - 1].src}
+          alt="Surfing animation"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            objectPosition: 'center center',
+          }}
+        />
+      )}
       
-      {/* Edge blending gradients - seamless transition to orange background */}
-      <div 
-        className="absolute inset-x-0 top-0 h-24 pointer-events-none"
-        style={{
-          background: 'linear-gradient(to bottom, hsl(33, 100%, 50%) 0%, transparent 100%)',
-        }}
-      />
+      {/* Bottom edge blending gradient - seamless transition to orange background */}
       <div 
         className="absolute inset-x-0 bottom-0 h-24 pointer-events-none"
         style={{
