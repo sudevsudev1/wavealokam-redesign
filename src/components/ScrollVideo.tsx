@@ -20,49 +20,39 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
     return `/frames/frame_${paddedNumber}.jpg`;
   }, []);
 
-  // Preload all images
+  // Preload images with priority for first frame
   useEffect(() => {
     let loadedCount = 0;
     const images: HTMLImageElement[] = [];
+    
+    // Load first frame immediately for instant display
+    const firstImg = new Image();
+    firstImg.src = getFramePath(1);
+    firstImg.onload = () => {
+      setIsLoaded(true); // Show immediately when first frame loads
+    };
+    images[0] = firstImg;
 
-    for (let i = 1; i <= TOTAL_FRAMES; i++) {
+    // Load remaining frames in background
+    for (let i = 2; i <= TOTAL_FRAMES; i++) {
       const img = new Image();
       img.src = getFramePath(i);
       img.onload = () => {
         loadedCount++;
-        if (loadedCount === TOTAL_FRAMES) {
-          setIsLoaded(true);
-        }
       };
-      images.push(img);
+      images[i - 1] = img;
     }
 
     preloadedImagesRef.current = images;
   }, [getFramePath]);
 
-  // Smooth frame update using RAF
-  const updateFrameSmooth = useCallback((targetFrame: number) => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
+  // Direct frame update - no interpolation for responsiveness
+  const updateFrame = useCallback((targetFrame: number) => {
+    const clampedFrame = Math.max(1, Math.min(TOTAL_FRAMES, Math.round(targetFrame)));
+    if (clampedFrame !== frameRef.current) {
+      frameRef.current = clampedFrame;
+      setCurrentFrame(clampedFrame);
     }
-    
-    const animate = () => {
-      const current = frameRef.current;
-      const diff = targetFrame - current;
-      
-      if (Math.abs(diff) < 0.5) {
-        frameRef.current = targetFrame;
-        setCurrentFrame(Math.round(targetFrame));
-        return;
-      }
-      
-      // Smooth interpolation
-      frameRef.current = current + diff * 0.3;
-      setCurrentFrame(Math.round(frameRef.current));
-      rafRef.current = requestAnimationFrame(animate);
-    };
-    
-    animate();
   }, []);
 
   useEffect(() => {
@@ -87,7 +77,7 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
       const progress = Math.max(0, Math.min(1, (startPoint - currentPosition) / totalDistance));
       
       const targetFrame = Math.max(1, Math.min(TOTAL_FRAMES, Math.round(1 + progress * (TOTAL_FRAMES - 1))));
-      updateFrameSmooth(targetFrame);
+      updateFrame(targetFrame);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -99,7 +89,7 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [isLoaded, updateFrameSmooth]);
+  }, [isLoaded, updateFrame]);
 
   return (
     <div 
@@ -127,18 +117,6 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
         className="absolute inset-x-0 bottom-0 h-24 pointer-events-none"
         style={{
           background: 'linear-gradient(to top, hsl(33, 100%, 50%) 0%, transparent 100%)',
-        }}
-      />
-      <div 
-        className="absolute inset-y-0 left-0 w-16 md:w-24 pointer-events-none"
-        style={{
-          background: 'linear-gradient(to right, hsl(33, 100%, 50%) 0%, transparent 100%)',
-        }}
-      />
-      <div 
-        className="absolute inset-y-0 right-0 w-16 md:w-24 pointer-events-none"
-        style={{
-          background: 'linear-gradient(to left, hsl(33, 100%, 50%) 0%, transparent 100%)',
         }}
       />
       
