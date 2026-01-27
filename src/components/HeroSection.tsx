@@ -68,24 +68,29 @@ const HeroSection = () => {
         background: 'linear-gradient(135deg, hsl(33, 100%, 50%) 0%, hsl(38, 100%, 54%) 100%)',
       }}
     >
-      {/* Logo */}
-      <div className="absolute top-6 left-6 z-20">
-        <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-          WAVEALOKAM
-        </h2>
+      {/* Logo with Etymology */}
+      <div className="absolute top-6 left-6 z-20 max-w-[200px] md:max-w-xs">
+        <div className="text-white">
+          <h2 className="text-lg md:text-xl font-bold tracking-tight leading-tight">
+            Wavealokam
+          </h2>
+          <p className="text-xs md:text-sm text-white/70 italic">(Wave-a-Lokam) n.</p>
+          <p className="text-sm md:text-base font-semibold">World of Waves.</p>
+          <p className="text-xs text-white/60 mt-0.5">Origin: lokam = "world" (Malayalam)</p>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 text-center px-4 pt-20 pb-8">
+      <div className="relative z-10 text-center px-4 pt-24 md:pt-20 pb-8">
         {/* Tagline */}
-        <h1 className="hero-title text-display-xl text-6xl md:text-8xl lg:text-9xl text-white mb-4">
+        <h1 className="hero-title text-display-xl text-4xl sm:text-5xl md:text-7xl lg:text-8xl xl:text-9xl text-white mb-4 px-2">
           IT'S WAVECATION
           <br />
           TIME!
         </h1>
 
-        <p className="hero-subtitle text-xl md:text-2xl text-white/90 font-medium mb-8 max-w-2xl mx-auto">
-          Surf. Feast. Explore. Your beachside adventure awaits at Varkala.
+        <p className="hero-subtitle text-lg md:text-xl lg:text-2xl text-white/90 font-medium mb-8 max-w-2xl mx-auto px-4">
+          You can walk barefoot here. Emotionally and literally.
         </p>
 
         {/* OTA Ratings */}

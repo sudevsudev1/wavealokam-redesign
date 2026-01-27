@@ -10,6 +10,8 @@ const scrollMessages = [
   "EXPLORE.",
 ];
 
+// Responsive text sizes handled in JSX
+
 const SurfboardScrollSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -77,9 +79,9 @@ const SurfboardScrollSection = () => {
         {scrollMessages.map((message, index) => (
           <div
             key={index}
-            className="scroll-message min-h-[60vh] flex items-center justify-center"
+            className="scroll-message min-h-[60vh] flex items-center justify-center px-4"
           >
-            <h2 className="text-display-xl text-8xl md:text-[12rem] lg:text-[16rem] text-white/90 text-center">
+            <h2 className="text-display-xl text-5xl sm:text-6xl md:text-8xl lg:text-[10rem] xl:text-[14rem] text-white/90 text-center whitespace-nowrap">
               {message}
             </h2>
           </div>

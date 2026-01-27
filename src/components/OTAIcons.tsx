@@ -8,6 +8,11 @@ interface OTA {
 
 const otas: OTA[] = [
   {
+    name: 'Google',
+    rating: 5.0,
+    url: 'https://www.google.com/travel/search?q=wavealokam&ved=2ahUKEwjY',
+  },
+  {
     name: 'Booking.com',
     rating: 4.8,
     url: 'https://www.booking.com/hotel/in/wavealokam.html',

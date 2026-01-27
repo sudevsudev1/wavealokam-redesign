@@ -8,7 +8,7 @@ import HeroSection from '@/components/HeroSection';
 import SurfboardScrollSection from '@/components/SurfboardScrollSection';
 import ActivitiesSection from '@/components/ActivitiesSection';
 import RoomsSection from '@/components/RoomsSection';
-import DiningSection from '@/components/DiningSection';
+// DiningSection removed as per user request
 import SurfSchoolSection from '@/components/SurfSchoolSection';
 import ItineraryBuilder from '@/components/ItineraryBuilder';
 import Footer from '@/components/Footer';
@@ -43,7 +43,6 @@ const Index = () => {
       <SurfboardScrollSection />
       <ActivitiesSection />
       <RoomsSection />
-      <DiningSection />
       <SurfSchoolSection />
       <ItineraryBuilder />
       <Footer />
