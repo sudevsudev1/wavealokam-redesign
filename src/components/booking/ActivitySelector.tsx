@@ -40,18 +40,6 @@ const ActivitySelector = ({
     return `₹${activity.price.toLocaleString()}`;
   };
 
-  // Truncate long activity names for display
-  const getDisplayName = (name: string): string => {
-    // Shorten specific long names
-    if (name === 'Mangrove Kayaking/Adventure Village') return 'Mangrove Kayak';
-    if (name === 'Kalari Marma Therapy/Massage') return 'Kalari Massage';
-    if (name === 'Kalari Payattu Session') return 'Kalari Payattu';
-    if (name === 'Padmanabha Swami Temple') return 'Temple Visit';
-    if (name === 'Paragliding with Fly Varkala') return 'Paragliding';
-    if (name === 'Rooftop Dinner (BYOB/Food)') return 'Rooftop Dinner';
-    return name;
-  };
-
   const handleActivityClick = (activity: Activity) => {
     if (selectedActivity?.activityId === activity.id) {
       // Deselect
@@ -123,10 +111,17 @@ const ActivitySelector = ({
                     : 'bg-gradient-to-br from-white to-gray-50 text-foreground border-2 border-border/50 hover:border-wave-orange/60 hover:shadow-md hover:shadow-wave-orange/10'
                 }`}
               >
-                <p className="font-semibold text-sm truncate" title={activity.name}>
-                  {getDisplayName(activity.name)}
+                <p className="font-semibold text-sm leading-tight">
+                  {activity.name}
                 </p>
-                <p className={`text-xs mt-1 truncate ${
+                {activity.subtext && (
+                  <p className={`text-xs leading-tight mt-0.5 ${
+                    isSelected ? 'text-white/80' : 'text-muted-foreground'
+                  }`}>
+                    {activity.subtext}
+                  </p>
+                )}
+                <p className={`text-xs mt-1 ${
                   isSelected ? 'text-white/80' : 'text-muted-foreground'
                 }`}>
                   {getActivityPrice(activity, selectedActivity?.participants || guests)}
