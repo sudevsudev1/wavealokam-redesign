@@ -96,6 +96,7 @@ export const ACTIVITIES: Activity[] = [
     description: 'Morning yoga with certified instructor',
     availableSlots: ['morning'],
     perPerson: true,
+    transportOptions: { auto: 500 },
   },
   {
     id: 'beach-time',

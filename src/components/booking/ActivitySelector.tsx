@@ -32,10 +32,13 @@ const ActivitySelector = ({
   
   const availableActivities = ACTIVITIES.filter(a => a.availableSlots.includes(slot));
 
-  const getActivityPrice = (activity: Activity, participantCount: number): string => {
+  const getActivityPrice = (activity: Activity, participantCount: number, isSelected: boolean): string => {
     if (activity.price === 0) return 'Free';
     if (activity.perPerson) {
-      return `₹${(activity.price * participantCount).toLocaleString()} (₹${activity.price}/person)`;
+      if (isSelected) {
+        return `₹${(activity.price * participantCount).toLocaleString()} (₹${activity.price}/person)`;
+      }
+      return `₹${activity.price}/person`;
     }
     return `₹${activity.price.toLocaleString()}`;
   };
@@ -124,7 +127,7 @@ const ActivitySelector = ({
                 <p className={`text-xs mt-1 ${
                   isSelected ? 'text-white/80' : 'text-muted-foreground'
                 }`}>
-                  {getActivityPrice(activity, selectedActivity?.participants || guests)}
+                  {getActivityPrice(activity, selectedActivity?.participants || guests, isSelected)}
                 </p>
               </button>
               
