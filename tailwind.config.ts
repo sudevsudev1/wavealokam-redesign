@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Montserrat', 'sans-serif'],
+        display: ['Montserrat', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +61,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Wavealokam brand colors
+        wave: {
+          orange: "hsl(var(--wave-orange))",
+          "orange-light": "hsl(var(--wave-orange-light))",
+          "orange-dark": "hsl(var(--wave-orange-dark))",
+          purple: "hsl(var(--wave-purple))",
+          "purple-light": "hsl(var(--wave-purple-light))",
+          blue: "hsl(var(--wave-blue))",
+          "blue-ocean": "hsl(var(--wave-blue-ocean))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,25 +79,42 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(30px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in-down": {
+          "0%": { opacity: "0", transform: "translateY(-30px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-in-bottom": {
+          "0%": { transform: "translateY(100vh)" },
+          "100%": { transform: "translateY(0)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "rotate-3d": {
+          "0%": { transform: "rotateY(0deg) rotateX(0deg)" },
+          "100%": { transform: "rotateY(360deg) rotateX(15deg)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in-up": "fade-in-up 0.8s ease-out forwards",
+        "fade-in-down": "fade-in-down 0.8s ease-out forwards",
+        "slide-in-bottom": "slide-in-bottom 1s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "float": "float 3s ease-in-out infinite",
+        "rotate-3d": "rotate-3d 20s linear infinite",
       },
     },
   },
