@@ -177,7 +177,7 @@ const BookingWizard = () => {
 
             {/* Right Column - Price Summary */}
             <div className="lg:col-span-1">
-              <PriceSummary breakdown={breakdown} nights={nights} onBookNow={handleBookNow} isValid={!!isValid} />
+              <PriceSummary breakdown={breakdown} nights={nights} onBookNow={handleBookNow} isValid={!!isValid} bookingState={bookingState} />
             </div>
           </div>
         </div>

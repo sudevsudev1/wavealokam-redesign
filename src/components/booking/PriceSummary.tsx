@@ -1,14 +1,22 @@
-import { MessageCircle, BadgePercent } from 'lucide-react';
-import { PriceBreakdown } from '@/types/booking';
+import { MessageCircle, BadgePercent, Download } from 'lucide-react';
+import { PriceBreakdown, BookingState } from '@/types/booking';
+import { exportItineraryPdf } from '@/utils/itineraryPdfExport';
 
 interface PriceSummaryProps {
   breakdown: PriceBreakdown;
   nights: number;
   onBookNow: () => void;
   isValid: boolean;
+  bookingState?: BookingState;
 }
 
-const PriceSummary = ({ breakdown, nights, onBookNow, isValid }: PriceSummaryProps) => {
+const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: PriceSummaryProps) => {
+  const handleExportPdf = () => {
+    if (bookingState) {
+      exportItineraryPdf(bookingState, breakdown);
+    }
+  };
+
   return (
     <div className="sticky top-24 bg-white rounded-2xl p-6 border border-border shadow-lg">
       <h3 className="text-xl font-bold text-foreground mb-4">Price Estimate</h3>
@@ -82,15 +90,27 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid }: PriceSummaryPro
         </div>
       )}
       
-      {/* Book button */}
-      <button
-        onClick={onBookNow}
-        disabled={!isValid}
-        className="w-full py-4 bg-wave-orange text-white font-bold rounded-xl hover:bg-wave-orange/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-      >
-        <MessageCircle className="w-5 h-5" />
-        Send via WhatsApp
-      </button>
+      {/* Action buttons */}
+      <div className="space-y-3">
+        <button
+          onClick={onBookNow}
+          disabled={!isValid}
+          className="w-full py-4 bg-wave-orange text-white font-bold rounded-xl hover:bg-wave-orange/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+        >
+          <MessageCircle className="w-5 h-5" />
+          Send via WhatsApp
+        </button>
+        
+        {bookingState && isValid && (
+          <button
+            onClick={handleExportPdf}
+            className="w-full py-3 bg-foreground/10 text-foreground font-semibold rounded-xl hover:bg-foreground/20 transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download PDF
+          </button>
+        )}
+      </div>
       
       <p className="text-xs text-muted-foreground text-center mt-3">
         Prices are estimates. Final rates may vary seasonally.
