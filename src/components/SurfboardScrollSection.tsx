@@ -88,13 +88,7 @@ const SurfboardScrollSection = () => {
         ))}
       </div>
 
-      {/* Subtle ocean wave pattern overlay */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 h-64 opacity-10"
-        style={{
-          background: 'repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(255,255,255,0.1) 50px, rgba(255,255,255,0.1) 100px)',
-        }}
-      />
+      {/* Removed wave pattern overlay that was causing vertical line artifact */}
     </section>
   );
 };

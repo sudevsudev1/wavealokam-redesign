@@ -47,44 +47,48 @@ const RoomsSection = () => {
   const cardsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      const cards = cardsRef.current?.querySelectorAll('.room-card');
+    // Small delay to ensure proper initialization after Activities section
+    const timer = setTimeout(() => {
+      const ctx = gsap.context(() => {
+        const cards = cardsRef.current?.querySelectorAll('.room-card');
 
-      if (cards) {
-        cards.forEach((card, index) => {
-          gsap.fromTo(
-            card,
-            {
-              opacity: 0,
-              y: 100,
-              rotateX: -15,
-            },
-            {
-              opacity: 1,
-              y: 0,
-              rotateX: 0,
-              duration: 1,
-              ease: 'power3.out',
-              scrollTrigger: {
-                trigger: card,
-                start: 'top 85%',
-                end: 'top 50%',
-                scrub: 1,
+        if (cards) {
+          cards.forEach((card) => {
+            gsap.fromTo(
+              card,
+              {
+                opacity: 0,
+                y: 60,
               },
-            }
-          );
-        });
-      }
-    }, sectionRef);
+              {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: 'power3.out',
+                scrollTrigger: {
+                  trigger: card,
+                  start: 'top 90%',
+                  end: 'top 60%',
+                  scrub: false,
+                  toggleActions: 'play none none reverse',
+                },
+              }
+            );
+          });
+        }
+      }, sectionRef);
 
-    return () => ctx.revert();
+      return () => ctx.revert();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return (
     <section
       ref={sectionRef}
       id="rooms"
-      className="relative py-24 md:py-32 bg-background overflow-hidden"
+      className="relative py-24 md:py-32 bg-background overflow-hidden z-10"
     >
       <div className="container mx-auto px-4">
         {/* Section Header */}

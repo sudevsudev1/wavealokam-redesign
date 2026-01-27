@@ -101,7 +101,7 @@ const HeroSection = () => {
 
       {/* Surfboard - Positioned for scroll animation */}
       <div className="hero-surfboard relative z-20 mt-auto">
-        <Surfboard />
+        <Surfboard enableScrollAnimation={true} />
       </div>
 
       {/* Scroll Indicator */}
