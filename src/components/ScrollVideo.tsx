@@ -8,11 +8,16 @@ const TOTAL_FRAMES = 121;
 
 const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
   const lastTouchYRef = useRef<number | null>(null);
   const [currentFrame, setCurrentFrame] = useState(1);
   const [isLoaded, setIsLoaded] = useState(false);
   const preloadedImagesRef = useRef<HTMLImageElement[]>([]);
+  const lastUpdateTimeRef = useRef<number>(0);
+  const accumulatedDeltaRef = useRef<number>(0);
+
+  // Throttle time in ms to prevent frame jumping
+  const THROTTLE_MS = 50;
+  const SCROLL_THRESHOLD = 30; // Pixels needed to trigger frame change
 
   // Generate frame path
   const getFramePath = useCallback((frameNumber: number) => {
@@ -40,8 +45,14 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
     preloadedImagesRef.current = images;
   }, [getFramePath]);
 
-  // Update frame based on scroll direction
+  // Throttled frame update
   const updateFrame = useCallback((delta: number) => {
+    const now = Date.now();
+    if (now - lastUpdateTimeRef.current < THROTTLE_MS) {
+      return;
+    }
+    lastUpdateTimeRef.current = now;
+    
     setCurrentFrame(prev => {
       const newFrame = prev + delta;
       return Math.max(1, Math.min(TOTAL_FRAMES, newFrame));
@@ -51,8 +62,9 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Mouse wheel handler
+    // Mouse wheel handler with throttling
     const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
       const delta = Math.sign(e.deltaY);
       updateFrame(delta);
     };
@@ -60,6 +72,7 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
     // Touch handlers for mobile swipe
     const handleTouchStart = (e: TouchEvent) => {
       lastTouchYRef.current = e.touches[0].clientY;
+      accumulatedDeltaRef.current = 0;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -67,31 +80,40 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
       
       const currentY = e.touches[0].clientY;
       const deltaY = lastTouchYRef.current - currentY;
+      accumulatedDeltaRef.current += deltaY;
       
-      // Trigger frame change for every 15px of movement
-      if (Math.abs(deltaY) >= 15) {
-        const frames = Math.sign(deltaY);
+      // Trigger frame change for accumulated movement
+      if (Math.abs(accumulatedDeltaRef.current) >= SCROLL_THRESHOLD) {
+        const frames = Math.sign(accumulatedDeltaRef.current);
         updateFrame(frames);
+        accumulatedDeltaRef.current = 0;
         lastTouchYRef.current = currentY;
       }
     };
 
     const handleTouchEnd = () => {
       lastTouchYRef.current = null;
+      accumulatedDeltaRef.current = 0;
     };
 
-    // Scroll event for scrollbar dragging
+    // Scroll event for scrollbar dragging with accumulation
     let lastScrollY = window.scrollY;
+    let scrollAccumulator = 0;
+    
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      const delta = Math.sign(currentScrollY - lastScrollY);
-      if (delta !== 0) {
+      const scrollDelta = currentScrollY - lastScrollY;
+      scrollAccumulator += scrollDelta;
+      
+      if (Math.abs(scrollAccumulator) >= SCROLL_THRESHOLD) {
+        const delta = Math.sign(scrollAccumulator);
         updateFrame(delta);
+        scrollAccumulator = 0;
       }
       lastScrollY = currentScrollY;
     };
 
-    window.addEventListener('wheel', handleWheel, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
     window.addEventListener('touchend', handleTouchEnd, { passive: true });
@@ -107,23 +129,23 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
   }, [isLoaded, updateFrame]);
 
   return (
-    <div ref={containerRef} className={`relative flex items-center justify-center ${className}`}>
-      {/* Display current frame */}
+    <div 
+      ref={containerRef} 
+      className={`relative w-screen h-[60vh] md:h-[70vh] overflow-hidden ${className}`}
+    >
+      {/* Display current frame - edge to edge with cropping */}
       <img
-        ref={imageRef}
         src={getFramePath(currentFrame)}
         alt="Surfing animation"
-        className="drop-shadow-2xl"
+        className="absolute inset-0 w-full h-full object-cover"
         style={{
-          filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.3))',
-          maxHeight: '65vh',
-          width: 'auto',
+          objectPosition: 'center center',
         }}
       />
       
       {/* Loading indicator */}
       {!isLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center bg-wave-orange/50">
           <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
         </div>
       )}
