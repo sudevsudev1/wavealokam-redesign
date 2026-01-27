@@ -23,14 +23,14 @@ const RoomSelector = ({ rooms, guests, onRoomsChange }: RoomSelectorProps) => {
       name: 'King Room with Balcony',
       price: ROOM_PRICES.kingRoom,
       capacity: 2,
-      description: 'Garden view, ensuite bathroom',
+      description: '45 m² • Garden view',
     },
     {
       key: 'doubleRooms' as keyof RoomSelection,
       name: 'Double Room with Balcony',
       price: ROOM_PRICES.doubleRoom,
       capacity: 2,
-      description: 'Garden view, ensuite bathroom',
+      description: '28 m² • Garden view',
     },
     {
       key: 'extraBeds' as keyof RoomSelection,
@@ -42,15 +42,15 @@ const RoomSelector = ({ rooms, guests, onRoomsChange }: RoomSelectorProps) => {
   ];
 
   return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-      <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-        <Bed className="w-5 h-5" />
+    <div className="bg-white rounded-2xl p-6 border border-border shadow-sm">
+      <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+        <Bed className="w-5 h-5 text-wave-orange" />
         Choose your rooms
       </h3>
 
       {/* Capacity Indicator */}
       <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 ${
-        isValid ? 'bg-green-500/20 text-green-200' : 'bg-red-500/20 text-red-200'
+        isValid ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
       }`}>
         {isValid ? (
           <CheckCircle className="w-5 h-5" />
@@ -67,16 +67,16 @@ const RoomSelector = ({ rooms, guests, onRoomsChange }: RoomSelectorProps) => {
         {roomTypes.map((room) => (
           <div
             key={room.key}
-            className={`flex items-center justify-between p-4 rounded-xl transition-all duration-300 ${
+            className={`flex items-center justify-between p-4 rounded-xl transition-all duration-300 border ${
               rooms[room.key] > 0
-                ? 'bg-white/20 border-2 border-white/40'
-                : 'bg-white/5 border border-white/10'
+                ? 'bg-wave-orange/10 border-wave-orange/40'
+                : 'bg-muted/50 border-border'
             }`}
           >
             <div className="flex-1">
-              <p className="font-semibold text-white">{room.name}</p>
-              <p className="text-sm text-white/60">{room.description}</p>
-              <p className="text-sm text-white/80 mt-1">
+              <p className="font-semibold text-foreground">{room.name}</p>
+              <p className="text-sm text-muted-foreground">{room.description}</p>
+              <p className="text-sm text-wave-orange font-medium mt-1">
                 ₹{room.price.toLocaleString()}/night • Sleeps {room.capacity}
               </p>
             </div>
@@ -85,16 +85,16 @@ const RoomSelector = ({ rooms, guests, onRoomsChange }: RoomSelectorProps) => {
               <button
                 onClick={() => updateRoom(room.key, -1)}
                 disabled={rooms[room.key] === 0}
-                className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/40 transition-colors text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-10 h-10 rounded-full bg-wave-orange/20 flex items-center justify-center hover:bg-wave-orange/40 transition-colors text-wave-orange disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Minus className="w-4 h-4" />
               </button>
-              <span className="w-8 text-center text-xl font-bold text-white">
+              <span className="w-8 text-center text-xl font-bold text-foreground">
                 {rooms[room.key]}
               </span>
               <button
                 onClick={() => updateRoom(room.key, 1)}
-                className="w-10 h-10 rounded-full bg-white text-wave-orange flex items-center justify-center hover:bg-white/90 transition-colors"
+                className="w-10 h-10 rounded-full bg-wave-orange flex items-center justify-center hover:bg-wave-orange/90 transition-colors text-white"
               >
                 <Plus className="w-4 h-4" />
               </button>
