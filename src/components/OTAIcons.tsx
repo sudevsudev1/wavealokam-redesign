@@ -34,7 +34,7 @@ const otas: OTA[] = [
   },
 ];
 
-const StarRating = ({ rating }: { rating: number }) => {
+const StarRating = ({ rating, darkMode }: { rating: number; darkMode: boolean }) => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 >= 0.5;
 
@@ -44,20 +44,30 @@ const StarRating = ({ rating }: { rating: number }) => {
         <Star
           key={i}
           className={`w-3 h-3 ${
-            i < fullStars
-              ? 'text-white fill-white'
-              : i === fullStars && hasHalfStar
-              ? 'text-white fill-white/50'
-              : 'text-white/30'
+            darkMode
+              ? i < fullStars
+                ? 'text-white fill-white'
+                : i === fullStars && hasHalfStar
+                ? 'text-white fill-white/50'
+                : 'text-white/30'
+              : i < fullStars
+                ? 'text-wave-orange fill-wave-orange'
+                : i === fullStars && hasHalfStar
+                ? 'text-wave-orange fill-wave-orange/50'
+                : 'text-wave-orange/30'
           }`}
         />
       ))}
-      <span className="ml-1 text-xs text-white/80">{rating}/5</span>
+      <span className={`ml-1 text-xs ${darkMode ? 'text-white/80' : 'text-foreground/80'}`}>{rating}/5</span>
     </div>
   );
 };
 
-const OTAIcons = () => {
+interface OTAIconsProps {
+  darkMode?: boolean;
+}
+
+const OTAIcons = ({ darkMode = true }: OTAIconsProps) => {
   return (
     <div className="flex flex-wrap justify-center gap-4 md:gap-8">
       {otas.map((ota) => (
@@ -66,10 +76,14 @@ const OTAIcons = () => {
           href={ota.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-col items-center gap-1 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 transition-all duration-300 hover:bg-white/20 hover:scale-105 hover:-translate-y-1"
+          className={`flex flex-col items-center gap-1 px-4 py-3 rounded-xl backdrop-blur-sm border transition-all duration-300 hover:scale-105 hover:-translate-y-1 ${
+            darkMode
+              ? 'bg-white/10 border-white/20 hover:bg-white/20'
+              : 'bg-wave-orange/10 border-wave-orange/30 hover:bg-wave-orange/20'
+          }`}
         >
-          <span className="text-sm md:text-base font-semibold text-white">{ota.name}</span>
-          <StarRating rating={ota.rating} />
+          <span className={`text-sm md:text-base font-semibold ${darkMode ? 'text-white' : 'text-foreground'}`}>{ota.name}</span>
+          <StarRating rating={ota.rating} darkMode={darkMode} />
         </a>
       ))}
     </div>

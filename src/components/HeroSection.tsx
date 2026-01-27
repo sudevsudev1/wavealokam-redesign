@@ -69,14 +69,11 @@ const HeroSection = () => {
       }}
     >
       {/* Logo with Etymology */}
-      <div className="absolute top-6 left-6 z-20 max-w-[200px] md:max-w-xs">
+      <div className="absolute top-6 left-6 z-20 max-w-[280px] md:max-w-sm">
         <div className="text-white">
-          <h2 className="text-lg md:text-xl font-bold tracking-tight leading-tight">
-            Wavealokam
-          </h2>
-          <p className="text-xs md:text-sm text-white/70 italic">(Wave-a-Lokam) n.</p>
-          <p className="text-sm md:text-base font-semibold">World of Waves.</p>
-          <p className="text-xs text-white/60 mt-0.5">Origin: lokam = "world" (Malayalam)</p>
+          <p className="text-sm md:text-base leading-snug">
+            <span className="font-bold">Wavealokam</span> <span className="text-white/70 italic">(Wave-a-Lokam) n.</span> <span className="font-semibold">World of Waves.</span> <span className="text-white/60">Origin: lokam = "world" (Malayalam)</span>
+          </p>
         </div>
       </div>
 

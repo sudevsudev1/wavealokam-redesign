@@ -75,9 +75,9 @@ const ItineraryBuilder = () => {
     >
       <div className="container mx-auto px-4">
         {/* OTA Icons above itinerary */}
-        <div className="mb-12">
-          <p className="text-center text-muted-foreground mb-4">Book directly on your preferred platform</p>
-          <OTAIcons />
+        <div className="mb-12 p-6 bg-wave-orange/10 rounded-2xl">
+          <p className="text-center text-foreground font-medium mb-4">Book directly on your preferred platform</p>
+          <OTAIcons darkMode={false} />
         </div>
 
         {/* Section Header */}
