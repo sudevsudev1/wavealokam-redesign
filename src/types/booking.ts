@@ -5,7 +5,7 @@ export type ActivityType =
   | 'beach-time'
   | 'cliff-walk'
   | 'toddy-shop'
-  | 'mangrove-kayak'
+  | 'mangrove-village'
   | 'jatayu-trip'
   | 'rooftop-dinner'
   | 'nightlife'
@@ -15,6 +15,7 @@ export type ActivityType =
   | 'kalari-massage'
   | 'paragliding'
   | 'padmanabha-temple'
+  | 'yoga'
   | null;
 
 export type TransportType = 'auto' | 'cab' | null;
@@ -27,13 +28,13 @@ export interface TransportOption {
 export interface Activity {
   id: ActivityType;
   name: string;
+  subtext?: string;
   price: number;
   duration: string;
   description: string;
   availableSlots: TimeSlot[];
   perPerson: boolean;
   transportOptions?: TransportOption;
-  allowWithBreakfast?: boolean; // Can be selected alongside breakfast
 }
 
 export interface ActivitySelection {
@@ -84,7 +85,16 @@ export const ACTIVITIES: Activity[] = [
     price: 1500,
     duration: '2 hours',
     description: 'Professional surf instruction',
-    availableSlots: ['morning', 'afternoon'],
+    availableSlots: ['morning'],
+    perPerson: true,
+  },
+  {
+    id: 'yoga',
+    name: 'Yoga Session',
+    price: 1000,
+    duration: '1 hour',
+    description: 'Morning yoga with certified instructor',
+    availableSlots: ['morning'],
     perPerson: true,
   },
   {
@@ -116,12 +126,13 @@ export const ACTIVITIES: Activity[] = [
     transportOptions: { auto: 1500, cab: 2000 },
   },
   {
-    id: 'mangrove-kayak',
-    name: 'Mangrove Kayaking/Adventure Village',
+    id: 'mangrove-village',
+    name: 'Mangrove Adventure Village',
+    subtext: '(Country boat, Kayaking and water sports)',
     price: 2000,
     duration: '3 hours',
     description: 'Paddle through backwaters',
-    availableSlots: ['morning', 'afternoon'],
+    availableSlots: ['morning', 'afternoon', 'evening'],
     perPerson: true,
     transportOptions: { auto: 1500, cab: 2000 },
   },
@@ -137,11 +148,12 @@ export const ACTIVITIES: Activity[] = [
   },
   {
     id: 'rooftop-dinner',
-    name: 'Rooftop Dinner (BYOB/Food)',
+    name: 'Rooftop Dining',
+    subtext: '(BYOB/Food)',
     price: 0,
     duration: '2-3 hours',
     description: 'Private cliff-top dining',
-    availableSlots: ['evening', 'night'],
+    availableSlots: ['night'],
     perPerson: false,
   },
   {
@@ -166,6 +178,7 @@ export const ACTIVITIES: Activity[] = [
   {
     id: 'kalari-payattu',
     name: 'Kalari Payattu Session',
+    subtext: '(Ancient Martial art form of Kerala)',
     price: 500,
     duration: '1.5 hours',
     description: 'With Ojaswi Kalari and Wellness Centre',
@@ -175,7 +188,8 @@ export const ACTIVITIES: Activity[] = [
   },
   {
     id: 'kalari-massage',
-    name: 'Kalari Marma Therapy/Massage',
+    name: 'Kalari Marma Therapy',
+    subtext: '(Kerala pressure point massage)',
     price: 2000,
     duration: '1-2 hours',
     description: 'With Ojaswi Kalari and Wellness Centre',
@@ -190,7 +204,7 @@ export const ACTIVITIES: Activity[] = [
     duration: '30 mins',
     description: 'Soar above the cliffs',
     availableSlots: ['evening'],
-    perPerson: false, // per session
+    perPerson: false,
     transportOptions: { auto: 1000 },
   },
   {

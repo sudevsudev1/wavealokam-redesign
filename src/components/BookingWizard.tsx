@@ -187,7 +187,7 @@ const BookingWizard = () => {
                   <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
                     🗓️ Plan Your Days
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     {bookingState.dayPlans.map((dayPlan, index) => (
                       <DayPlanner
                         key={index}
@@ -196,6 +196,7 @@ const BookingWizard = () => {
                         totalDays={bookingState.dayPlans.length}
                         guests={bookingState.guests}
                         onUpdate={(slot, selection) => updateDayPlan(index, slot, selection)}
+                        animationDelay={index * 100}
                       />
                     ))}
                   </div>
