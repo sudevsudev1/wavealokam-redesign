@@ -1,4 +1,4 @@
-import { Star } from 'lucide-react';
+import { Star } from "lucide-react";
 
 interface OTA {
   name: string;
@@ -8,29 +8,29 @@ interface OTA {
 
 const otas: OTA[] = [
   {
-    name: 'Google',
-    rating: 5.0,
-    url: 'https://www.google.com/travel/search?q=wavealokam&ved=2ahUKEwjY',
-  },
-  {
-    name: 'Booking.com',
-    rating: 4.8,
-    url: 'https://www.booking.com/hotel/in/wavealokam.html',
-  },
-  {
-    name: 'Airbnb',
+    name: "Google",
     rating: 4.9,
-    url: 'https://www.airbnb.co.in/rooms/761928917398498862',
+    url: "https://www.google.com/travel/search?q=wavealokam&ved=2ahUKEwjY",
   },
   {
-    name: 'MakeMyTrip',
-    rating: 4.5,
-    url: 'https://www.makemytrip.com/hotels/hotel-details/?hotelId=202107271754285889',
+    name: "Booking.com",
+    rating: 4.8,
+    url: "https://www.booking.com/hotel/in/wavealokam.html",
   },
   {
-    name: 'Goibibo',
+    name: "Agoda",
     rating: 4.7,
-    url: 'https://www.goibibo.com/hotels/wavealokam-hotel-in-varkala-7438251287106330111/',
+    url: "https://www.agoda.com/en-in/wavealokam/hotel/varkala-in.html?cid=-310&ds=DBjWDlE76brJPW1n",
+  },
+  {
+    name: "MakeMyTrip",
+    rating: 4.7,
+    url: "https://www.makemytrip.com/hotels/wavealokam_beach_retreat-details-varkala.html",
+  },
+  {
+    name: "Trip Advisor",
+    rating: 5,
+    url: "https://www.tripadvisor.in/Hotel_Review-g11864386-d32677942-Reviews-Wavealokam_Beach_Retreat-Edava_Varkala_Thiruvananthapuram_District_Kerala.html",
   },
 ];
 
@@ -46,19 +46,19 @@ const StarRating = ({ rating, darkMode }: { rating: number; darkMode: boolean })
           className={`w-3 h-3 ${
             darkMode
               ? i < fullStars
-                ? 'text-white fill-white'
+                ? "text-white fill-white"
                 : i === fullStars && hasHalfStar
-                ? 'text-white fill-white/50'
-                : 'text-white/30'
+                  ? "text-white fill-white/50"
+                  : "text-white/30"
               : i < fullStars
-                ? 'text-wave-orange fill-wave-orange'
+                ? "text-wave-orange fill-wave-orange"
                 : i === fullStars && hasHalfStar
-                ? 'text-wave-orange fill-wave-orange/50'
-                : 'text-wave-orange/30'
+                  ? "text-wave-orange fill-wave-orange/50"
+                  : "text-wave-orange/30"
           }`}
         />
       ))}
-      <span className={`ml-1 text-xs ${darkMode ? 'text-white/80' : 'text-foreground/80'}`}>{rating}/5</span>
+      <span className={`ml-1 text-xs ${darkMode ? "text-white/80" : "text-foreground/80"}`}>{rating}/5</span>
     </div>
   );
 };
@@ -78,11 +78,13 @@ const OTAIcons = ({ darkMode = true }: OTAIconsProps) => {
           rel="noopener noreferrer"
           className={`flex flex-col items-center gap-1 px-4 py-3 rounded-xl backdrop-blur-sm border transition-all duration-300 hover:scale-105 hover:-translate-y-1 ${
             darkMode
-              ? 'bg-white/10 border-white/20 hover:bg-white/20'
-              : 'bg-wave-orange/10 border-wave-orange/30 hover:bg-wave-orange/20'
+              ? "bg-white/10 border-white/20 hover:bg-white/20"
+              : "bg-wave-orange/10 border-wave-orange/30 hover:bg-wave-orange/20"
           }`}
         >
-          <span className={`text-sm md:text-base font-semibold ${darkMode ? 'text-white' : 'text-foreground'}`}>{ota.name}</span>
+          <span className={`text-sm md:text-base font-semibold ${darkMode ? "text-white" : "text-foreground"}`}>
+            {ota.name}
+          </span>
           <StarRating rating={ota.rating} darkMode={darkMode} />
         </a>
       ))}
