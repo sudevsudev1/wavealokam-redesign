@@ -31,6 +31,7 @@ const PriceSummary = ({
   const [shouldBeSticky, setShouldBeSticky] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const [itineraryMessage, setItineraryMessage] = useState('');
 
   const canUseActions = isValid && areGuestDetailsValid;
 
@@ -71,6 +72,11 @@ const PriceSummary = ({
     }
   };
 
+  const getWhatsAppItineraryMessage = (): string => {
+    if (!bookingState || !guestDetails) return '';
+    return generatePlainTextItinerary(bookingState, breakdown, guestDetails);
+  };
+
   const handleExportPdf = async () => {
     if (!bookingState || !guestDetails) return;
     
@@ -85,6 +91,7 @@ const PriceSummary = ({
       
       if (emailSent) {
         toast.success('PDF downloaded and email sent!');
+        setItineraryMessage(getWhatsAppItineraryMessage());
         setShowConfirmationDialog(true);
       } else {
         toast.success('PDF downloaded successfully');
@@ -109,6 +116,7 @@ const PriceSummary = ({
       const emailSent = await sendItineraryEmail(pdfBase64, pdfFileName);
       
       if (emailSent) {
+        setItineraryMessage(getWhatsAppItineraryMessage());
         setShowConfirmationDialog(true);
       }
     } catch (err) {
@@ -308,7 +316,8 @@ const PriceSummary = ({
       {/* Confirmation Dialog */}
       <ItineraryConfirmationDialog 
         open={showConfirmationDialog} 
-        onOpenChange={setShowConfirmationDialog} 
+        onOpenChange={setShowConfirmationDialog}
+        itineraryMessage={itineraryMessage}
       />
     </>
   );

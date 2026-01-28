@@ -10,11 +10,15 @@ import { MessageCircle, X } from 'lucide-react';
 interface ItineraryConfirmationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  itineraryMessage?: string;
 }
 
-const ItineraryConfirmationDialog = ({ open, onOpenChange }: ItineraryConfirmationDialogProps) => {
+const ItineraryConfirmationDialog = ({ open, onOpenChange, itineraryMessage }: ItineraryConfirmationDialogProps) => {
   const handleWhatsApp = () => {
-    window.open('https://wa.me/+919323858013', '_blank');
+    const message = itineraryMessage 
+      ? encodeURIComponent(itineraryMessage)
+      : '';
+    window.open(`https://wa.me/+919323858013${message ? `?text=${message}` : ''}`, '_blank');
     onOpenChange(false);
   };
 
