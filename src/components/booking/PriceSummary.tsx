@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, BadgePercent, Download, ChevronUp, ChevronDown } from 'lucide-react';
+import { MessageCircle, BadgePercent, Download, ChevronUp, ChevronDown, Mail, Loader2 } from 'lucide-react';
 import { PriceBreakdown, BookingState } from '@/types/booking';
-import { exportItineraryPdf } from '@/utils/itineraryPdfExport';
+import { exportItineraryPdf, generatePlainTextItinerary, getPdfFileName } from '@/utils/itineraryPdfExport';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { GuestDetails } from './GuestDetailsForm';
+import ItineraryConfirmationDialog from './ItineraryConfirmationDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface PriceSummaryProps {
   breakdown: PriceBreakdown;
@@ -10,15 +14,108 @@ interface PriceSummaryProps {
   onBookNow: () => void;
   isValid: boolean;
   bookingState?: BookingState;
+  guestDetails?: GuestDetails;
+  areGuestDetailsValid?: boolean;
 }
 
-const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: PriceSummaryProps) => {
+const PriceSummary = ({ 
+  breakdown, 
+  nights, 
+  onBookNow, 
+  isValid, 
+  bookingState,
+  guestDetails,
+  areGuestDetailsValid = false
+}: PriceSummaryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [shouldBeSticky, setShouldBeSticky] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
 
-  const handleExportPdf = () => {
-    if (bookingState) {
-      exportItineraryPdf(bookingState, breakdown);
+  const canUseActions = isValid && areGuestDetailsValid;
+
+  const sendItineraryEmail = async (pdfBase64: string, pdfFileName: string): Promise<boolean> => {
+    if (!bookingState || !guestDetails) return false;
+    
+    try {
+      const itineraryDetails = generatePlainTextItinerary(bookingState, breakdown, guestDetails);
+      
+      const { data, error } = await supabase.functions.invoke('send-itinerary-email', {
+        body: {
+          guestName: guestDetails.name.trim(),
+          guestEmail: guestDetails.email.trim(),
+          guestPhone: guestDetails.phone.trim(),
+          itineraryDetails,
+          pdfBase64,
+          pdfFileName
+        }
+      });
+
+      if (error) {
+        console.error('Error sending email:', error);
+        toast.error('Failed to send email. Please try again.');
+        return false;
+      }
+
+      if (!data?.success) {
+        console.error('Email send failed:', data?.error);
+        toast.error(data?.error || 'Failed to send email');
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error invoking edge function:', err);
+      toast.error('Failed to send email. Please try again.');
+      return false;
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!bookingState || !guestDetails) return;
+    
+    setIsSendingEmail(true);
+    try {
+      // Export PDF and get base64
+      const pdfBase64 = exportItineraryPdf(bookingState, breakdown, guestDetails);
+      const pdfFileName = getPdfFileName(bookingState);
+      
+      // Also send email automatically when downloading
+      const emailSent = await sendItineraryEmail(pdfBase64, pdfFileName);
+      
+      if (emailSent) {
+        toast.success('PDF downloaded and email sent!');
+        setShowConfirmationDialog(true);
+      } else {
+        toast.success('PDF downloaded successfully');
+      }
+    } catch (err) {
+      console.error('Error exporting PDF:', err);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!bookingState || !guestDetails) return;
+    
+    setIsSendingEmail(true);
+    try {
+      // Generate PDF for attachment
+      const pdfBase64 = exportItineraryPdf(bookingState, breakdown, guestDetails);
+      const pdfFileName = getPdfFileName(bookingState);
+      
+      const emailSent = await sendItineraryEmail(pdfBase64, pdfFileName);
+      
+      if (emailSent) {
+        setShowConfirmationDialog(true);
+      }
+    } catch (err) {
+      console.error('Error sending email:', err);
+      toast.error('Failed to send email');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -144,27 +241,54 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
                     </p>
                   </div>
                 )}
+
+                {/* Guest details warning */}
+                {isValid && !areGuestDetailsValid && (
+                  <div className="p-3 bg-destructive/10 rounded-xl border border-destructive/20">
+                    <p className="text-xs text-destructive font-medium">
+                      ⚠️ Please fill in your name, email, and phone number above to enable download and send options.
+                    </p>
+                  </div>
+                )}
                 
                 {/* Action buttons */}
                 <div className="space-y-3 pt-2">
                   <button
                     onClick={onBookNow}
-                    disabled={!isValid}
+                    disabled={!canUseActions}
                     className="w-full py-4 bg-wave-orange text-primary-foreground font-bold rounded-xl hover:bg-wave-orange/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
                   >
                     <MessageCircle className="w-5 h-5" />
                     Send via WhatsApp
                   </button>
+
+                  {/* Send via Email button */}
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={!canUseActions || isSendingEmail}
+                    className="w-full py-3 bg-foreground text-background font-semibold rounded-xl hover:bg-foreground/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSendingEmail ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Mail className="w-4 h-4" />
+                    )}
+                    Send via Email
+                  </button>
                   
-                  {bookingState && isValid && (
-                    <button
-                      onClick={handleExportPdf}
-                      className="w-full py-3 bg-foreground/10 text-foreground font-semibold rounded-xl hover:bg-foreground/20 transition-all duration-200 flex items-center justify-center gap-2"
-                    >
+                  {/* Download PDF button */}
+                  <button
+                    onClick={handleExportPdf}
+                    disabled={!canUseActions || isSendingEmail}
+                    className="w-full py-3 bg-foreground/10 text-foreground font-semibold rounded-xl hover:bg-foreground/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSendingEmail ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
                       <Download className="w-4 h-4" />
-                      Download PDF
-                    </button>
-                  )}
+                    )}
+                    Download PDF
+                  </button>
                 </div>
                 
                 <p className="text-xs text-muted-foreground text-center">
@@ -180,6 +304,12 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
       {shouldBeSticky && (
         <div className="h-20" />
       )}
+
+      {/* Confirmation Dialog */}
+      <ItineraryConfirmationDialog 
+        open={showConfirmationDialog} 
+        onOpenChange={setShowConfirmationDialog} 
+      />
     </>
   );
 };

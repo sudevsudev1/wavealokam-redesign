@@ -11,9 +11,17 @@ import ScooterSelector from './booking/ScooterSelector';
 import DayPlanner from './booking/DayPlanner';
 import PriceSummary from './booking/PriceSummary';
 import OTAIcons from './OTAIcons';
+import GuestDetailsForm, { GuestDetails } from './booking/GuestDetailsForm';
+
 gsap.registerPlugin(ScrollTrigger);
+
 const BookingWizard = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [guestDetails, setGuestDetails] = useState<GuestDetails>({
+    name: '',
+    email: '',
+    phone: ''
+  });
   const [bookingState, setBookingState] = useState<BookingState>({
     checkIn: null,
     checkOut: null,
@@ -51,6 +59,7 @@ const BookingWizard = () => {
       }));
     }
   }, [bookingState.checkIn, bookingState.checkOut]);
+
   const updateDayPlan = (dayIndex: number, slot: TimeSlot, selection: ActivitySelection | null) => {
     setBookingState(prev => ({
       ...prev,
@@ -63,13 +72,29 @@ const BookingWizard = () => {
       })
     }));
   };
+
   const nights = calculateNights(bookingState.checkIn, bookingState.checkOut);
   const breakdown = calculatePriceBreakdown(bookingState);
   const isValid = bookingState.checkIn && bookingState.checkOut && validateRoomSelection(bookingState.guests, bookingState.rooms);
+  
+  // Check if guest details are filled
+  const areGuestDetailsFilled = guestDetails.name.trim() !== '' && 
+    guestDetails.email.trim() !== '' && 
+    guestDetails.phone.trim() !== '';
+  
+  // Validate email format
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestDetails.email.trim());
+  
+  // Validate phone format
+  const isPhoneValid = /^[+]?[0-9]{10,15}$/.test(guestDetails.phone.replace(/[\s-]/g, ''));
+  
+  const areGuestDetailsValid = areGuestDetailsFilled && isEmailValid && isPhoneValid;
+
   const handleBookNow = () => {
-    const message = generateWhatsAppMessage(bookingState, breakdown);
-    window.open(`https://wa.me/+919539800445?text=${message}`, '_blank');
+    const message = generateWhatsAppMessage(bookingState, breakdown, guestDetails);
+    window.open(`https://wa.me/+918606164606?text=${message}`, '_blank');
   };
+
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo('.booking-wizard-card', {
@@ -90,15 +115,17 @@ const BookingWizard = () => {
     }, sectionRef);
     return () => ctx.revert();
   }, []);
-  return <section ref={sectionRef} id="itinerary" className="relative py-24 md:py-32 overflow-hidden" style={{
-    background: 'linear-gradient(135deg, #fef3e2 0%, #fde6c4 30%, #fcd9a8 60%, #fef3e2 100%)'
-  }}>
+
+  return (
+    <section ref={sectionRef} id="itinerary" className="relative py-24 md:py-32 overflow-hidden" style={{
+      background: 'linear-gradient(135deg, #fef3e2 0%, #fde6c4 30%, #fcd9a8 60%, #fef3e2 100%)'
+    }}>
       {/* Decorative elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-wave-orange/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-orange-300/20 rounded-full blur-3xl animate-pulse" style={{
-        animationDelay: '1s'
-      }} />
+          animationDelay: '1s'
+        }} />
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-wave-orange/5 rounded-full blur-3xl" />
       </div>
 
@@ -138,39 +165,45 @@ const BookingWizard = () => {
               </div>
             </div>
 
+            {/* Guest Details Form - NEW */}
+            <GuestDetailsForm 
+              guestDetails={guestDetails}
+              onGuestDetailsChange={setGuestDetails}
+            />
+
             {/* Date & Guest Selection */}
             <DateGuestSelector checkIn={bookingState.checkIn} checkOut={bookingState.checkOut} guests={bookingState.guests} onCheckInChange={date => setBookingState(prev => ({
-            ...prev,
-            checkIn: date
-          }))} onCheckOutChange={date => setBookingState(prev => ({
-            ...prev,
-            checkOut: date
-          }))} onGuestsChange={guests => setBookingState(prev => ({
-            ...prev,
-            guests
-          }))} />
+              ...prev,
+              checkIn: date
+            }))} onCheckOutChange={date => setBookingState(prev => ({
+              ...prev,
+              checkOut: date
+            }))} onGuestsChange={guests => setBookingState(prev => ({
+              ...prev,
+              guests
+            }))} />
 
             {/* Room Selection */}
             <RoomSelector rooms={bookingState.rooms} guests={bookingState.guests} onRoomsChange={rooms => setBookingState(prev => ({
-            ...prev,
-            rooms
-          }))} />
+              ...prev,
+              rooms
+            }))} />
 
             {/* Scooter Selection */}
             <ScooterSelector scooterDays={bookingState.scooterDays} maxDays={nights || 7} onScooterDaysChange={days => setBookingState(prev => ({
-            ...prev,
-            scooterDays: days
-          }))} />
+              ...prev,
+              scooterDays: days
+            }))} />
 
             {/* Day Planners */}
             {bookingState.dayPlans.length > 0 && <div id="day-planner-section" className="mb-24">
-                <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-                  🗓️ Plan Your Days
-                </h3>
-                <div className="space-y-4">
-                  {bookingState.dayPlans.map((dayPlan, index) => <DayPlanner key={index} dayPlan={dayPlan} dayNumber={index + 1} totalDays={bookingState.dayPlans.length} guests={bookingState.guests} onUpdate={(slot, selection) => updateDayPlan(index, slot, selection)} animationDelay={index * 100} />)}
-                </div>
-              </div>}
+              <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+                🗓️ Plan Your Days
+              </h3>
+              <div className="space-y-4">
+                {bookingState.dayPlans.map((dayPlan, index) => <DayPlanner key={index} dayPlan={dayPlan} dayNumber={index + 1} totalDays={bookingState.dayPlans.length} guests={bookingState.guests} onUpdate={(slot, selection) => updateDayPlan(index, slot, selection)} animationDelay={index * 100} />)}
+              </div>
+            </div>}
           </div>
         </div>
         
@@ -179,7 +212,17 @@ const BookingWizard = () => {
       </div>
 
       {/* Price Summary - Rendered outside the container for proper fixed positioning */}
-      <PriceSummary breakdown={breakdown} nights={nights} onBookNow={handleBookNow} isValid={!!isValid} bookingState={bookingState} />
-    </section>;
+      <PriceSummary 
+        breakdown={breakdown} 
+        nights={nights} 
+        onBookNow={handleBookNow} 
+        isValid={!!isValid} 
+        bookingState={bookingState}
+        guestDetails={guestDetails}
+        areGuestDetailsValid={areGuestDetailsValid}
+      />
+    </section>
+  );
 };
+
 export default BookingWizard;

@@ -6,6 +6,7 @@ import {
   SCOOTER_PRICE_PER_DAY,
   ActivitySelection
 } from '@/types/booking';
+import { GuestDetails } from '@/components/booking/GuestDetailsForm';
 
 export function calculateNights(checkIn: Date | null, checkOut: Date | null): number {
   if (!checkIn || !checkOut) return 0;
@@ -119,12 +120,21 @@ export function calculatePriceBreakdown(state: BookingState): PriceBreakdown {
   };
 }
 
-export function generateWhatsAppMessage(state: BookingState, breakdown: PriceBreakdown): string {
+export function generateWhatsAppMessage(state: BookingState, breakdown: PriceBreakdown, guestDetails?: GuestDetails): string {
   const nights = calculateNights(state.checkIn, state.checkOut);
   const checkInStr = state.checkIn?.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const checkOutStr = state.checkOut?.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   
   let message = `🏄 *Wavealokam Booking Request*\n\n`;
+  
+  // Add guest details if provided
+  if (guestDetails && guestDetails.name) {
+    message += `👤 *Guest Details:*\n`;
+    message += `  • Name: ${guestDetails.name}\n`;
+    message += `  • Email: ${guestDetails.email}\n`;
+    message += `  • Phone: ${guestDetails.phone}\n\n`;
+  }
+  
   message += `📅 *Dates:* ${checkInStr} → ${checkOutStr} (${nights} nights)\n`;
   message += `👥 *Guests:* ${state.guests}\n\n`;
   
@@ -156,7 +166,7 @@ export function generateWhatsAppMessage(state: BookingState, breakdown: PriceBre
     activitiesSelected.forEach(a => { message += `  • ${a}\n`; });
   }
   
-  message += `\n💰 *Estimated Total:* ₹${breakdown.grandTotal.toLocaleString()}`;
+  message += `\n💰 *Estimated Total:* Rs.${breakdown.grandTotal.toLocaleString()}`;
   if (breakdown.discountPercentage > 0) {
     message += ` (${breakdown.discountPercentage}% discount applied!)`;
   }
