@@ -1,10 +1,7 @@
 import { Instagram, Facebook, Mail, Phone, MapPin } from 'lucide-react';
-
 const Footer = () => {
   const currentYear = new Date().getFullYear();
-
-  return (
-    <footer className="relative bg-foreground text-background py-16">
+  return <footer className="relative bg-foreground text-background py-16">
       <div className="container mx-auto px-4">
         {/* Main Footer Content */}
         <div className="grid md:grid-cols-4 gap-12 mb-12">
@@ -12,25 +9,15 @@ const Footer = () => {
           <div className="md:col-span-2">
             <h2 className="text-3xl font-bold text-wave-orange mb-4">WAVEALOKAM</h2>
             <p className="text-background/70 mb-6 max-w-md">
-              Your beachside surf retreat in Varkala, Kerala. Where waves meet cliffs and adventures begin.
+              You cann walk barefoot here. Emotionally and literally.        
             </p>
             
             {/* Social Links */}
             <div className="flex gap-4">
-              <a
-                href="https://www.instagram.com/wavealokam/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-wave-orange flex items-center justify-center hover:scale-110 transition-transform"
-              >
+              <a href="https://www.instagram.com/wavealokam/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-wave-orange flex items-center justify-center hover:scale-110 transition-transform">
                 <Instagram className="w-5 h-5" />
               </a>
-              <a
-                href="https://www.facebook.com/wavealokam/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-wave-orange flex items-center justify-center hover:scale-110 transition-transform"
-              >
+              <a href="https://www.facebook.com/wavealokam/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-wave-orange flex items-center justify-center hover:scale-110 transition-transform">
                 <Facebook className="w-5 h-5" />
               </a>
             </div>
@@ -40,16 +27,11 @@ const Footer = () => {
           <div>
             <h3 className="font-bold text-lg mb-4 text-wave-orange">Quick Links</h3>
             <ul className="space-y-2">
-              {['Home', 'Activities', 'Rooms', 'Dining', 'Surf School', 'Book Now'].map((link) => (
-                <li key={link}>
-                  <a
-                    href={`#${link.toLowerCase().replace(' ', '-')}`}
-                    className="text-background/70 hover:text-wave-orange transition-colors"
-                  >
+              {['Home', 'Activities', 'Rooms', 'Dining', 'Surf School', 'Book Now'].map(link => <li key={link}>
+                  <a href={`#${link.toLowerCase().replace(' ', '-')}`} className="text-background/70 hover:text-wave-orange transition-colors">
                     {link}
                   </a>
-                </li>
-              ))}
+                </li>)}
             </ul>
           </div>
 
@@ -64,19 +46,13 @@ const Footer = () => {
                 </span>
               </li>
               <li>
-                <a
-                  href="tel:+919539800445"
-                  className="flex items-center gap-3 text-background/70 hover:text-wave-orange transition-colors"
-                >
+                <a href="tel:+919539800445" className="flex items-center gap-3 text-background/70 hover:text-wave-orange transition-colors">
                   <Phone className="w-5 h-5 text-wave-orange" />
                   +91 95398 00445
                 </a>
               </li>
               <li>
-                <a
-                  href="mailto:info@wavealokam.com"
-                  className="flex items-center gap-3 text-background/70 hover:text-wave-orange transition-colors"
-                >
+                <a href="mailto:info@wavealokam.com" className="flex items-center gap-3 text-background/70 hover:text-wave-orange transition-colors">
                   <Mail className="w-5 h-5 text-wave-orange" />
                   info@wavealokam.com
                 </a>
@@ -100,8 +76,6 @@ const Footer = () => {
           </div>
         </div>
       </div>
-    </footer>
-  );
+    </footer>;
 };
-
 export default Footer;
