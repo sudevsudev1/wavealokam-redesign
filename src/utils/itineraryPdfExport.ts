@@ -1,18 +1,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
-import { BookingState, PriceBreakdown, ACTIVITIES, DayPlan, ActivitySelection } from '@/types/booking';
-
-const getActivityName = (activityId: string | null): string => {
-  if (!activityId) return '';
-  const activity = ACTIVITIES.find(a => a.id === activityId);
-  return activity ? activity.name : '';
-};
-
-const getActivitySubtext = (activityId: string | null): string => {
-  if (!activityId) return '';
-  const activity = ACTIVITIES.find(a => a.id === activityId);
-  return activity?.subtext || '';
-};
+import { BookingState, PriceBreakdown, ACTIVITIES, ActivitySelection } from '@/types/booking';
+import { GuestDetails } from '@/components/booking/GuestDetailsForm';
 
 const formatSelection = (selection: ActivitySelection | null, guests: number): { name: string; subtext: string; details: string } | null => {
   if (!selection) return null;
@@ -22,9 +11,9 @@ const formatSelection = (selection: ActivitySelection | null, guests: number): {
   let details = '';
   if (activity.perPerson && selection.participants > 0) {
     const total = activity.price * selection.participants;
-    details = `${selection.participants} person${selection.participants > 1 ? 's' : ''} - ₹${total.toLocaleString()}`;
+    details = `${selection.participants} person${selection.participants > 1 ? 's' : ''} - Rs.${total.toLocaleString()}`;
   } else if (activity.price > 0) {
-    details = `₹${activity.price.toLocaleString()}`;
+    details = `Rs.${activity.price.toLocaleString()}`;
   } else {
     details = 'Free';
   }
@@ -32,7 +21,7 @@ const formatSelection = (selection: ActivitySelection | null, guests: number): {
   if (selection.transport) {
     const transportCost = activity.transportOptions?.[selection.transport] || 0;
     if (transportCost > 0) {
-      details += ` + ${selection.transport === 'auto' ? 'Auto' : 'Cab'} ₹${transportCost}`;
+      details += ` + ${selection.transport === 'auto' ? 'Auto' : 'Cab'} Rs.${transportCost}`;
     }
   }
   
@@ -43,7 +32,92 @@ const formatSelection = (selection: ActivitySelection | null, guests: number): {
   };
 };
 
-export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceBreakdown) => {
+export const generatePlainTextItinerary = (bookingState: BookingState, breakdown: PriceBreakdown, guestDetails?: GuestDetails): string => {
+  const lines: string[] = [];
+  
+  // Guest details
+  if (guestDetails) {
+    lines.push('=== GUEST DETAILS ===');
+    lines.push(`Name: ${guestDetails.name}`);
+    lines.push(`Email: ${guestDetails.email}`);
+    lines.push(`Phone: ${guestDetails.phone}`);
+    lines.push('');
+  }
+  
+  // Trip details
+  lines.push('=== TRIP DETAILS ===');
+  const checkInStr = bookingState.checkIn ? format(bookingState.checkIn, 'EEE, dd MMM yyyy') : 'Not selected';
+  const checkOutStr = bookingState.checkOut ? format(bookingState.checkOut, 'EEE, dd MMM yyyy') : 'Not selected';
+  const nights = bookingState.dayPlans.length > 0 ? bookingState.dayPlans.length - 1 : 0;
+  
+  lines.push(`Check-in: ${checkInStr}`);
+  lines.push(`Check-out: ${checkOutStr}`);
+  lines.push(`Guests: ${bookingState.guests}`);
+  lines.push(`Nights: ${nights}`);
+  
+  const roomsText = [];
+  if (bookingState.rooms.kingRooms > 0) roomsText.push(`${bookingState.rooms.kingRooms} King Room${bookingState.rooms.kingRooms > 1 ? 's' : ''}`);
+  if (bookingState.rooms.doubleRooms > 0) roomsText.push(`${bookingState.rooms.doubleRooms} Double Room${bookingState.rooms.doubleRooms > 1 ? 's' : ''}`);
+  if (bookingState.rooms.extraBeds > 0) roomsText.push(`${bookingState.rooms.extraBeds} Extra Bed${bookingState.rooms.extraBeds > 1 ? 's' : ''}`);
+  lines.push(`Accommodation: ${roomsText.join(', ') || 'Not selected'}`);
+  
+  if (bookingState.scooterDays > 0) {
+    lines.push(`Two Wheeler: ${bookingState.scooterDays} day${bookingState.scooterDays > 1 ? 's' : ''}`);
+  }
+  lines.push('');
+  
+  // Daily itinerary
+  if (bookingState.dayPlans.length > 0) {
+    lines.push('=== DAILY ITINERARY ===');
+    
+    bookingState.dayPlans.forEach((dayPlan, index) => {
+      const isCheckInDay = index === 0;
+      const isCheckOutDay = index === bookingState.dayPlans.length - 1;
+      
+      const dayLabel = `Day ${index + 1} - ${format(dayPlan.date, 'EEE, dd MMM')}`;
+      const dayNote = isCheckInDay ? ' (Check-in 2 PM)' : isCheckOutDay ? ' (Check-out 11 AM)' : '';
+      lines.push('');
+      lines.push(dayLabel + dayNote);
+      lines.push('-'.repeat(30));
+      
+      const slots: { label: string; selection: ActivitySelection | null }[] = [];
+      
+      if (!isCheckInDay) {
+        slots.push({ label: 'Morning', selection: dayPlan.morning });
+      }
+      if (!isCheckOutDay) {
+        slots.push({ label: 'Afternoon', selection: dayPlan.afternoon });
+        slots.push({ label: 'Evening', selection: dayPlan.evening });
+        slots.push({ label: 'Night', selection: dayPlan.night });
+      }
+      
+      slots.forEach(({ label, selection }) => {
+        const formatted = formatSelection(selection, bookingState.guests);
+        if (formatted) {
+          let activityText = formatted.name;
+          if (formatted.subtext) activityText += ` ${formatted.subtext}`;
+          lines.push(`  ${label}: ${activityText} - ${formatted.details}`);
+        }
+      });
+    });
+    lines.push('');
+  }
+  
+  // Price summary
+  lines.push('=== PRICE ESTIMATE ===');
+  lines.push(`Rooms (${nights} nights): Rs.${breakdown.roomsTotal.toLocaleString()}`);
+  if (breakdown.activitiesTotal > 0) lines.push(`Activities: Rs.${breakdown.activitiesTotal.toLocaleString()}`);
+  if (breakdown.transportTotal > 0) lines.push(`Transport: Rs.${breakdown.transportTotal.toLocaleString()}`);
+  if (breakdown.scooterTotal > 0) lines.push(`Two Wheeler: Rs.${breakdown.scooterTotal.toLocaleString()}`);
+  if (breakdown.discount > 0) lines.push(`Discount (${breakdown.discountPercentage}%): -Rs.${breakdown.discount.toLocaleString()}`);
+  lines.push(`TOTAL ESTIMATE: Rs.${breakdown.grandTotal.toLocaleString()}`);
+  lines.push('');
+  lines.push('Prices are estimates. Final rates may vary seasonally.');
+  
+  return lines.join('\n');
+};
+
+export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceBreakdown, guestDetails?: GuestDetails): string => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 20;
@@ -82,6 +156,29 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
   const disclaimerLines = doc.splitTextToSize(disclaimer, contentWidth);
   doc.text(disclaimerLines, margin, y);
   y += disclaimerLines.length * 4 + 10;
+
+  // Guest Details Section (if provided)
+  if (guestDetails) {
+    doc.setTextColor(51, 51, 51);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GUEST DETAILS', margin, y);
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    doc.setDrawColor(230, 230, 230);
+    doc.setFillColor(250, 250, 250);
+    doc.roundedRect(margin, y, contentWidth, 25, 3, 3, 'FD');
+    
+    y += 10;
+    doc.text(`Name: ${guestDetails.name}`, margin + 5, y);
+    y += 8;
+    doc.text(`Email: ${guestDetails.email}`, margin + 5, y);
+    doc.text(`Phone: ${guestDetails.phone}`, pageWidth / 2, y);
+    y += 17;
+  }
 
   // Trip Details Section
   doc.setTextColor(51, 51, 51);
@@ -168,7 +265,6 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
           // Activity name column (limited width to prevent overlap)
           const labelWidth = 22;
           const activityWidth = 85;
-          const priceWidth = contentWidth - labelWidth - activityWidth - 5;
           
           doc.setFont('helvetica', 'bold');
           doc.text(`${label}:`, margin + 3, y);
@@ -185,9 +281,9 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
           const activityLines = doc.splitTextToSize(activityText, activityWidth);
           doc.text(activityLines[0], margin + labelWidth + 3, y);
           
-          // Price on the right (use rupee symbol properly)
+          // Price on the right
           doc.setTextColor(100, 100, 100);
-          const priceText = formatted.details.replace(/₹/g, 'Rs.');
+          const priceText = formatted.details;
           doc.text(priceText, pageWidth - margin - 3, y, { align: 'right' });
           doc.setTextColor(51, 51, 51);
           
@@ -210,7 +306,7 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
     (breakdown.activitiesTotal > 0 ? 1 : 0) + 
     (breakdown.transportTotal > 0 ? 1 : 0) + 
     (breakdown.scooterTotal > 0 ? 1 : 0) +
-    (breakdown.discount > 0 ? 1 : 0) + 2; // subtotal line + total line
+    (breakdown.discount > 0 ? 1 : 0) + 2;
   
   const priceBoxHeight = 20 + priceLineCount * 8;
   
@@ -272,11 +368,22 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
   doc.text('Prices are estimates. Final rates may vary seasonally.', margin, y);
-  doc.text('WhatsApp: +91 9539800445 | wavealokam.com', pageWidth - margin, y, { align: 'right' });
+  doc.text('WhatsApp: +91 8606164606 | wavealokam.com', pageWidth - margin, y, { align: 'right' });
 
   // Generate filename
   const dateStr = bookingState.checkIn ? format(bookingState.checkIn, 'ddMMMyyyy') : 'draft';
   const filename = `Wavealokam-Itinerary-${dateStr}.pdf`;
   
+  // Return base64 for email attachment
+  const pdfBase64 = doc.output('datauristring').split(',')[1];
+  
+  // Also save locally
   doc.save(filename);
+  
+  return pdfBase64;
+};
+
+export const getPdfFileName = (bookingState: BookingState): string => {
+  const dateStr = bookingState.checkIn ? format(bookingState.checkIn, 'ddMMMyyyy') : 'draft';
+  return `Wavealokam-Itinerary-${dateStr}.pdf`;
 };
