@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, MessageCircle, Mail, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -9,6 +10,9 @@ import QuizConfirmationDialog from './QuizConfirmationDialog';
 const DiscountQuizBox = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
   const [answer1, setAnswer1] = useState('');
   const [answer2, setAnswer2] = useState('');
   const [isOverlappingText, setIsOverlappingText] = useState(false);
@@ -107,26 +111,49 @@ const DiscountQuizBox = () => {
     return 'opacity-50 hover:opacity-100';
   };
 
+  // Validation
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isValidPhone = (phone: string) => /^[+]?[\d\s-]{8,}$/.test(phone);
+  const isFormValid = guestName.trim() && isValidEmail(guestEmail) && isValidPhone(guestPhone);
+
   const whatsappNumber = '+919323858013';
   
   const getWhatsAppMessage = () => {
     const message = `Hey Wavealokam! I answered your two stupid questions. Now give me my discount 😂
+
+Name: ${guestName}
+Email: ${guestEmail}
+Phone: ${guestPhone}
+
 Q1 : What does Wavealokam mean?
 A1 : ${answer1 || '(Not answered)'}
+
 Q2 : What is the easiest way to get free breakfast from the owner Amardeep?
 A2 : ${answer2 || '(Not answered)'}`;
     return encodeURIComponent(message);
   };
 
   const handleWhatsAppClick = () => {
+    if (!isFormValid) {
+      toast.error('Please fill in your name, email, and phone number');
+      return;
+    }
     window.open(`https://wa.me/${whatsappNumber}?text=${getWhatsAppMessage()}`, '_blank');
   };
 
   const handleEmailClick = async () => {
+    if (!isFormValid) {
+      toast.error('Please fill in your name, email, and phone number');
+      return;
+    }
+    
     setIsSendingEmail(true);
     try {
       const { data, error } = await supabase.functions.invoke('send-quiz-email', {
         body: {
+          guestName: guestName.trim(),
+          guestEmail: guestEmail.trim(),
+          guestPhone: guestPhone.trim(),
           answer1: answer1.trim(),
           answer2: answer2.trim()
         }
@@ -187,10 +214,35 @@ A2 : ${answer2 || '(Not answered)'}`;
           {/* Expandable content */}
           <div
             className={`overflow-hidden transition-all duration-300 ${
-              isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+              isExpanded ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'
             }`}
           >
-            <div className="p-4 pt-0 space-y-4">
+            <div className="p-4 pt-0 space-y-3">
+              {/* Guest Details */}
+              <div className="space-y-2">
+                <label className="text-white text-xs font-medium">Your Details *</label>
+                <Input
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Your Name"
+                  className="bg-white/90 text-gray-800 placeholder:text-gray-500 border-0 text-sm h-9"
+                />
+                <Input
+                  type="email"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  placeholder="Email Address"
+                  className="bg-white/90 text-gray-800 placeholder:text-gray-500 border-0 text-sm h-9"
+                />
+                <Input
+                  type="tel"
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
+                  placeholder="Phone Number"
+                  className="bg-white/90 text-gray-800 placeholder:text-gray-500 border-0 text-sm h-9"
+                />
+              </div>
+
               {/* Question 1 */}
               <div className="space-y-2">
                 <label className="text-white text-xs font-medium">
@@ -223,7 +275,8 @@ A2 : ${answer2 || '(Not answered)'}`;
               <div className="flex flex-col gap-2 pt-2">
                 <Button
                   onClick={handleWhatsAppClick}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white text-xs py-3 h-auto flex items-center justify-center gap-2"
+                  disabled={!isFormValid}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white text-xs py-3 h-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span className="text-center leading-tight">
@@ -234,9 +287,9 @@ A2 : ${answer2 || '(Not answered)'}`;
 
                 <Button
                   onClick={handleEmailClick}
-                  disabled={isSendingEmail}
+                  disabled={isSendingEmail || !isFormValid}
                   variant="outline"
-                  className="w-full bg-white/90 hover:bg-white text-gray-800 border-0 text-xs py-3 h-auto flex items-center justify-center gap-2"
+                  className="w-full bg-white/90 hover:bg-white text-gray-800 border-0 text-xs py-3 h-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSendingEmail ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -257,6 +310,9 @@ A2 : ${answer2 || '(Not answered)'}`;
         onOpenChange={setShowConfirmationDialog}
         answer1={answer1}
         answer2={answer2}
+        guestName={guestName}
+        guestEmail={guestEmail}
+        guestPhone={guestPhone}
       />
     </>
   );
