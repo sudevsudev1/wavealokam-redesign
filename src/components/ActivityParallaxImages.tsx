@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { gsap } from 'gsap';
 
 interface ActivityImage {
@@ -11,7 +11,7 @@ interface ActivityImage {
     offsetY: number;
   };
   delay: number;
-  rotation: number; // Direction of rotation (-15 to 15 degrees)
+  rotation: number;
 }
 
 interface ActivityImagesConfig {
@@ -20,10 +20,9 @@ interface ActivityImagesConfig {
 }
 
 // Image configurations for each activity
-// Users will add their images to public/activities/{activity-name}/
 const activityImagesConfig: ActivityImagesConfig[] = [
   {
-    activityId: 1, // Surfing
+    activityId: 1,
     images: [
       { id: 'surf-1', src: '/activities/surfing/1.jpg', position: { x: 'left', y: 'top', offsetX: 8, offsetY: 12 }, delay: 0, rotation: 12 },
       { id: 'surf-2', src: '/activities/surfing/2.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -15 }, delay: 0.2, rotation: -8 },
@@ -32,7 +31,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     ],
   },
   {
-    activityId: 2, // Rooftop Dinner
+    activityId: 2,
     images: [
       { id: 'roof-1', src: '/activities/rooftop-dinner/1.jpg', position: { x: 'right', y: 'top', offsetX: -12, offsetY: 10 }, delay: 0, rotation: -10 },
       { id: 'roof-2', src: '/activities/rooftop-dinner/2.jpg', position: { x: 'left', y: 'bottom', offsetX: 10, offsetY: -12 }, delay: 0.25, rotation: 8 },
@@ -40,7 +39,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     ],
   },
   {
-    activityId: 3, // Sree Eight Beach
+    activityId: 3,
     images: [
       { id: 'beach-1', src: '/activities/sree-eight-beach/1.jpg', position: { x: 'left', y: 'top', offsetX: 15, offsetY: 8 }, delay: 0, rotation: 10 },
       { id: 'beach-2', src: '/activities/sree-eight-beach/2.jpg', position: { x: 'right', y: 'top', offsetX: -15, offsetY: 15 }, delay: 0.3, rotation: -12 },
@@ -48,7 +47,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     ],
   },
   {
-    activityId: 4, // Chechi's Breakfast
+    activityId: 4,
     images: [
       { id: 'bfast-1', src: '/activities/chechis-breakfast/1.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -8 }, delay: 0, rotation: -8 },
       { id: 'bfast-2', src: '/activities/chechis-breakfast/2.jpg', position: { x: 'left', y: 'top', offsetX: 12, offsetY: 15 }, delay: 0.25, rotation: 12 },
@@ -56,7 +55,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     ],
   },
   {
-    activityId: 5, // Mangrove Adventures
+    activityId: 5,
     images: [
       { id: 'mang-1', src: '/activities/mangrove-adventures/1.jpg', position: { x: 'left', y: 'bottom', offsetX: 10, offsetY: -15 }, delay: 0, rotation: 15 },
       { id: 'mang-2', src: '/activities/mangrove-adventures/2.jpg', position: { x: 'right', y: 'top', offsetX: -12, offsetY: 12 }, delay: 0.2, rotation: -10 },
@@ -64,7 +63,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     ],
   },
   {
-    activityId: 6, // Toddy
+    activityId: 6,
     images: [
       { id: 'toddy-1', src: '/activities/toddy/1.jpg', position: { x: 'right', y: 'bottom', offsetX: -15, offsetY: -10 }, delay: 0, rotation: -12 },
       { id: 'toddy-2', src: '/activities/toddy/2.jpg', position: { x: 'left', y: 'top', offsetX: 10, offsetY: 12 }, delay: 0.3, rotation: 10 },
@@ -72,7 +71,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     ],
   },
   {
-    activityId: 7, // Jatayu
+    activityId: 7,
     images: [
       { id: 'jatayu-1', src: '/activities/jatayu/1.jpg', position: { x: 'left', y: 'top', offsetX: 12, offsetY: 10 }, delay: 0, rotation: 8 },
       { id: 'jatayu-2', src: '/activities/jatayu/2.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -12 }, delay: 0.25, rotation: -15 },
@@ -80,7 +79,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     ],
   },
   {
-    activityId: 8, // North Cliff Nightlife
+    activityId: 8,
     images: [
       { id: 'night-1', src: '/activities/north-cliff-nightlife/1.jpg', position: { x: 'right', y: 'top', offsetX: -8, offsetY: 15 }, delay: 0, rotation: -10 },
       { id: 'night-2', src: '/activities/north-cliff-nightlife/2.jpg', position: { x: 'left', y: 'bottom', offsetX: 10, offsetY: -10 }, delay: 0.3, rotation: 15 },
@@ -96,99 +95,95 @@ interface ActivityParallaxImagesProps {
 }
 
 const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }: ActivityParallaxImagesProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imageRefs = useRef<Map<string, HTMLImageElement>>(new Map());
+  const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
   const loadedImages = useRef<Set<string>>(new Set());
 
-  // Calculate which activities should show images (current + adjacent for transitions)
-  const visibleActivities = [activeIndex - 1, activeIndex, activeIndex + 1].filter(
-    (i) => i >= 0 && i < totalActivities
-  );
+  // Flatten all images for stable rendering
+  const allImages = useMemo(() => {
+    return activityImagesConfig.flatMap((config) =>
+      config.images.map((img) => ({
+        ...img,
+        activityId: config.activityId,
+      }))
+    );
+  }, []);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    // Animate all images based on scroll progress
+    allImages.forEach((imageConfig) => {
+      const imgElement = imageRefs.current[imageConfig.id];
+      if (!imgElement || !loadedImages.current.has(imageConfig.id)) return;
 
-    // Animate each visible activity's images
-    visibleActivities.forEach((activityIdx) => {
-      const config = activityImagesConfig.find((c) => c.activityId === activityIdx + 1);
-      if (!config) return;
-
-      // Calculate local progress for this activity
+      const activityIdx = imageConfig.activityId - 1;
       const activityDuration = 1 / totalActivities;
       const activityStart = activityIdx * activityDuration;
-      const localProgress = Math.max(0, Math.min(1, (scrollProgress - activityStart) / activityDuration));
+      const localProgress = (scrollProgress - activityStart) / activityDuration;
 
-      config.images.forEach((imageConfig) => {
-        const imgElement = imageRefs.current.get(imageConfig.id);
-        if (!imgElement || !loadedImages.current.has(imageConfig.id)) return;
+      // Only animate if within range (-0.2 to 1.2 for smooth transitions)
+      if (localProgress < -0.2 || localProgress > 1.2) {
+        gsap.set(imgElement, { opacity: 0, visibility: 'hidden' });
+        return;
+      }
 
-        // Adjust progress based on image delay (stagger)
-        const delayedProgress = Math.max(0, Math.min(1, (localProgress - imageConfig.delay) / (1 - imageConfig.delay)));
+      gsap.set(imgElement, { visibility: 'visible' });
 
-        // Animation values based on progress phases
-        let scale: number;
-        let blur: number;
-        let opacity: number;
-        let rotation: number;
+      // Clamp progress for animation calculations
+      const clampedProgress = Math.max(0, Math.min(1, localProgress));
+      const delayedProgress = Math.max(0, Math.min(1, (clampedProgress - imageConfig.delay) / (1 - imageConfig.delay)));
 
-        if (delayedProgress < 0.2) {
-          // Enter phase: 0-20%
-          const t = delayedProgress / 0.2;
-          scale = 0.3 + 0.4 * t; // 0.3 to 0.7
-          blur = 20 - 12 * t; // 20 to 8
-          opacity = 0.3 + 0.3 * t; // 0.3 to 0.6
-          rotation = imageConfig.rotation * 0.3 * t; // Start rotating
-        } else if (delayedProgress < 0.5) {
-          // Focus phase: 20-50%
-          const t = (delayedProgress - 0.2) / 0.3;
-          scale = 0.7 + 0.3 * t; // 0.7 to 1.0
-          blur = 8 - 8 * t; // 8 to 0
-          opacity = 0.6 + 0.2 * t; // 0.6 to 0.8
-          rotation = imageConfig.rotation * (0.3 + 0.4 * t); // Continue rotating
-        } else if (delayedProgress < 0.8) {
-          // Exit start: 50-80%
-          const t = (delayedProgress - 0.5) / 0.3;
-          scale = 1.0 + 0.3 * t; // 1.0 to 1.3
-          blur = 5 * t; // 0 to 5
-          opacity = 0.8 - 0.3 * t; // 0.8 to 0.5
-          rotation = imageConfig.rotation * (0.7 + 0.2 * t); // More rotation
-        } else {
-          // Exit end: 80-100%
-          const t = (delayedProgress - 0.8) / 0.2;
-          scale = 1.3 + 0.3 * t; // 1.3 to 1.6
-          blur = 5 + 10 * t; // 5 to 15
-          opacity = 0.5 - 0.5 * t; // 0.5 to 0
-          rotation = imageConfig.rotation * (0.9 + 0.1 * t); // Full rotation
-        }
+      let scale: number;
+      let blur: number;
+      let opacity: number;
+      let rotation: number;
 
-        // Apply animations
-        gsap.set(imgElement, {
-          scale,
-          filter: `blur(${blur}px)`,
-          opacity,
-          rotation,
-          transformOrigin: 'center center',
-        });
+      if (delayedProgress < 0.2) {
+        const t = delayedProgress / 0.2;
+        scale = 0.3 + 0.4 * t;
+        blur = 20 - 12 * t;
+        opacity = 0.3 + 0.3 * t;
+        rotation = imageConfig.rotation * 0.3 * t;
+      } else if (delayedProgress < 0.5) {
+        const t = (delayedProgress - 0.2) / 0.3;
+        scale = 0.7 + 0.3 * t;
+        blur = 8 - 8 * t;
+        opacity = 0.6 + 0.2 * t;
+        rotation = imageConfig.rotation * (0.3 + 0.4 * t);
+      } else if (delayedProgress < 0.8) {
+        const t = (delayedProgress - 0.5) / 0.3;
+        scale = 1.0 + 0.3 * t;
+        blur = 5 * t;
+        opacity = 0.8 - 0.3 * t;
+        rotation = imageConfig.rotation * (0.7 + 0.2 * t);
+      } else {
+        const t = (delayedProgress - 0.8) / 0.2;
+        scale = 1.3 + 0.3 * t;
+        blur = 5 + 10 * t;
+        opacity = 0.5 - 0.5 * t;
+        rotation = imageConfig.rotation * (0.9 + 0.1 * t);
+      }
+
+      gsap.set(imgElement, {
+        scale,
+        filter: `blur(${blur}px)`,
+        opacity: Math.max(0, opacity),
+        rotation,
+        transformOrigin: 'center center',
       });
     });
-  }, [scrollProgress, activeIndex, totalActivities, visibleActivities]);
+  }, [scrollProgress, totalActivities, allImages]);
 
-  // Calculate position styles for an image
   const getPositionStyles = (position: ActivityImage['position']): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
       position: 'absolute',
       pointerEvents: 'none',
     };
 
-    // Horizontal positioning
     if (position.x === 'left') {
       baseStyles.left = `${5 + position.offsetX}%`;
     } else {
       baseStyles.right = `${5 + Math.abs(position.offsetX)}%`;
     }
 
-    // Vertical positioning
     if (position.y === 'top') {
       baseStyles.top = `${10 + position.offsetY}%`;
     } else {
@@ -202,45 +197,29 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
     loadedImages.current.add(imageId);
   };
 
-  const handleImageError = (imageId: string) => {
-    // Remove from refs if image fails to load
-    imageRefs.current.delete(imageId);
-  };
-
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 overflow-hidden pointer-events-none"
-      style={{ zIndex: 0 }}
-    >
-      {visibleActivities.map((activityIdx) => {
-        const config = activityImagesConfig.find((c) => c.activityId === activityIdx + 1);
-        if (!config) return null;
-
-        return config.images.map((imageConfig) => (
-          <img
-            key={imageConfig.id}
-            ref={(el) => {
-              if (el) {
-                imageRefs.current.set(imageConfig.id, el);
-              }
-            }}
-            src={imageConfig.src}
-            alt=""
-            onLoad={() => handleImageLoad(imageConfig.id)}
-            onError={() => handleImageError(imageConfig.id)}
-            className="w-[30vw] md:w-[35vw] lg:w-[40vw] max-w-[400px] h-auto object-cover rounded-2xl"
-            style={{
-              ...getPositionStyles(imageConfig.position),
-              opacity: 0,
-              transform: 'scale(0.3)',
-              filter: 'blur(20px)',
-              maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
-              WebkitMaskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
-            }}
-          />
-        ));
-      })}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+      {allImages.map((imageConfig) => (
+        <img
+          key={imageConfig.id}
+          ref={(el) => {
+            imageRefs.current[imageConfig.id] = el;
+          }}
+          src={imageConfig.src}
+          alt=""
+          onLoad={() => handleImageLoad(imageConfig.id)}
+          className="w-[30vw] md:w-[35vw] lg:w-[40vw] max-w-[400px] h-auto object-cover rounded-2xl"
+          style={{
+            ...getPositionStyles(imageConfig.position),
+            opacity: 0,
+            visibility: 'hidden',
+            transform: 'scale(0.3)',
+            filter: 'blur(20px)',
+            maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
+            WebkitMaskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
+          }}
+        />
+      ))}
     </div>
   );
 };
