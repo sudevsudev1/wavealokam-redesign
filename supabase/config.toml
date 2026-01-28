@@ -1,1 +1,7 @@
 project_id = "elnybcgxfjzabmrmhcrr"
+
+[functions.send-itinerary-email]
+verify_jwt = false
+
+[functions.send-quiz-email]
+verify_jwt = false
