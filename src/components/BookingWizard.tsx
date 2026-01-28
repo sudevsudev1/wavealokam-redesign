@@ -163,7 +163,7 @@ const BookingWizard = () => {
           }))} />
 
             {/* Day Planners */}
-            {bookingState.dayPlans.length > 0 && <div className="mb-24">
+            {bookingState.dayPlans.length > 0 && <div id="day-planner-section" className="mb-24">
                 <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
                   🗓️ Plan Your Days
                 </h3>
