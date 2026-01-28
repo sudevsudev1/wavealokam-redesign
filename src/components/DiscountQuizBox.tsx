@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 
 const DiscountQuizBox = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [answer1, setAnswer1] = useState('');
   const [answer2, setAnswer2] = useState('');
 
@@ -41,11 +42,12 @@ A2 : ${answer2 || '(Not answered)'}`;
 
   return (
     <div
-      className={`fixed right-4 z-[70] transition-all duration-300 ease-in-out
-        ${isExpanded ? 'opacity-100' : 'opacity-50 hover:opacity-100'}
+      className={`fixed right-4 transition-all duration-300 ease-in-out
+        ${isExpanded || isHovered ? 'z-[70] opacity-100' : 'z-[1] opacity-50 hover:opacity-100'}
       `}
       style={{ top: '33vh' }}
-      onMouseEnter={() => !isExpanded && setIsExpanded(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         className={`bg-gradient-to-br from-wave-orange/90 to-wave-orange rounded-xl shadow-2xl backdrop-blur-sm border border-white/20 overflow-hidden transition-all duration-300 ${
