@@ -24,10 +24,13 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 1,
     images: [
+      // 6 surfing images with adjusted pacing (delays: 0, 0.12, 0.24, 0.36, 0.48, 0.6)
       { id: 'surf-1', src: '/activities/surfing/1.jpg', position: { x: 'left', y: 'top', offsetX: 8, offsetY: 12 }, delay: 0, rotation: 12 },
-      { id: 'surf-2', src: '/activities/surfing/2.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -15 }, delay: 0.2, rotation: -8 },
-      { id: 'surf-3', src: '/activities/surfing/3.jpg', position: { x: 'left', y: 'bottom', offsetX: 12, offsetY: -8 }, delay: 0.4, rotation: 15 },
-      { id: 'surf-4', src: '/activities/surfing/4.jpg', position: { x: 'right', y: 'top', offsetX: -8, offsetY: 18 }, delay: 0.6, rotation: -12 },
+      { id: 'surf-2', src: '/activities/surfing/2.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -15 }, delay: 0.12, rotation: -8 },
+      { id: 'surf-3', src: '/activities/surfing/3.jpg', position: { x: 'left', y: 'bottom', offsetX: 12, offsetY: -8 }, delay: 0.24, rotation: 15 },
+      { id: 'surf-4', src: '/activities/surfing/4.jpg', position: { x: 'right', y: 'top', offsetX: -8, offsetY: 18 }, delay: 0.36, rotation: -12 },
+      { id: 'surf-5', src: '/activities/surfing/5.jpg', position: { x: 'left', y: 'top', offsetX: 15, offsetY: 20 }, delay: 0.48, rotation: 10 },
+      { id: 'surf-6', src: '/activities/surfing/6.jpg', position: { x: 'right', y: 'bottom', offsetX: -15, offsetY: -20 }, delay: 0.6, rotation: -15 },
     ],
   },
   {
