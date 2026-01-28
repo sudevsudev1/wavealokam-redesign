@@ -42,7 +42,7 @@ const RoomSelector = ({ rooms, guests, onRoomsChange }: RoomSelectorProps) => {
   ];
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-border shadow-sm">
+    <div id="room-selector-section" className="bg-white rounded-2xl p-6 border border-border shadow-sm">
       <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
         <Bed className="w-5 h-5 text-wave-orange" />
         Choose your rooms
