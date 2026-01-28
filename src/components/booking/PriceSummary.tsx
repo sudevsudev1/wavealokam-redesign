@@ -22,30 +22,29 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
     }
   };
 
-  // Scroll-based sticky logic - from itinerary section until footer
+  // Scroll-based sticky logic - from room selector until day planner bottom reaches viewport bottom
   useEffect(() => {
     const handleScroll = () => {
-      const itinerarySection = document.getElementById('itinerary');
       const roomSelector = document.getElementById('room-selector-section');
-      const footer = document.querySelector('footer');
+      const dayPlannerSection = document.getElementById('day-planner-section');
       
-      if (!itinerarySection) {
+      if (!roomSelector) {
         setShouldBeSticky(false);
         return;
       }
 
-      const roomRect = roomSelector?.getBoundingClientRect();
-      const footerRect = footer?.getBoundingClientRect();
+      const roomRect = roomSelector.getBoundingClientRect();
+      const dayPlannerRect = dayPlannerSection?.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
 
       // Start: When room selector enters view
-      const hasEnteredRoomSelector = roomRect ? roomRect.top < viewportHeight : false;
+      const hasEnteredRoomSelector = roomRect.top < viewportHeight;
       
-      // End: When footer enters view
-      const hasReachedFooter = footerRect ? footerRect.top <= viewportHeight : false;
+      // End: When day planner bottom reaches viewport bottom
+      const dayPlannerBottomReached = dayPlannerRect ? dayPlannerRect.bottom <= viewportHeight : false;
 
-      // Show sticky when room selector is in view and footer hasn't entered
-      const shouldShow = hasEnteredRoomSelector && !hasReachedFooter;
+      // Show sticky when room selector is in view and day planner bottom hasn't reached viewport bottom
+      const shouldShow = hasEnteredRoomSelector && !dayPlannerBottomReached;
       
       setShouldBeSticky(shouldShow);
     };
