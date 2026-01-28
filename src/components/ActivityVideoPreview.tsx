@@ -54,7 +54,9 @@ const ActivityVideoPreview = ({ src, poster, className = '' }: ActivityVideoPrev
           playsInline
           preload="auto"
           onCanPlayThrough={handleCanPlayThrough}
-          className="w-full h-full object-cover aspect-[9/16]"
+          className={`w-full h-full object-cover aspect-[9/16] transition-opacity duration-300 ${
+            isHovered ? 'opacity-100' : 'opacity-50'
+          }`}
         />
         
         {/* Loading overlay */}
