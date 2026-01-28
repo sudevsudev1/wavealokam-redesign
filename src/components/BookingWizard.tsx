@@ -124,64 +124,59 @@ const BookingWizard = () => {
 
         {/* Booking Wizard */}
         <div className="booking-wizard-card max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Selections */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Header Card */}
-              <div className="bg-gradient-to-r from-wave-orange to-orange-500 rounded-2xl p-6 shadow-xl shadow-wave-orange/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-white/90 rounded-xl shadow-md">
-                    <Calculator className="w-8 h-8 text-wave-orange" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white drop-shadow-sm">Itinerary Calculator</h3>
-                    <p className="text-white/90">Plan your perfect Varkala trip</p>
-                  </div>
+          <div className="space-y-6">
+            {/* Header Card */}
+            <div className="bg-gradient-to-r from-wave-orange to-orange-500 rounded-2xl p-6 shadow-xl shadow-wave-orange/20">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-white/90 rounded-xl shadow-md">
+                  <Calculator className="w-8 h-8 text-wave-orange" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white drop-shadow-sm">Itinerary Calculator</h3>
+                  <p className="text-white/90">Plan your perfect Varkala trip</p>
                 </div>
               </div>
-
-              {/* Date & Guest Selection */}
-              <DateGuestSelector checkIn={bookingState.checkIn} checkOut={bookingState.checkOut} guests={bookingState.guests} onCheckInChange={date => setBookingState(prev => ({
-              ...prev,
-              checkIn: date
-            }))} onCheckOutChange={date => setBookingState(prev => ({
-              ...prev,
-              checkOut: date
-            }))} onGuestsChange={guests => setBookingState(prev => ({
-              ...prev,
-              guests
-            }))} />
-
-              {/* Room Selection */}
-              <RoomSelector rooms={bookingState.rooms} guests={bookingState.guests} onRoomsChange={rooms => setBookingState(prev => ({
-              ...prev,
-              rooms
-            }))} />
-
-              {/* Scooter Selection */}
-              <ScooterSelector scooterDays={bookingState.scooterDays} maxDays={nights || 7} onScooterDaysChange={days => setBookingState(prev => ({
-              ...prev,
-              scooterDays: days
-            }))} />
-
-              {/* Day Planners */}
-              {bookingState.dayPlans.length > 0 && <div>
-                  <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-                    🗓️ Plan Your Days
-                  </h3>
-                  <div className="space-y-4">
-                    {bookingState.dayPlans.map((dayPlan, index) => <DayPlanner key={index} dayPlan={dayPlan} dayNumber={index + 1} totalDays={bookingState.dayPlans.length} guests={bookingState.guests} onUpdate={(slot, selection) => updateDayPlan(index, slot, selection)} animationDelay={index * 100} />)}
-                  </div>
-                </div>}
             </div>
 
-            {/* Right Column - Price Summary */}
-            <div className="lg:col-span-1">
-              <PriceSummary breakdown={breakdown} nights={nights} onBookNow={handleBookNow} isValid={!!isValid} bookingState={bookingState} />
-            </div>
+            {/* Date & Guest Selection */}
+            <DateGuestSelector checkIn={bookingState.checkIn} checkOut={bookingState.checkOut} guests={bookingState.guests} onCheckInChange={date => setBookingState(prev => ({
+            ...prev,
+            checkIn: date
+          }))} onCheckOutChange={date => setBookingState(prev => ({
+            ...prev,
+            checkOut: date
+          }))} onGuestsChange={guests => setBookingState(prev => ({
+            ...prev,
+            guests
+          }))} />
+
+            {/* Room Selection */}
+            <RoomSelector rooms={bookingState.rooms} guests={bookingState.guests} onRoomsChange={rooms => setBookingState(prev => ({
+            ...prev,
+            rooms
+          }))} />
+
+            {/* Scooter Selection */}
+            <ScooterSelector scooterDays={bookingState.scooterDays} maxDays={nights || 7} onScooterDaysChange={days => setBookingState(prev => ({
+            ...prev,
+            scooterDays: days
+          }))} />
+
+            {/* Day Planners */}
+            {bookingState.dayPlans.length > 0 && <div>
+                <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+                  🗓️ Plan Your Days
+                </h3>
+                <div className="space-y-4">
+                  {bookingState.dayPlans.map((dayPlan, index) => <DayPlanner key={index} dayPlan={dayPlan} dayNumber={index + 1} totalDays={bookingState.dayPlans.length} guests={bookingState.guests} onUpdate={(slot, selection) => updateDayPlan(index, slot, selection)} animationDelay={index * 100} />)}
+                </div>
+              </div>}
           </div>
         </div>
       </div>
+
+      {/* Price Summary - Rendered outside the container for proper fixed positioning */}
+      <PriceSummary breakdown={breakdown} nights={nights} onBookNow={handleBookNow} isValid={!!isValid} bookingState={bookingState} />
     </section>;
 };
 export default BookingWizard;
