@@ -35,6 +35,12 @@ const otas: OTA[] = [
 ];
 
 const StarRating = ({ rating, darkMode }: { rating: number; darkMode: boolean }) => {
+  // 5th star: 100% for perfect 5, 90% for all others
+  const getFillWidth = (starIndex: number) => {
+    if (starIndex < 4) return '100%';
+    return rating === 5 ? '100%' : '90%';
+  };
+
   return (
     <div className="flex items-center gap-0.5">
       {[...Array(5)].map((_, i) => (
@@ -45,8 +51,8 @@ const StarRating = ({ rating, darkMode }: { rating: number; darkMode: boolean })
               darkMode ? "text-white/30" : "text-wave-orange/30"
             }`}
           />
-          {/* Foreground star (95% filled for all) */}
-          <div className="absolute overflow-hidden" style={{ width: '95%' }}>
+          {/* Foreground star */}
+          <div className="absolute overflow-hidden" style={{ width: getFillWidth(i) }}>
             <Star
               className={`w-3 h-3 ${
                 darkMode ? "text-white fill-white" : "text-wave-orange fill-wave-orange"
