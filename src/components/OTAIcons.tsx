@@ -35,28 +35,25 @@ const otas: OTA[] = [
 ];
 
 const StarRating = ({ rating, darkMode }: { rating: number; darkMode: boolean }) => {
-  const fullStars = Math.floor(rating);
-  const hasHalfStar = rating % 1 >= 0.5;
-
   return (
     <div className="flex items-center gap-0.5">
       {[...Array(5)].map((_, i) => (
-        <Star
-          key={i}
-          className={`w-3 h-3 ${
-            darkMode
-              ? i < fullStars
-                ? "text-white fill-white"
-                : i === fullStars && hasHalfStar
-                  ? "text-white fill-white/50"
-                  : "text-white/30"
-              : i < fullStars
-                ? "text-wave-orange fill-wave-orange"
-                : i === fullStars && hasHalfStar
-                  ? "text-wave-orange fill-wave-orange/50"
-                  : "text-wave-orange/30"
-          }`}
-        />
+        <div key={i} className="relative w-3 h-3">
+          {/* Background star (unfilled) */}
+          <Star
+            className={`absolute w-3 h-3 ${
+              darkMode ? "text-white/30" : "text-wave-orange/30"
+            }`}
+          />
+          {/* Foreground star (95% filled for all) */}
+          <div className="absolute overflow-hidden" style={{ width: '95%' }}>
+            <Star
+              className={`w-3 h-3 ${
+                darkMode ? "text-white fill-white" : "text-wave-orange fill-wave-orange"
+              }`}
+            />
+          </div>
+        </div>
       ))}
       <span className={`ml-1 text-xs ${darkMode ? "text-white/80" : "text-foreground/80"}`}>{rating}/5</span>
     </div>
