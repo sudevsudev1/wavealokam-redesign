@@ -2,72 +2,51 @@ import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import ScrollVideo from './ScrollVideo';
 import OTAIcons from './OTAIcons';
-
 const HeroSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-
   useEffect(() => {
     setIsLoaded(true);
-    
     const ctx = gsap.context(() => {
       // Animation timeline
-      const tl = gsap.timeline({ delay: 0.3 });
+      const tl = gsap.timeline({
+        delay: 0.3
+      });
 
       // Title fades in
       tl.from('.hero-title', {
         opacity: 0,
         y: 50,
         duration: 1,
-        ease: 'power3.out',
+        ease: 'power3.out'
       })
-        // Subtitle fades in
-        .from(
-          '.hero-subtitle',
-          {
-            opacity: 0,
-            y: 30,
-            duration: 0.8,
-            ease: 'power3.out',
-          },
-          '-=0.5'
-        )
-        // Surfboard slides in from bottom
-        .from(
-          '.hero-surfboard',
-          {
-            opacity: 0,
-            y: 200,
-            duration: 1.2,
-            ease: 'power3.out',
-          },
-          '-=0.3'
-        )
-        // OTA icons fade in
-        .from(
-          '.hero-ota',
-          {
-            opacity: 0,
-            y: 30,
-            duration: 0.8,
-            ease: 'power3.out',
-          },
-          '-=0.5'
-        );
+      // Subtitle fades in
+      .from('.hero-subtitle', {
+        opacity: 0,
+        y: 30,
+        duration: 0.8,
+        ease: 'power3.out'
+      }, '-=0.5')
+      // Surfboard slides in from bottom
+      .from('.hero-surfboard', {
+        opacity: 0,
+        y: 200,
+        duration: 1.2,
+        ease: 'power3.out'
+      }, '-=0.3')
+      // OTA icons fade in
+      .from('.hero-ota', {
+        opacity: 0,
+        y: 30,
+        duration: 0.8,
+        ease: 'power3.out'
+      }, '-=0.5');
     }, sectionRef);
-
     return () => ctx.revert();
   }, []);
-
-  return (
-    <section
-      ref={sectionRef}
-      id="hero"
-      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, hsl(33, 100%, 50%) 0%, hsl(38, 100%, 54%) 100%)',
-      }}
-    >
+  return <section ref={sectionRef} id="hero" className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden" style={{
+    background: 'linear-gradient(135deg, hsl(33, 100%, 50%) 0%, hsl(38, 100%, 54%) 100%)'
+  }}>
       {/* Logo with Etymology */}
       <div className="absolute top-6 left-6 z-20 max-w-[280px] md:max-w-sm">
         <div className="text-white">
@@ -87,7 +66,7 @@ const HeroSection = () => {
         </h1>
 
         <p className="hero-subtitle text-lg md:text-xl lg:text-2xl text-white/90 font-medium mb-8 max-w-2xl mx-auto px-4">
-          You can walk barefoot here. Emotionally and literally.
+          Booking a room at Wavealokam is easier than catching a wave. And we will teach you that too.                 
         </p>
 
         {/* OTA Ratings */}
@@ -108,8 +87,6 @@ const HeroSection = () => {
           <div className="w-1.5 h-3 bg-white/70 rounded-full animate-bounce" />
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
-
 export default HeroSection;
