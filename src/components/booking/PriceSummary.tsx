@@ -14,7 +14,6 @@ interface PriceSummaryProps {
 
 const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: PriceSummaryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [shouldBeSticky, setShouldBeSticky] = useState(false);
 
   const handleExportPdf = () => {
@@ -23,11 +22,12 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
     }
   };
 
-  // Scroll-based sticky logic - active throughout itinerary section
+  // Scroll-based sticky logic - from itinerary section until footer
   useEffect(() => {
     const handleScroll = () => {
       const itinerarySection = document.getElementById('itinerary');
       const roomSelector = document.getElementById('room-selector-section');
+      const footer = document.querySelector('footer');
       
       if (!itinerarySection || !roomSelector) {
         setShouldBeSticky(false);
@@ -36,15 +36,18 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
 
       const itineraryRect = itinerarySection.getBoundingClientRect();
       const roomRect = roomSelector.getBoundingClientRect();
+      const footerRect = footer?.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
 
       // Should be sticky when:
-      // 1. Itinerary section is in view (top is above viewport bottom, bottom is below viewport top)
+      // 1. Itinerary section top is above viewport (scrolled into itinerary)
       // 2. Room selector top hasn't reached the top of viewport yet
-      const isItineraryInView = itineraryRect.top < viewportHeight && itineraryRect.bottom > 0;
+      // 3. Footer hasn't entered the viewport yet
+      const isScrolledIntoItinerary = itineraryRect.top < viewportHeight * 0.5;
       const isRoomSelectorBelowTop = roomRect.top > 0;
+      const isFooterNotInView = !footerRect || footerRect.top > viewportHeight;
 
-      setShouldBeSticky(isItineraryInView && isRoomSelectorBelowTop);
+      setShouldBeSticky(isScrolledIntoItinerary && isRoomSelectorBelowTop && isFooterNotInView);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -52,12 +55,6 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  // Determine opacity based on state
-  const getOpacity = () => {
-    if (isExpanded || isHovered) return 1;
-    return 0.5;
-  };
 
   return (
     <>
@@ -68,12 +65,6 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
             ? 'fixed bottom-0 left-0 right-0 z-50' 
             : ''
         }`}
-        style={{ 
-          opacity: shouldBeSticky ? getOpacity() : 1,
-          transition: 'opacity 0.3s ease'
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <div className={`bg-background border-t border-border shadow-2xl ${shouldBeSticky ? '' : 'rounded-2xl border shadow-lg'}`}>
