@@ -66,6 +66,7 @@ const SurfboardScrollSection = () => {
   return (
     <section
       ref={sectionRef}
+      id="surfboard-scroll-section"
       className="relative min-h-[200vh] bg-wave-orange overflow-hidden"
     >
       {/* Background gradient overlay */}

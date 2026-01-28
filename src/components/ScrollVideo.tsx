@@ -177,6 +177,7 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
   return (
     <div 
       ref={containerRef} 
+      id="scroll-video-section"
       className={`relative w-screen h-[60vh] md:h-[70vh] overflow-hidden ${className}`}
     >
       {/* Canvas for instant frame rendering */}

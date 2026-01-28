@@ -9,16 +9,43 @@ const DiscountQuizBox = () => {
   const [answer1, setAnswer1] = useState('');
   const [answer2, setAnswer2] = useState('');
   const [isOverlappingText, setIsOverlappingText] = useState(false);
+  const [isOverHiddenSection, setIsOverHiddenSection] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const checkTextOverlap = useCallback(() => {
-    if (!boxRef.current || isExpanded || isHovered) return;
+  const checkOverlap = useCallback(() => {
+    if (!boxRef.current) return;
 
     const boxRect = boxRef.current.getBoundingClientRect();
     const boxTop = boxRect.top;
     const boxBottom = boxRect.bottom;
     const boxLeft = boxRect.left;
     const boxRight = boxRect.right;
+
+    // Check if overlapping with hidden sections (scroll video, surf.feast.explore, activities)
+    const hiddenSectionSelectors = [
+      '#scroll-video-section',
+      '#surfboard-scroll-section', 
+      '#activities'
+    ];
+    
+    let overHiddenSection = false;
+    hiddenSectionSelectors.forEach((selector) => {
+      const section = document.querySelector(selector);
+      if (section) {
+        const sectionRect = section.getBoundingClientRect();
+        const verticalOverlap = !(sectionRect.bottom < boxTop || sectionRect.top > boxBottom);
+        if (verticalOverlap) {
+          overHiddenSection = true;
+        }
+      }
+    });
+    setIsOverHiddenSection(overHiddenSection);
+
+    // Skip text overlap check if expanded or hovered
+    if (isExpanded || isHovered) {
+      setIsOverlappingText(false);
+      return;
+    }
 
     // Get all text-containing elements
     const textSelectors = 'h1, h2, h3, h4, h5, h6, p, span, a, li, label, button';
@@ -48,26 +75,28 @@ const DiscountQuizBox = () => {
   }, [isExpanded, isHovered]);
 
   useEffect(() => {
-    checkTextOverlap();
+    checkOverlap();
     
-    const handleScroll = () => checkTextOverlap();
-    const handleResize = () => checkTextOverlap();
+    const handleScroll = () => checkOverlap();
+    const handleResize = () => checkOverlap();
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', handleResize);
 
     // Check periodically in case of dynamic content
-    const interval = setInterval(checkTextOverlap, 500);
+    const interval = setInterval(checkOverlap, 500);
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
       clearInterval(interval);
     };
-  }, [checkTextOverlap]);
+  }, [checkOverlap]);
 
   // Determine opacity based on state
   const getOpacityClass = () => {
+    // Always hide over specific sections (unless expanded/hovered)
+    if (!isExpanded && !isHovered && isOverHiddenSection) return 'opacity-0';
     if (isExpanded || isHovered) return 'opacity-100';
     if (isOverlappingText) return 'opacity-0';
     return 'opacity-50 hover:opacity-100';
