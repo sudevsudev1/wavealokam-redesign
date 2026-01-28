@@ -107,8 +107,7 @@ A2 : ${answer2 || '(Not answered)'}`;
   return (
     <div
       ref={boxRef}
-      className={`fixed right-4 transition-all duration-300 ease-in-out
-        ${isExpanded || isHovered ? 'z-[70]' : 'z-[1]'} ${getOpacityClass()}
+      className={`fixed right-4 transition-all duration-300 ease-in-out z-[70] ${getOpacityClass()}
       `}
       style={{ top: '33vh' }}
       onMouseEnter={() => setIsHovered(true)}
