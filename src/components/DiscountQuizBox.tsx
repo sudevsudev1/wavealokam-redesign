@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, MessageCircle, Mail } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,68 @@ const DiscountQuizBox = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [answer1, setAnswer1] = useState('');
   const [answer2, setAnswer2] = useState('');
+  const [isOverlappingText, setIsOverlappingText] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const checkTextOverlap = useCallback(() => {
+    if (!boxRef.current || isExpanded || isHovered) return;
+
+    const boxRect = boxRef.current.getBoundingClientRect();
+    const boxTop = boxRect.top;
+    const boxBottom = boxRect.bottom;
+    const boxLeft = boxRect.left;
+
+    // Get all text-containing elements
+    const textSelectors = 'h1, h2, h3, h4, h5, h6, p, span, a, li, label, button';
+    const textElements = document.querySelectorAll(textSelectors);
+
+    let hasOverlap = false;
+
+    textElements.forEach((element) => {
+      if (boxRef.current?.contains(element)) return; // Skip elements inside the quiz box
+      
+      const rect = element.getBoundingClientRect();
+      const elementText = element.textContent?.trim();
+      
+      // Check if element has visible text and overlaps vertically
+      if (elementText && rect.width > 0 && rect.height > 0) {
+        const verticalOverlap = !(rect.bottom < boxTop || rect.top > boxBottom);
+        const horizontalOverlap = rect.right > boxLeft - 50; // Check if text extends near the box
+        
+        if (verticalOverlap && horizontalOverlap) {
+          hasOverlap = true;
+        }
+      }
+    });
+
+    setIsOverlappingText(hasOverlap);
+  }, [isExpanded, isHovered]);
+
+  useEffect(() => {
+    checkTextOverlap();
+    
+    const handleScroll = () => checkTextOverlap();
+    const handleResize = () => checkTextOverlap();
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleResize);
+
+    // Check periodically in case of dynamic content
+    const interval = setInterval(checkTextOverlap, 500);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+      clearInterval(interval);
+    };
+  }, [checkTextOverlap]);
+
+  // Determine opacity based on state
+  const getOpacityClass = () => {
+    if (isExpanded || isHovered) return 'opacity-100';
+    if (isOverlappingText) return 'opacity-0';
+    return 'opacity-50 hover:opacity-100';
+  };
 
   const whatsappNumber = '+919539800445';
   
@@ -42,8 +104,9 @@ A2 : ${answer2 || '(Not answered)'}`;
 
   return (
     <div
+      ref={boxRef}
       className={`fixed right-4 transition-all duration-300 ease-in-out
-        ${isExpanded || isHovered ? 'z-[70] opacity-100' : 'z-[1] opacity-50 hover:opacity-100'}
+        ${isExpanded || isHovered ? 'z-[70]' : 'z-[1]'} ${getOpacityClass()}
       `}
       style={{ top: '33vh' }}
       onMouseEnter={() => setIsHovered(true)}
