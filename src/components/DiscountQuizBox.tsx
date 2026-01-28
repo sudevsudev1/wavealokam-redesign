@@ -102,7 +102,7 @@ const DiscountQuizBox = () => {
     return 'opacity-50 hover:opacity-100';
   };
 
-  const whatsappNumber = '+919539800445';
+  const whatsappNumber = '+919323858013';
   
   const getWhatsAppMessage = () => {
     const message = `Hey Wavealokam! I answered your two stupid questions. Now give me my discount 😂
@@ -130,7 +130,7 @@ A2 : ${answer2 || '(Not answered)'}`;
   };
 
   const handleEmailClick = () => {
-    window.location.href = `mailto:wavealokam@gmail.com?subject=${getEmailSubject()}&body=${getEmailBody()}`;
+    window.location.href = `mailto:sudev@wavealokam.com?subject=${getEmailSubject()}&body=${getEmailBody()}`;
   };
 
   return (

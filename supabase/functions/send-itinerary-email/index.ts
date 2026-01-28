@@ -123,11 +123,11 @@ ${itineraryDetails}
       content: pdfBase64,
     }] : [];
 
-    console.log("Sending email to wavealokam@gmail.com with attachment:", pdfFileName);
+    console.log("Sending email to sudev@wavealokam.com with attachment:", pdfFileName);
 
     const emailResponse = await sendEmail({
       from: "Wavealokam Itinerary <onboarding@resend.dev>",
-      to: ["wavealokam@gmail.com"],
+      to: ["sudev@wavealokam.com"],
       subject: `New Itinerary Request from ${guestName}`,
       html: emailHtml,
       attachments,
