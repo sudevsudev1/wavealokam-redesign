@@ -18,6 +18,7 @@ const DiscountQuizBox = () => {
     const boxTop = boxRect.top;
     const boxBottom = boxRect.bottom;
     const boxLeft = boxRect.left;
+    const boxRight = boxRect.right;
 
     // Get all text-containing elements
     const textSelectors = 'h1, h2, h3, h4, h5, h6, p, span, a, li, label, button';
@@ -31,10 +32,11 @@ const DiscountQuizBox = () => {
       const rect = element.getBoundingClientRect();
       const elementText = element.textContent?.trim();
       
-      // Check if element has visible text and overlaps vertically
+      // Check if element has visible text and overlaps both vertically AND horizontally
       if (elementText && rect.width > 0 && rect.height > 0) {
         const verticalOverlap = !(rect.bottom < boxTop || rect.top > boxBottom);
-        const horizontalOverlap = rect.right > boxLeft - 50; // Check if text extends near the box
+        // Only count as overlap if text actually extends INTO the box area (not just near it)
+        const horizontalOverlap = rect.right > boxLeft && rect.left < boxRight;
         
         if (verticalOverlap && horizontalOverlap) {
           hasOverlap = true;
