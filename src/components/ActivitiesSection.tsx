@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Waves, Utensils, Mountain, Anchor, Palmtree, Moon, Wine, Coffee } from 'lucide-react';
+import ActivityParallaxImages from './ActivityParallaxImages';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -76,6 +77,7 @@ const ActivitiesSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -93,6 +95,7 @@ const ActivitiesSection = () => {
       scrub: 0.5,
       onUpdate: (self) => {
         const progress = self.progress;
+        setScrollProgress(progress);
         const newIndex = Math.min(
           Math.floor(progress * activities.length),
           activities.length - 1
@@ -135,10 +138,18 @@ const ActivitiesSection = () => {
         background: 'linear-gradient(180deg, hsl(33, 100%, 50%) 0%, hsl(275, 100%, 25%) 100%)',
       }}
     >
+      {/* Parallax Background Images */}
+      <ActivityParallaxImages
+        scrollProgress={scrollProgress}
+        activeIndex={activeIndex}
+        totalActivities={activities.length}
+      />
+
       {/* 3D Perspective Container */}
       <div
         ref={containerRef}
         className="absolute inset-0 flex items-center justify-center perspective-1000"
+        style={{ zIndex: 10 }}
       >
         <div className="relative w-full max-w-6xl mx-auto px-4 preserve-3d">
           {/* Activity Cards */}
