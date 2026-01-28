@@ -1,57 +1,139 @@
 
-# Hover-Play Video Previews for Activities Section
+
+# Parallax Blur-Zoom Image Gallery for Activities Section
 
 ## Overview
-Add responsive hover-activated video previews between the "EXPLORE." text and the Activities section. Videos will be paused initially, play on hover, pause on mouse leave (remembering playback position), and resume on subsequent hovers.
+Add a cinematic parallax image gallery to the Activities section where 3-4 images per activity animate with scroll. Images start small and blurred, zoom in and rotate in any one direction while sharpening to full focus, then continue growing with increasing blur and rotation in the same direction as they exit the viewport. Each image appears at a randomized screen position, creating a dynamic, layered visual experience without obscuring the text content. on scrolling up the exact reverse of this should happen.
 
-## Layout Requirements
+## Animation Lifecycle (Per Image)
 
-| Device | Videos Shown | Arrangement |
-|--------|-------------|-------------|
-| Desktop (1024px+) | 3 videos | Side by side |
-| Tablet (768px - 1023px) | 2 videos | Left + Middle videos |
-| Mobile (< 768px) | 1 video | Left video only |
+```text
++------------------+------------------+------------------+
+|     ENTER        |      FOCUS       |       EXIT       |
++------------------+------------------+------------------+
+| Scale: 0.3       | Scale: 1.0       | Scale: 1.5+      |
+| Blur: 20px       | Blur: 0px        | Blur: 10px       |
+| Opacity: 0.3     | Opacity: 0.8     | Opacity: 0        |
+| Position: Random | Position: Stable | Position: Drift  |
++------------------+------------------+------------------+
+       ^                   ^                  ^
+       |                   |                  |
+   Scroll 0%           Scroll 50%         Scroll 100%
+```
 
-## Technical Approach
+## Image Positioning Strategy
 
-### 1. New Component: `ActivityVideoPreview.tsx`
+To avoid covering text, images will be positioned in "safe zones":
+- **Corners**: Top-left, top-right, bottom-left, bottom-right
+- **Side edges**: Far left, far right
+- **Behind content**: Lower z-index with reduced opacity
 
-Create a reusable video preview component with:
-- **Hover state management**: Track when mouse enters/leaves
-- **Playback control**: Play on hover, pause on leave (no reset to start)
-- **Preloading**: Videos loaded with `preload="auto"` and buffered after hero sequence completes
-- **Visual polish**: Rounded corners, subtle drop shadow, gradient overlay at edges
+Each image will have a pre-defined position offset within these zones, with slight randomization for organic feel.
 
-### 2. New Component: `ActivityVideosRow.tsx`
+## Technical Architecture
 
-Container component that:
-- Holds the 3 video sources (configurable)
-- Manages responsive display using Tailwind breakpoints
-- Handles staggered preload initiation after `ScrollVideo` completes
-- Applies consistent spacing and alignment
+### 1. New Component: `ActivityParallaxImages.tsx`
 
-### 3. Integration in `SurfboardScrollSection.tsx`
+Manages all parallax images for the entire Activities section:
+- Receives the current scroll progress and active activity index
+- Renders image layers for the active activity (plus transitioning ones)
+- Handles GSAP timeline for each image's blur/scale/position animation
 
-Insert the video row after the "EXPLORE." message:
-- Position below the third scroll message
-- Use GSAP fade-in animation as user scrolls into view
-- Blend seamlessly with the orange-to-purple background gradient
+### 2. Data Structure for Activity Images
 
-### 4. Performance Optimizations
+```text
+interface ActivityImage {
+  id: string;
+  src: string;              // Path like /activities/surfing/1.jpg
+  position: {
+    x: 'left' | 'right';    // Horizontal safe zone
+    y: 'top' | 'bottom';    // Vertical safe zone
+    offsetX: number;        // Percentage offset (-20 to 20)
+    offsetY: number;        // Percentage offset (-20 to 20)
+  };
+  delay: number;            // Stagger timing (0, 0.25, 0.5, 0.75)
+}
 
-To ensure instant playback without lag:
-- Use `preload="auto"` on video elements
-- Trigger video buffer loading after hero frame sequence is marked as loaded
-- Consider adding a global video preload context to coordinate loading
-- Use `video.play()` with promise handling for smooth start
-- Apply `playsinline` and `muted` attributes for autoplay compatibility
+interface ActivityImagesConfig {
+  activityId: number;
+  images: ActivityImage[];
+}
+```
 
-### 5. Visual Styling
+### 3. GSAP Animation Timeline
 
-- **Container**: Glass-morphism effect with `bg-white/10 backdrop-blur-sm`
-- **Video frames**: `rounded-2xl overflow-hidden` with `shadow-2xl`
-- **Hover effect**: Subtle scale transform `scale-105` on hover
-- **Gradient blending**: Top/bottom gradients matching section background
+For each image within an activity's scroll segment:
+- **0-20% progress**: Fade in from blur, scale 0.3 to 0.7
+- **20-50% progress**: Continue scaling 0.7 to 1.0, blur reduces to 0
+- **50-80% progress**: Scale 1.0 to 1.3, blur increases to 5px
+- **80-100% progress**: Scale 1.3 to 1.6, blur to 15px, opacity to 0
+
+Images are staggered within each activity segment so they don't all animate simultaneously.
+
+### 4. Modifications to `ActivitiesSection.tsx`
+
+- Import and integrate `ActivityParallaxImages` component
+- Pass current scroll progress and activeIndex to the parallax component
+- Images render behind the text content (lower z-index)
+- Ensure images have pointer-events: none to prevent interaction interference
+
+## File Structure for Images
+
+```text
+public/
+  activities/
+    surfing/
+      1.jpg
+      2.jpg
+      3.jpg
+      4.jpg (optional)
+    rooftop-dinner/
+      1.jpg
+      2.jpg
+      3.jpg
+    sree-eight-beach/
+      1.jpg
+      2.jpg
+      3.jpg
+    chechis-breakfast/
+      1.jpg
+      2.jpg
+      3.jpg
+    mangrove-adventures/
+      1.jpg
+      2.jpg
+      3.jpg
+    toddy/
+      1.jpg
+      2.jpg
+      3.jpg
+    jatayu/
+      1.jpg
+      2.jpg
+      3.jpg
+    north-cliff-nightlife/
+      1.jpg
+      2.jpg
+      3.jpg
+```
+
+## Visual Blending Techniques
+
+1. **Reduced opacity**: Max opacity of 0.7 ensures text remains readable
+2. **Soft edges**: CSS mask or radial gradient fade at image borders
+3. **Color tint**: Subtle hue overlay matching the background gradient
+4. **Lower z-index**: Images render behind text (z-index: 0 vs text at z-index: 10)
+5. **Size constraints**: Images max out at 40% of viewport width to avoid dominating
+
+## Responsive Considerations
+
+| Device | Max Image Size | Visible Images |
+|--------|----------------|----------------|
+| Desktop | 40vw | 4 images |
+| Tablet | 35vw | 3 images |
+| Mobile | 50vw | 2 images |
+
+On mobile, fewer images display simultaneously to prevent visual overload.
 
 ---
 
@@ -59,56 +141,56 @@ To ensure instant playback without lag:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/components/ActivityVideoPreview.tsx` | Create | Single video component with hover play/pause logic |
-| `src/components/ActivityVideosRow.tsx` | Create | Responsive container for 3 videos with preload coordination |
-| `src/components/SurfboardScrollSection.tsx` | Modify | Add video row after "EXPLORE." with GSAP animation |
-| `src/index.css` | Modify | Add any custom utility classes for video hover effects |
-| `public/videos/` | User action | User needs to add 3 vertical video files (left, middle, right) |
+| `src/components/ActivityParallaxImages.tsx` | Create | Core parallax image component with GSAP animations |
+| `src/components/ActivitiesSection.tsx` | Modify | Integrate parallax images, pass scroll progress |
+| `public/activities/surfing/` | User action | Add 3-4 surfing images |
+| `public/activities/.../` | User action | Add images for remaining activities |
 
 ---
 
 ## Technical Details
 
-### Video Component Props
+### Scroll Progress Calculation
+
+Each activity occupies `1/8` of the total scroll (12.5%). Within each segment:
+- Local progress 0-1 calculated as: `(globalProgress - activityStart) / activityDuration`
+- Images use this local progress for their individual timelines
+
+### Safe Zone Positions
+
 ```text
-interface ActivityVideoPreviewProps {
-  src: string;           // Video file path
-  poster?: string;       // Optional poster image for initial state
-  className?: string;    // Additional styling
-}
++--------+----------------+--------+
+|  TL    |                |   TR   |
+|        |     TEXT       |        |
+|  L     |    CONTENT     |    R   |
+|        |    (SAFE)      |        |
+|  BL    |                |   BR   |
++--------+----------------+--------+
+
+Position mapping:
+- TL: { x: 'left', y: 'top', offsetX: 5-15%, offsetY: 5-20% }
+- TR: { x: 'right', y: 'top', offsetX: -5 to -15%, offsetY: 5-20% }
+- BL: { x: 'left', y: 'bottom', offsetX: 5-15%, offsetY: -5 to -20% }
+- BR: { x: 'right', y: 'bottom', offsetX: -5 to -15%, offsetY: -5 to -20% }
 ```
 
-### Responsive Visibility Logic
+### CSS Filter Animation
+
+GSAP will animate the `filter` property:
 ```text
-- Left video: Always visible (block)
-- Middle video: Hidden on mobile (hidden md:block)
-- Right video: Hidden on mobile and tablet (hidden lg:block)
+filter: blur(20px) → blur(0px) → blur(15px)
 ```
 
-### Hover Event Handling
-```text
-onMouseEnter -> video.play()
-onMouseLeave -> video.pause() (preserves currentTime)
-```
-
-### Preload Coordination
-The videos will begin loading after the hero sequence completes. This can be achieved by:
-1. Exposing a callback from `ScrollVideo` when loading completes
-2. Using a shared state/context
-3. Using a simple delay after page load (fallback approach)
+Combined with `scale` and `opacity` transforms for the full effect.
 
 ---
 
 ## User Action Required
 
-You will need to provide 3 vertical video files to place in `public/videos/`:
-- `activity-left.mp4` (shown on all devices)
-- `activity-middle.mp4` (shown on tablet and desktop)
-- `activity-right.mp4` (shown on desktop only)
+You will need to upload 3-4 images for each activity. Start with surfing images, and I'll integrate them into the parallax system. Recommended specs:
 
-Recommended video specs:
-- Aspect ratio: 9:16 (vertical/portrait)
-- Resolution: 720x1280 or 1080x1920
-- Duration: 5-15 seconds (looped)
-- Format: MP4 with H.264 codec
-- File size: Under 5MB each for fast loading
+- **Format**: JPG or WebP (for smaller file sizes)
+- **Resolution**: 800x1200 or similar (portrait orientation works best)
+- **File size**: Under 200KB each for fast loading
+- **Content**: Action shots, landscapes, or atmospheric photos that complement each activity
+
