@@ -29,25 +29,29 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
       const roomSelector = document.getElementById('room-selector-section');
       const footer = document.querySelector('footer');
       
-      if (!itinerarySection || !roomSelector) {
+      if (!itinerarySection) {
         setShouldBeSticky(false);
         return;
       }
 
       const itineraryRect = itinerarySection.getBoundingClientRect();
-      const roomRect = roomSelector.getBoundingClientRect();
+      const roomRect = roomSelector?.getBoundingClientRect();
       const footerRect = footer?.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
 
-      // Should be sticky when:
-      // 1. Itinerary section top is above viewport (scrolled into itinerary)
-      // 2. Room selector top hasn't reached the top of viewport yet
-      // 3. Footer hasn't entered the viewport yet
-      const isScrolledIntoItinerary = itineraryRect.top < viewportHeight * 0.5;
-      const isRoomSelectorBelowTop = roomRect.top > 0;
-      const isFooterNotInView = !footerRect || footerRect.top > viewportHeight;
+      // Start: When itinerary section's top edge crosses into upper half of viewport
+      const hasEnteredItinerary = itineraryRect.top < viewportHeight * 0.7;
+      
+      // End condition 1: Room selector's top edge reaches top of viewport
+      const hasReachedRoomSelector = roomRect ? roomRect.top <= 100 : false;
+      
+      // End condition 2: Footer has entered viewport
+      const hasReachedFooter = footerRect ? footerRect.top <= viewportHeight : false;
 
-      setShouldBeSticky(isScrolledIntoItinerary && isRoomSelectorBelowTop && isFooterNotInView);
+      // Show sticky when we've entered itinerary and haven't reached either end point
+      const shouldShow = hasEnteredItinerary && !hasReachedRoomSelector && !hasReachedFooter;
+      
+      setShouldBeSticky(shouldShow);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
