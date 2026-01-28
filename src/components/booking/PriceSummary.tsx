@@ -18,7 +18,7 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
   };
 
   return (
-    <div className="sticky top-24 bg-white rounded-2xl p-6 border border-border shadow-lg">
+    <div className="md:sticky md:top-24 bg-white rounded-2xl p-6 border border-border shadow-lg">
       <h3 className="text-xl font-bold text-foreground mb-4">Price Estimate</h3>
       
       <div className="space-y-3 mb-6">
