@@ -39,17 +39,17 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
       const footerRect = footer?.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
 
-      // Start: When itinerary section's top edge crosses into upper half of viewport
-      const hasEnteredItinerary = itineraryRect.top < viewportHeight * 0.7;
+      // Start: When itinerary section enters 10% of viewport
+      const hasEnteredItinerary = itineraryRect.top < viewportHeight * 0.9;
       
-      // End condition 1: Room selector's top edge reaches top of viewport
-      const hasReachedRoomSelector = roomRect ? roomRect.top <= 100 : false;
+      // End condition 1: Room selector's bottom edge reaches bottom of viewport
+      const hasRoomSelectorReachedBottom = roomRect ? roomRect.bottom <= viewportHeight : false;
       
       // End condition 2: Footer has entered viewport
       const hasReachedFooter = footerRect ? footerRect.top <= viewportHeight : false;
 
       // Show sticky when we've entered itinerary and haven't reached either end point
-      const shouldShow = hasEnteredItinerary && !hasReachedRoomSelector && !hasReachedFooter;
+      const shouldShow = hasEnteredItinerary && !hasRoomSelectorReachedBottom && !hasReachedFooter;
       
       setShouldBeSticky(shouldShow);
     };
