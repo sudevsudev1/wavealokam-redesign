@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import ActivityVideosRow from './ActivityVideosRow';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -89,7 +90,10 @@ const SurfboardScrollSection = () => {
         ))}
       </div>
 
-      {/* Removed wave pattern overlay that was causing vertical line artifact */}
+      {/* Activity Video Previews - hover to play */}
+      <div className="relative z-10 py-16 sm:py-24">
+        <ActivityVideosRow />
+      </div>
     </section>
   );
 };
