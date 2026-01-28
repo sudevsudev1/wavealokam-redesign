@@ -126,7 +126,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       trigger: surfboardSection,
       start: 'bottom bottom', // When bottom of videos section hits bottom of viewport
       endTrigger: activitiesSection,
-      end: () => `top+=${window.innerHeight * 0.5} top`, // End when Activity 1 is finishing
+      end: () => `top+=${window.innerHeight} top`, // End when Surfing text transitions to Rooftop Dinner
       scrub: true,
       onUpdate: (self) => {
         setSurfingScrollProgress(self.progress);
