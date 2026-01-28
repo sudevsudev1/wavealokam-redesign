@@ -92,7 +92,7 @@ const BookingWizard = () => {
 
   const handleBookNow = () => {
     const message = generateWhatsAppMessage(bookingState, breakdown, guestDetails);
-    window.open(`https://wa.me/+918606164606?text=${message}`, '_blank');
+    window.open(`https://wa.me/+919323858013?text=${message}`, '_blank');
   };
 
   useEffect(() => {
