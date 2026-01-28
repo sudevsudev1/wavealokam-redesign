@@ -9,28 +9,28 @@ interface OTA {
 const otas: OTA[] = [
   {
     name: "Google",
-    rating: 4.9,
-    url: "https://www.google.com/travel/search?q=wavealokam&ved=2ahUKEwjY",
+    rating: 5.0,
+    url: "https://www.google.com/travel/hotels/entity/CgsIkrqh56ysta3ZARAB",
   },
   {
     name: "Booking.com",
     rating: 4.8,
-    url: "https://www.booking.com/hotel/in/wavealokam.html",
+    url: "https://www.booking.com/hotel/in/wavealokam.en-gb.html",
   },
   {
-    name: "Agoda",
-    rating: 4.7,
-    url: "https://www.agoda.com/en-in/wavealokam/hotel/varkala-in.html?cid=-310&ds=DBjWDlE76brJPW1n",
+    name: "Airbnb",
+    rating: 4.9,
+    url: "https://www.airbnb.co.in/rooms/761928917398498862",
   },
   {
     name: "MakeMyTrip",
-    rating: 4.7,
-    url: "https://www.makemytrip.com/hotels/wavealokam_beach_retreat-details-varkala.html",
+    rating: 4.5,
+    url: "https://www.makemytrip.com/hotels/hotel-details/?hotelId=202107271754285889",
   },
   {
-    name: "Trip Advisor",
-    rating: 5,
-    url: "https://www.tripadvisor.in/Hotel_Review-g11864386-d32677942-Reviews-Wavealokam_Beach_Retreat-Edava_Varkala_Thiruvananthapuram_District_Kerala.html",
+    name: "Goibibo",
+    rating: 4.7,
+    url: "https://www.goibibo.com/hotels/wavealokam-hotel-in-varkala-7438251287106330111/",
   },
 ];
 
