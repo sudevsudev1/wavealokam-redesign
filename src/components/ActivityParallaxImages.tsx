@@ -24,13 +24,13 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 1,
     images: [
-      // 6 surfing images with adjusted pacing (delays: 0, 0.12, 0.24, 0.36, 0.48, 0.6)
-      { id: 'surf-1', src: '/activities/surfing/1.jpg', position: { x: 'left', y: 'top', offsetX: 8, offsetY: 12 }, delay: 0, rotation: 12 },
-      { id: 'surf-2', src: '/activities/surfing/2.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -15 }, delay: 0.12, rotation: -8 },
-      { id: 'surf-3', src: '/activities/surfing/3.jpg', position: { x: 'left', y: 'bottom', offsetX: 12, offsetY: -8 }, delay: 0.24, rotation: 15 },
-      { id: 'surf-4', src: '/activities/surfing/4.jpg', position: { x: 'right', y: 'top', offsetX: -8, offsetY: 18 }, delay: 0.36, rotation: -12 },
-      { id: 'surf-5', src: '/activities/surfing/5.jpg', position: { x: 'left', y: 'top', offsetX: 15, offsetY: 20 }, delay: 0.48, rotation: 10 },
-      { id: 'surf-6', src: '/activities/surfing/6.jpg', position: { x: 'right', y: 'bottom', offsetX: -15, offsetY: -20 }, delay: 0.6, rotation: -15 },
+      // 6 surfing images spread across full width with staggered timing
+      { id: 'surf-1', src: '/activities/surfing/1.jpg', position: { x: 'left', y: 'top', offsetX: 2, offsetY: 5 }, delay: 0, rotation: 12 },
+      { id: 'surf-2', src: '/activities/surfing/2.jpg', position: { x: 'right', y: 'top', offsetX: -2, offsetY: 8 }, delay: 0.1, rotation: -8 },
+      { id: 'surf-3', src: '/activities/surfing/3.jpg', position: { x: 'left', y: 'top', offsetX: 25, offsetY: 12 }, delay: 0.2, rotation: 15 },
+      { id: 'surf-4', src: '/activities/surfing/4.jpg', position: { x: 'right', y: 'top', offsetX: -25, offsetY: 15 }, delay: 0.3, rotation: -12 },
+      { id: 'surf-5', src: '/activities/surfing/5.jpg', position: { x: 'left', y: 'top', offsetX: 45, offsetY: 18 }, delay: 0.4, rotation: 10 },
+      { id: 'surf-6', src: '/activities/surfing/6.jpg', position: { x: 'right', y: 'top', offsetX: -45, offsetY: 22 }, delay: 0.5, rotation: -15 },
     ],
   },
   {
@@ -120,7 +120,12 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       const activityIdx = imageConfig.activityId - 1;
       const activityDuration = 1 / totalActivities;
       const activityStart = activityIdx * activityDuration;
-      const localProgress = (scrollProgress - activityStart) / activityDuration;
+      
+      // Surfing images start earlier (when videos hit viewport top = slightly before section)
+      const earlyStart = imageConfig.activityId === 1 ? 0.15 : 0;
+      const adjustedStart = Math.max(0, activityStart - earlyStart * activityDuration);
+      const adjustedDuration = activityDuration + earlyStart * activityDuration;
+      const localProgress = (scrollProgress - adjustedStart) / adjustedDuration;
 
       // Only animate if within range (-0.2 to 1.2 for smooth transitions)
       if (localProgress < -0.2 || localProgress > 1.2) {
@@ -134,36 +139,41 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       const clampedProgress = Math.max(0, Math.min(1, localProgress));
       const delayedProgress = Math.max(0, Math.min(1, (clampedProgress - imageConfig.delay) / (1 - imageConfig.delay)));
 
-      let scale: number;
+      let baseScale: number;
       let blur: number;
       let opacity: number;
       let rotation: number;
 
+      // Apply 1.5x scale multiplier for surfing images
+      const scaleMultiplier = imageConfig.activityId === 1 ? 1.5 : 1.0;
+
       if (delayedProgress < 0.2) {
         const t = delayedProgress / 0.2;
-        scale = 0.3 + 0.4 * t;
+        baseScale = 0.3 + 0.4 * t;
         blur = 20 - 12 * t;
         opacity = 0.3 + 0.3 * t;
         rotation = imageConfig.rotation * 0.3 * t;
       } else if (delayedProgress < 0.5) {
         const t = (delayedProgress - 0.2) / 0.3;
-        scale = 0.7 + 0.3 * t;
+        baseScale = 0.7 + 0.3 * t;
         blur = 8 - 8 * t;
         opacity = 0.6 + 0.2 * t;
         rotation = imageConfig.rotation * (0.3 + 0.4 * t);
       } else if (delayedProgress < 0.8) {
         const t = (delayedProgress - 0.5) / 0.3;
-        scale = 1.0 + 0.3 * t;
+        baseScale = 1.0 + 0.3 * t;
         blur = 5 * t;
         opacity = 0.8 - 0.3 * t;
         rotation = imageConfig.rotation * (0.7 + 0.2 * t);
       } else {
         const t = (delayedProgress - 0.8) / 0.2;
-        scale = 1.3 + 0.3 * t;
+        baseScale = 1.3 + 0.3 * t;
         blur = 5 + 10 * t;
         opacity = 0.5 - 0.5 * t;
         rotation = imageConfig.rotation * (0.9 + 0.1 * t);
       }
+
+      const scale = baseScale * scaleMultiplier;
 
       gsap.set(imgElement, {
         scale,
