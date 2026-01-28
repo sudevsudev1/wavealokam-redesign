@@ -1,122 +1,114 @@
 
+# Hover-Play Video Previews for Activities Section
 
-# Wavealokam Website Redesign
-## TakeBoost-Inspired Beachside Surf Retreat
+## Overview
+Add responsive hover-activated video previews between the "EXPLORE." text and the Activities section. Videos will be paused initially, play on hover, pause on mouse leave (remembering playback position), and resume on subsequent hovers.
 
-### Vision
-Transform Wavealokam.com into a bold, high-impact single-page experience with smooth GSAP-powered scroll animations. The orange surfboard becomes the hero product, scrolling through the center of the page just like TakeBoost's bottle, while activities are revealed in stunning 3D space.
+## Layout Requirements
 
----
+| Device | Videos Shown | Arrangement |
+|--------|-------------|-------------|
+| Desktop (1024px+) | 3 videos | Side by side |
+| Tablet (768px - 1023px) | 2 videos | Left + Middle videos |
+| Mobile (< 768px) | 1 video | Left video only |
 
-## Design System (Matching TakeBoost)
+## Technical Approach
 
-### Color Palette
-- **Primary Orange:** Vibrant sunset orange (#FF8C00 → #FFA500)
-- **Transition Purple/Blue:** Deep ocean purple (#4B0082) transitioning to vibrant blue (#0000FF)
-- **Background:** Clean whites and rich darks for contrast
-- **Text:** High-contrast white and black with bold typography
+### 1. New Component: `ActivityVideoPreview.tsx`
 
-### Typography
-- **Headings:** Heavy sans-serif (Helvetica Neue Bold / Montserrat 800), negative letter-spacing for that chunky impact
-- **Body:** Clean, readable sans-serif
-- **Style:** Large, confident text that commands attention
+Create a reusable video preview component with:
+- **Hover state management**: Track when mouse enters/leaves
+- **Playback control**: Play on hover, pause on leave (no reset to start)
+- **Preloading**: Videos loaded with `preload="auto"` and buffered after hero sequence completes
+- **Visual polish**: Rounded corners, subtle drop shadow, gradient overlay at edges
 
----
+### 2. New Component: `ActivityVideosRow.tsx`
 
-## Page Structure & Animations
+Container component that:
+- Holds the 3 video sources (configurable)
+- Manages responsive display using Tailwind breakpoints
+- Handles staggered preload initiation after `ScrollVideo` completes
+- Applies consistent spacing and alignment
 
-### 1. **Hero Section**
-- Full-screen orange background. Sticky hamburger Menu at the top right that will open the section headers upon clicking from where the user can navigate to the desired section directly at any point.
-- Bold punchy tagline "IT'S WAVECATION TIME!"
-- OTA icons blended to match the colour palette, hyperlinked to booking links for Wavealokam on the respective OTAs. Stars under them varying between 4.5/5 to 5/5.
-- Orange surfboard enters from bottom, animates to center. It has a pulsating Book Now button anchored to it exactly like the Buy button on the boost bottle.
-- Surfboard pins to center and stays visible as user scrolls
-- Wavealokam logo in minimalist white
-- Whatsapp logo anchored to bottom left blended to match colour palette. powered by join.chat, which will open whatsapp chat window with wavealokam as is currently configured on www.wavealokam.com
+### 3. Integration in `SurfboardScrollSection.tsx`
 
-### 2. **Surfboard Scroll Section**
-- As user scrolls, the surfboard remains pinned in the center
-- Background text and content scrolls past the surfboard
-- Key messages appear: "Surf. Feast. Explore."
-- Ocean imagery subtly fades in and out behind
+Insert the video row after the "EXPLORE." message:
+- Position below the third scroll message
+- Use GSAP fade-in animation as user scrolls into view
+- Blend seamlessly with the orange-to-purple background gradient
 
-### 3. **Activities Section (The Showstopper)**
-*Replicating TakeBoost's 3D ingredient reveal exactly*
+### 4. Performance Optimizations
 
-Background transitions from vibrant orange → deep purple → ocean blue as each activity appears
+To ensure instant playback without lag:
+- Use `preload="auto"` on video elements
+- Trigger video buffer loading after hero frame sequence is marked as loaded
+- Consider adding a global video preload context to coordinate loading
+- Use `video.play()` with promise handling for smooth start
+- Apply `playsinline` and `muted` attributes for autoplay compatibility
 
-**Activities in 3D carousel rotation:**
+### 5. Visual Styling
 
-1. **Surfing** - "Catch legendary Varkala waves with expert instructors"
-2. **Rooftop Dinner** - "Private cliff-top dining under the stars"  
-3. **Jatayu Earth's Centre** - "World's largest bird sculpture adventure"
-4. **Mangrove Adventures** - "Kayak through mystical backwaters or get adrenaline rush with speed boat/quad bike/banana bboat ride and much more."
-5. **Sree Eight Beach** - "Quiet, tourist free paradise right across"
-6. **Varkala North Cliff Nightlife** - "Where travelers come alive after dark"
-7. **Toddy, the traditional, delicious and deceptively intoxicating palm wine** - "How can something so delicious be so sneaky!?"
-
-Each activity rotates into focus from 3D space while descriptive text fades in/out
-
-### 4. **Rooms Section**
-- Grid layout showcasing:
-  - King Room with Balcony (45 m²)
-  - Double Room with Balcony (28 m²)
-- Hover animations revealing amenities
-- Clean cards with pricing and booking CTA
-
-### 5. **Dining Section**
-- Full-width imagery of rooftop dining
-- Scroll-reveal text about seafood and local partnerships
-- Dedicated spaces for romantic quiet dinners or group chill sessions.
-- Partnership mentions: God's Own Country Kitchen, Blue Water
-
-### 6. **Surf School Section**
-- Features Sudev Nair as brand ambassador
-- Lessons for all levels
-- Dynamic surfing action shots
-
-### 7. **Itinerary Builder**
-- Interactive "Build Your Stay" calculator
-- Add rooms, extra beds, two-wheelers
-- Animated price updates
-
-### 8. **Footer**
-- Social links (Instagram, Facebook)
-- Contact details
-- Quick booking CTA
-- Newsletter signup
+- **Container**: Glass-morphism effect with `bg-white/10 backdrop-blur-sm`
+- **Video frames**: `rounded-2xl overflow-hidden` with `shadow-2xl`
+- **Hover effect**: Subtle scale transform `scale-105` on hover
+- **Gradient blending**: Top/bottom gradients matching section background
 
 ---
 
-## Technical Implementation
+## File Changes Summary
 
-### Animations (GSAP + ScrollTrigger)
-- Surfboard pinned scroll with `scrub: true`
-- 3D transform carousel for activities using `rotateX/Y` and `translate3d`
-- Background color interpolation during activity section
-- Smooth momentum-based scrolling
-- Text reveal animations with stagger effects
-
-### Assets
-- Orange surfboard (will source/placeholder)
-- Existing Wavealokam imagery for rooms, dining, activities
-- Video backgrounds where available
-- Wavealokam logo (transparent PNG)
+| File | Action | Description |
+|------|--------|-------------|
+| `src/components/ActivityVideoPreview.tsx` | Create | Single video component with hover play/pause logic |
+| `src/components/ActivityVideosRow.tsx` | Create | Responsive container for 3 videos with preload coordination |
+| `src/components/SurfboardScrollSection.tsx` | Modify | Add video row after "EXPLORE." with GSAP animation |
+| `src/index.css` | Modify | Add any custom utility classes for video hover effects |
+| `public/videos/` | User action | User needs to add 3 vertical video files (left, middle, right) |
 
 ---
 
-## All Pages Covered
+## Technical Details
 
-While the main experience is a single scrolling page (TakeBoost style), navigation will allow jumping to sections:
-- **Home** → Hero + Surfboard scroll
-- **Activities** → 3D carousel section
-- **Rooms** → Accommodation showcase
-- **Dining** → Culinary experience
-- **Surf School** → Lessons & retreats
-- **Book Now** → Itinerary builder
+### Video Component Props
+```text
+interface ActivityVideoPreviewProps {
+  src: string;           // Video file path
+  poster?: string;       // Optional poster image for initial state
+  className?: string;    // Additional styling
+}
+```
+
+### Responsive Visibility Logic
+```text
+- Left video: Always visible (block)
+- Middle video: Hidden on mobile (hidden md:block)
+- Right video: Hidden on mobile and tablet (hidden lg:block)
+```
+
+### Hover Event Handling
+```text
+onMouseEnter -> video.play()
+onMouseLeave -> video.pause() (preserves currentTime)
+```
+
+### Preload Coordination
+The videos will begin loading after the hero sequence completes. This can be achieved by:
+1. Exposing a callback from `ScrollVideo` when loading completes
+2. Using a shared state/context
+3. Using a simple delay after page load (fallback approach)
 
 ---
 
-## Deliverable
-A stunning, scroll-animated website that captures TakeBoost's energy while celebrating Wavealokam's beachside paradise. The orange surfboard becomes the visual anchor, activities reveal like magic in 3D space, and every scroll feels intentional and premium. The code for the intinerary builder needs to be maintained intact without tampering. it should maintain the same design and structure in the new aesthetic.
+## User Action Required
 
+You will need to provide 3 vertical video files to place in `public/videos/`:
+- `activity-left.mp4` (shown on all devices)
+- `activity-middle.mp4` (shown on tablet and desktop)
+- `activity-right.mp4` (shown on desktop only)
+
+Recommended video specs:
+- Aspect ratio: 9:16 (vertical/portrait)
+- Resolution: 720x1280 or 1080x1920
+- Duration: 5-15 seconds (looped)
+- Format: MP4 with H.264 codec
+- File size: Under 5MB each for fast loading
