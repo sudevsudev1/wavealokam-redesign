@@ -117,7 +117,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
 
   // Independent ScrollTrigger for surfing images - starts when orange line touches bottom of viewport
   useEffect(() => {
-    const activitiesSection = document.getElementById('activities-section');
+    const activitiesSection = document.getElementById('activities');
     const surfboardSection = document.getElementById('surfboard-scroll-section');
     
     if (!surfboardSection || !activitiesSection) return;
