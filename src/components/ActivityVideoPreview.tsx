@@ -49,7 +49,6 @@ const ActivityVideoPreview = ({ src, poster, className = '' }: ActivityVideoPrev
           ref={videoRef}
           src={src}
           poster={poster}
-          muted
           loop
           playsInline
           preload="auto"
