@@ -40,8 +40,9 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
       // Start: When room selector enters view
       const hasEnteredRoomSelector = roomRect.top < viewportHeight;
       
-      // End: When day planner bottom reaches viewport bottom
-      const dayPlannerBottomReached = dayPlannerRect ? dayPlannerRect.bottom <= viewportHeight : false;
+      // End: When day planner bottom reaches 30% up from viewport bottom (i.e., at 70% of viewport height)
+      const threshold = viewportHeight * 0.7;
+      const dayPlannerBottomReached = dayPlannerRect ? dayPlannerRect.bottom <= threshold : false;
 
       // Show sticky when room selector is in view and day planner bottom hasn't reached viewport bottom
       const shouldShow = hasEnteredRoomSelector && !dayPlannerBottomReached;
