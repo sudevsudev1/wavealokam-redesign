@@ -1,5 +1,8 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 interface ActivityImage {
   id: string;
@@ -100,6 +103,7 @@ interface ActivityParallaxImagesProps {
 const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }: ActivityParallaxImagesProps) => {
   const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
   const loadedImages = useRef<Set<string>>(new Set());
+  const [surfingScrollProgress, setSurfingScrollProgress] = useState(0);
 
   // Flatten all images for stable rendering
   const allImages = useMemo(() => {
@@ -111,21 +115,47 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
     );
   }, []);
 
+  // Independent ScrollTrigger for surfing images - starts when orange line touches bottom of viewport
   useEffect(() => {
-    // Animate all images based on scroll progress
+    const activitiesSection = document.getElementById('activities-section');
+    const surfboardSection = document.getElementById('surfboard-scroll-section');
+    
+    if (!surfboardSection || !activitiesSection) return;
+
+    const trigger = ScrollTrigger.create({
+      trigger: surfboardSection,
+      start: 'bottom bottom', // When bottom of videos section hits bottom of viewport
+      endTrigger: activitiesSection,
+      end: () => `top+=${window.innerHeight * 0.5} top`, // End when Activity 1 is finishing
+      scrub: true,
+      onUpdate: (self) => {
+        setSurfingScrollProgress(self.progress);
+      },
+    });
+
+    return () => {
+      trigger.kill();
+    };
+  }, []);
+
+  // Animation logic for images
+  useEffect(() => {
     allImages.forEach((imageConfig) => {
       const imgElement = imageRefs.current[imageConfig.id];
       if (!imgElement || !loadedImages.current.has(imageConfig.id)) return;
 
-      const activityIdx = imageConfig.activityId - 1;
-      const activityDuration = 1 / totalActivities;
-      const activityStart = activityIdx * activityDuration;
+      let localProgress: number;
       
-      // Surfing images start earlier (when orange line after videos touches bottom edge of frame)
-      const earlyStart = imageConfig.activityId === 1 ? 0.55 : 0;
-      const adjustedStart = Math.max(0, activityStart - earlyStart * activityDuration);
-      const adjustedDuration = activityDuration + earlyStart * activityDuration;
-      const localProgress = (scrollProgress - adjustedStart) / adjustedDuration;
+      if (imageConfig.activityId === 1) {
+        // Surfing uses independent scroll progress
+        localProgress = surfingScrollProgress;
+      } else {
+        // Other activities use main scrollProgress
+        const activityIdx = imageConfig.activityId - 1;
+        const activityDuration = 1 / totalActivities;
+        const activityStart = activityIdx * activityDuration;
+        localProgress = (scrollProgress - activityStart) / activityDuration;
+      }
 
       // Only animate if within range (-0.2 to 1.2 for smooth transitions)
       if (localProgress < -0.2 || localProgress > 1.2) {
@@ -183,7 +213,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
         transformOrigin: 'center center',
       });
     });
-  }, [scrollProgress, totalActivities, allImages]);
+  }, [scrollProgress, surfingScrollProgress, totalActivities, allImages]);
 
   const getPositionStyles = (position: ActivityImage['position']): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
