@@ -15,12 +15,43 @@ interface PriceSummaryProps {
 const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: PriceSummaryProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [shouldBeSticky, setShouldBeSticky] = useState(false);
 
   const handleExportPdf = () => {
     if (bookingState) {
       exportItineraryPdf(bookingState, breakdown);
     }
   };
+
+  // Scroll-based sticky logic - active throughout itinerary section
+  useEffect(() => {
+    const handleScroll = () => {
+      const itinerarySection = document.getElementById('itinerary');
+      const roomSelector = document.getElementById('room-selector-section');
+      
+      if (!itinerarySection || !roomSelector) {
+        setShouldBeSticky(false);
+        return;
+      }
+
+      const itineraryRect = itinerarySection.getBoundingClientRect();
+      const roomRect = roomSelector.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      // Should be sticky when:
+      // 1. Itinerary section is in view (top is above viewport bottom, bottom is below viewport top)
+      // 2. Room selector top hasn't reached the top of viewport yet
+      const isItineraryInView = itineraryRect.top < viewportHeight && itineraryRect.bottom > 0;
+      const isRoomSelectorBelowTop = roomRect.top > 0;
+
+      setShouldBeSticky(isItineraryInView && isRoomSelectorBelowTop);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Determine opacity based on state
   const getOpacity = () => {
@@ -32,16 +63,20 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
     <>
       {/* Unified collapsible sticky version for all devices */}
       <div 
-        className="fixed bottom-0 left-0 right-0 z-50"
+        className={`${
+          shouldBeSticky 
+            ? 'fixed bottom-0 left-0 right-0 z-50' 
+            : ''
+        }`}
         style={{ 
-          opacity: getOpacity(),
+          opacity: shouldBeSticky ? getOpacity() : 1,
           transition: 'opacity 0.3s ease'
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <div className="bg-background border-t border-border shadow-2xl">
+          <div className={`bg-background border-t border-border shadow-2xl ${shouldBeSticky ? '' : 'rounded-2xl border shadow-lg'}`}>
             {/* Collapsed header - always visible */}
             <CollapsibleTrigger asChild>
               <button className="w-full p-4 flex items-center justify-between">
@@ -150,8 +185,10 @@ const PriceSummary = ({ breakdown, nights, onBookNow, isValid, bookingState }: P
         </Collapsible>
       </div>
 
-      {/* Spacer to prevent content from being hidden behind sticky footer */}
-      <div className="h-20" />
+      {/* Spacer for when sticky is active */}
+      {shouldBeSticky && (
+        <div className="h-20" />
+      )}
     </>
   );
 };
