@@ -12,19 +12,32 @@ interface QuizConfirmationDialogProps {
   onOpenChange: (open: boolean) => void;
   answer1: string;
   answer2: string;
+  guestName: string;
+  guestEmail: string;
+  guestPhone: string;
 }
 
-const QuizConfirmationDialog = ({ open, onOpenChange, answer1, answer2 }: QuizConfirmationDialogProps) => {
+const QuizConfirmationDialog = ({ 
+  open, 
+  onOpenChange, 
+  answer1, 
+  answer2,
+  guestName,
+  guestEmail,
+  guestPhone
+}: QuizConfirmationDialogProps) => {
   const getWhatsAppMessage = () => {
     const message = `Hey Wavealokam! I answered your two stupid questions. Now give me my discount 😂
+
+Name: ${guestName}
+Email: ${guestEmail}
+Phone: ${guestPhone}
 
 Q1 : What does Wavealokam mean?
 A1 : ${answer1 || '(Not answered)'}
 
 Q2 : What is the easiest way to get free breakfast from the owner Amardeep?
-A2 : ${answer2 || '(Not answered)'}
-
-Someone from the booking team will get back to you soon-ish. But if you are getting impatient, text us directly. +919323858013. We don't do "allow 5-7 business days". We're here, we're keen, we're borderline desperate for human contact. Zero dignity, maximum efficiency.`;
+A2 : ${answer2 || '(Not answered)'}`;
     return encodeURIComponent(message);
   };
 
@@ -46,8 +59,14 @@ Someone from the booking team will get back to you soon-ish. But if you are gett
           <div className="space-y-4">
             <div className="bg-white/80 rounded-xl p-4 border border-wave-orange/20 space-y-3">
               <p className="text-sm text-foreground/90 font-medium">
-                Hey Wavealokam, I answered you 2 stupid questions. Now give me my discount! 😂
+                Hey Wavealokam, I answered your 2 stupid questions. Now give me my discount! 😂
               </p>
+              
+              <div className="space-y-1 text-sm text-foreground/80 border-b border-wave-orange/10 pb-3">
+                <p><strong>Name:</strong> {guestName}</p>
+                <p><strong>Email:</strong> {guestEmail}</p>
+                <p><strong>Phone:</strong> {guestPhone}</p>
+              </div>
               
               <div className="space-y-2">
                 <p className="text-sm text-foreground/80">

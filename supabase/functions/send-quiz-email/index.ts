@@ -9,6 +9,9 @@ const corsHeaders = {
 };
 
 interface QuizEmailRequest {
+  guestName: string;
+  guestEmail: string;
+  guestPhone: string;
   answer1: string;
   answer2: string;
 }
@@ -43,20 +46,28 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { answer1, answer2 }: QuizEmailRequest = await req.json();
+    const { guestName, guestEmail, guestPhone, answer1, answer2 }: QuizEmailRequest = await req.json();
 
-    console.log("Received quiz email request with answers:", answer1, answer2);
+    console.log("Received quiz email request from:", guestName, guestEmail, guestPhone);
+    console.log("Answers:", answer1, answer2);
 
     // Build the email HTML body
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 30px; text-align: center;">
           <h1 style="color: white; margin: 0; font-size: 28px;">WAVEALOKAM</h1>
-          <p style="color: white; margin: 10px 0 0 0;">Discount Quiz Submission 😂</p>
+          <p style="color: white; margin: 10px 0 0 0;">Discount Quiz Submission</p>
         </div>
         
         <div style="padding: 30px; background: #f9f9f9;">
           <h2 style="color: #333; margin-top: 0;">Hey Wavealokam, I answered your 2 stupid questions. Now give me my discount! 😂</h2>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
+            <h3 style="color: #FF8235; margin-top: 0; margin-bottom: 15px;">Guest Details</h3>
+            <p style="margin: 5px 0; color: #333;"><strong>Name:</strong> ${guestName || '(Not provided)'}</p>
+            <p style="margin: 5px 0; color: #333;"><strong>Email:</strong> ${guestEmail || '(Not provided)'}</p>
+            <p style="margin: 5px 0; color: #333;"><strong>Phone:</strong> ${guestPhone || '(Not provided)'}</p>
+          </div>
           
           <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
             <p style="font-weight: bold; color: #FF8235; margin-bottom: 5px;">Q1: What does Wavealokam mean?</p>
@@ -80,7 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await sendEmail({
       from: "Wavealokam Quiz <onboarding@resend.dev>",
       to: ["sudevsudev1@gmail.com"],
-      subject: "New Discount Quiz Submission 😂",
+      subject: `New Discount Quiz from ${guestName}`,
       html: emailHtml,
     });
 
