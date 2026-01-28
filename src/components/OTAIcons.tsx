@@ -9,28 +9,28 @@ interface OTA {
 const otas: OTA[] = [
   {
     name: "Google",
-    rating: 5.0,
-    url: "https://www.google.com/travel/hotels/entity/CgsIkrqh56ysta3ZARAB",
+    rating: 4.9,
+    url: "https://www.google.com/travel/search?q=wavealokam&ved=2ahUKEwjY",
   },
   {
     name: "Booking.com",
     rating: 4.8,
-    url: "https://www.booking.com/hotel/in/wavealokam.en-gb.html",
+    url: "https://www.booking.com/hotel/in/wavealokam.en-gb.html?aid=7344211&label=metatripad-link-dmetain-hotel-12511381_xqdz-23940be54d997d133cf2ebadd7217efb_los-01_bw-011_tod-9_dom-in_curr-INR_gst-02_nrm-01_clkid-d3f63d15-70be-9e45-9125-2e2ebe3267c9_aud-0000_mbl-L_pd-T_sc-2_defdate-1_spo-0_clksrc-0_mcid-10&sid=221f60d9529b2682a224750e360421e6&all_sr_blocks=1251138103_408183029_2_0_0_1178844&checkin=2026-02-08&checkout=2026-02-09&dest_id=-2114230&dest_type=city&dist=0&group_adults=2&group_children=0&hapos=1&highlighted_blocks=1251138103_408183029_2_0_0_1178844&hpos=1&matching_block_id=1251138103_408183029_2_0_0_1178844&no_rooms=1&req_adults=2&req_children=0&room1=A%2CA&sb_price_type=total&sr_order=popularity&sr_pri_blocks=1251138103_408183029_2_0_0_1178844_428040&srepoch=1769574370&srpvid=c6501f2fea3e02a9&type=total&ucfs=1&",
   },
   {
-    name: "Airbnb",
+    name: "Agoda",
     rating: 4.9,
-    url: "https://www.airbnb.co.in/rooms/761928917398498862",
+    url: "https://www.agoda.com/en-in/wavealokam/hotel/varkala-in.html?cid=-310&ds=U%2FE%2FVqDO8JqITQXt",
   },
   {
     name: "MakeMyTrip",
-    rating: 4.5,
-    url: "https://www.makemytrip.com/hotels/hotel-details/?hotelId=202107271754285889",
+    rating: 4.7,
+    url: "https://www.makemytrip.com/hotels/wavealokam_beach_retreat-details-varkala.html",
   },
   {
-    name: "Goibibo",
-    rating: 4.7,
-    url: "https://www.goibibo.com/hotels/wavealokam-hotel-in-varkala-7438251287106330111/",
+    name: "Trip Advisor",
+    rating: 5,
+    url: "https://www.tripadvisor.in/Hotel_Review-g11864386-d32677942-Reviews-Wavealokam_Beach_Retreat-Edava_Varkala_Thiruvananthapuram_District_Kerala.html",
   },
 ];
 
