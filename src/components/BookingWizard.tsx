@@ -173,6 +173,9 @@ const BookingWizard = () => {
               </div>}
           </div>
         </div>
+        
+        {/* Spacer to push PriceSummary static position to just above footer */}
+        <div className="h-32" />
       </div>
 
       {/* Price Summary - Rendered outside the container for proper fixed positioning */}
