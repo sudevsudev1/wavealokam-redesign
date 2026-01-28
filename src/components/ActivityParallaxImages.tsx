@@ -121,8 +121,8 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       const activityDuration = 1 / totalActivities;
       const activityStart = activityIdx * activityDuration;
       
-      // Surfing images start earlier (when "legendary Varkala waves" text enters from bottom)
-      const earlyStart = imageConfig.activityId === 1 ? 0.35 : 0;
+      // Surfing images start earlier (when orange line after videos touches bottom edge of frame)
+      const earlyStart = imageConfig.activityId === 1 ? 0.55 : 0;
       const adjustedStart = Math.max(0, activityStart - earlyStart * activityDuration);
       const adjustedDuration = activityDuration + earlyStart * activityDuration;
       const localProgress = (scrollProgress - adjustedStart) / adjustedDuration;
