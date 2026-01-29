@@ -28,12 +28,12 @@ const activityImagesConfig: ActivityImagesConfig[] = [
     activityId: 1,
     images: [
       // 6 surfing images spread across full width with staggered timing
-      { id: 'surf-1', src: '/activities/surfing/1.jpg', position: { x: 'left', y: 'top', offsetX: 2, offsetY: 5 }, delay: 0, rotation: 12 },
-      { id: 'surf-2', src: '/activities/surfing/2.jpg', position: { x: 'right', y: 'top', offsetX: -2, offsetY: 8 }, delay: 0.1, rotation: -8 },
-      { id: 'surf-3', src: '/activities/surfing/3.jpg', position: { x: 'left', y: 'top', offsetX: 25, offsetY: 12 }, delay: 0.2, rotation: 15 },
-      { id: 'surf-4', src: '/activities/surfing/4.jpg', position: { x: 'right', y: 'top', offsetX: -25, offsetY: 15 }, delay: 0.3, rotation: -12 },
-      { id: 'surf-5', src: '/activities/surfing/5.jpg', position: { x: 'left', y: 'top', offsetX: 45, offsetY: 18 }, delay: 0.4, rotation: 10 },
-      { id: 'surf-6', src: '/activities/surfing/6.jpg', position: { x: 'right', y: 'top', offsetX: -45, offsetY: 22 }, delay: 0.5, rotation: -15 },
+      { id: 'surf-1', src: '/activities/surfing/1.png', position: { x: 'left', y: 'top', offsetX: 2, offsetY: 5 }, delay: 0, rotation: 12 },
+      { id: 'surf-2', src: '/activities/surfing/2.png', position: { x: 'right', y: 'top', offsetX: -2, offsetY: 8 }, delay: 0.1, rotation: -8 },
+      { id: 'surf-3', src: '/activities/surfing/3.png', position: { x: 'left', y: 'top', offsetX: 25, offsetY: 12 }, delay: 0.2, rotation: 15 },
+      { id: 'surf-4', src: '/activities/surfing/4.png', position: { x: 'right', y: 'top', offsetX: -25, offsetY: 15 }, delay: 0.3, rotation: -12 },
+      { id: 'surf-5', src: '/activities/surfing/5.png', position: { x: 'left', y: 'top', offsetX: 45, offsetY: 18 }, delay: 0.4, rotation: 10 },
+      { id: 'surf-6', src: '/activities/surfing/6.png', position: { x: 'right', y: 'top', offsetX: -45, offsetY: 22 }, delay: 0.5, rotation: -15 },
     ],
   },
   {
