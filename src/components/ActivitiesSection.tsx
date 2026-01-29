@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Waves, Utensils, Mountain, Anchor, Palmtree, Moon, Wine, Coffee } from 'lucide-react';
 import ActivityParallaxImages from './ActivityParallaxImages';
 import SreeEightBeachVideo from './SreeEightBeachVideo';
+import MangroveAdventureVideo from './MangroveAdventureVideo';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -152,6 +153,9 @@ const ActivitiesSection = () => {
         activeIndex={activeIndex}
         totalActivities={activities.length}
       />
+      
+      {/* Mangrove Adventure Video Background */}
+      <MangroveAdventureVideo />
 
       {/* 3D Perspective Container */}
       <div
