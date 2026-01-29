@@ -39,9 +39,14 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 2,
     images: [
-      { id: 'roof-1', src: '/activities/rooftop-dinner/1.jpg', position: { x: 'right', y: 'top', offsetX: -12, offsetY: 10 }, delay: 0, rotation: -10 },
-      { id: 'roof-2', src: '/activities/rooftop-dinner/2.jpg', position: { x: 'left', y: 'bottom', offsetX: 10, offsetY: -12 }, delay: 0.25, rotation: 8 },
-      { id: 'roof-3', src: '/activities/rooftop-dinner/3.jpg', position: { x: 'right', y: 'bottom', offsetX: -8, offsetY: -18 }, delay: 0.5, rotation: -15 },
+      // 7 rooftop images spread across full width with staggered timing (matching surfing style)
+      { id: 'roof-1', src: '/activities/rooftop-dinner/1.png', position: { x: 'left', y: 'top', offsetX: 2, offsetY: 5 }, delay: 0, rotation: 12 },
+      { id: 'roof-2', src: '/activities/rooftop-dinner/2.png', position: { x: 'right', y: 'top', offsetX: -2, offsetY: 8 }, delay: 0.08, rotation: -8 },
+      { id: 'roof-3', src: '/activities/rooftop-dinner/3.png', position: { x: 'left', y: 'top', offsetX: 25, offsetY: 12 }, delay: 0.16, rotation: 15 },
+      { id: 'roof-4', src: '/activities/rooftop-dinner/4.png', position: { x: 'right', y: 'top', offsetX: -25, offsetY: 15 }, delay: 0.24, rotation: -12 },
+      { id: 'roof-5', src: '/activities/rooftop-dinner/5.png', position: { x: 'left', y: 'top', offsetX: 45, offsetY: 18 }, delay: 0.32, rotation: 10 },
+      { id: 'roof-6', src: '/activities/rooftop-dinner/6.png', position: { x: 'right', y: 'top', offsetX: -45, offsetY: 22 }, delay: 0.40, rotation: -15 },
+      { id: 'roof-7', src: '/activities/rooftop-dinner/7.png', position: { x: 'left', y: 'top', offsetX: 35, offsetY: 25 }, delay: 0.48, rotation: 8 },
     ],
   },
   {
@@ -104,6 +109,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
   const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
   const loadedImages = useRef<Set<string>>(new Set());
   const [surfingScrollProgress, setSurfingScrollProgress] = useState(0);
+  const [rooftopScrollProgress, setRooftopScrollProgress] = useState(0);
 
   // Flatten all images for stable rendering
   const allImages = useMemo(() => {
@@ -122,7 +128,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
     
     if (!surfboardSection || !activitiesSection) return;
 
-    const trigger = ScrollTrigger.create({
+    const surfingTrigger = ScrollTrigger.create({
       trigger: surfboardSection,
       start: 'bottom bottom', // When bottom of videos section hits bottom of viewport
       endTrigger: activitiesSection,
@@ -133,8 +139,21 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       },
     });
 
+    // Rooftop trigger - starts slightly before surfing ends for continuous animation
+    // Start at 85% of surfing's timeline, run through rooftop text lifecycle
+    const rooftopTrigger = ScrollTrigger.create({
+      trigger: activitiesSection,
+      start: () => `top+=${window.innerHeight * 0.85} top`, // Start 15% before surfing ends
+      end: () => `top+=${window.innerHeight * 2} top`, // End when rooftop text transitions to next
+      scrub: true,
+      onUpdate: (self) => {
+        setRooftopScrollProgress(self.progress);
+      },
+    });
+
     return () => {
-      trigger.kill();
+      surfingTrigger.kill();
+      rooftopTrigger.kill();
     };
   }, []);
 
@@ -149,6 +168,9 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       if (imageConfig.activityId === 1) {
         // Surfing uses independent scroll progress
         localProgress = surfingScrollProgress;
+      } else if (imageConfig.activityId === 2) {
+        // Rooftop uses its own independent scroll progress
+        localProgress = rooftopScrollProgress;
       } else {
         // Other activities use main scrollProgress
         const activityIdx = imageConfig.activityId - 1;
@@ -174,8 +196,8 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       let opacity: number;
       let rotation: number;
 
-      // Apply 1.5x scale multiplier for surfing images
-      const scaleMultiplier = imageConfig.activityId === 1 ? 1.5 : 1.0;
+      // Apply 1.5x scale multiplier for surfing and rooftop images
+      const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2) ? 1.5 : 1.0;
 
       if (delayedProgress < 0.2) {
         const t = delayedProgress / 0.2;
@@ -213,7 +235,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
         transformOrigin: 'center center',
       });
     });
-  }, [scrollProgress, surfingScrollProgress, totalActivities, allImages]);
+  }, [scrollProgress, surfingScrollProgress, rooftopScrollProgress, totalActivities, allImages]);
 
   const getPositionStyles = (position: ActivityImage['position']): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
