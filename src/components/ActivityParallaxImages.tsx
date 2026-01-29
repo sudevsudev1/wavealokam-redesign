@@ -49,14 +49,7 @@ const activityImagesConfig: ActivityImagesConfig[] = [
       { id: 'roof-7', src: '/activities/rooftop-dinner/7.png', position: { x: 'left', y: 'top', offsetX: 30, offsetY: 30 }, delay: 0.48, rotation: 8 },
     ],
   },
-  {
-    activityId: 3,
-    images: [
-      { id: 'beach-1', src: '/activities/sree-eight-beach/1.jpg', position: { x: 'left', y: 'top', offsetX: 15, offsetY: 8 }, delay: 0, rotation: 10 },
-      { id: 'beach-2', src: '/activities/sree-eight-beach/2.jpg', position: { x: 'right', y: 'top', offsetX: -15, offsetY: 15 }, delay: 0.3, rotation: -12 },
-      { id: 'beach-3', src: '/activities/sree-eight-beach/3.jpg', position: { x: 'left', y: 'bottom', offsetX: 8, offsetY: -10 }, delay: 0.6, rotation: 8 },
-    ],
-  },
+  // Activity 3 (Sree Eight Beach) uses video background - no parallax images
   {
     activityId: 4,
     images: [

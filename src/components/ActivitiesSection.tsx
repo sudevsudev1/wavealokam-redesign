@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Waves, Utensils, Mountain, Anchor, Palmtree, Moon, Wine, Coffee } from 'lucide-react';
 import ActivityParallaxImages from './ActivityParallaxImages';
+import SreeEightBeachVideo from './SreeEightBeachVideo';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -140,6 +141,13 @@ const ActivitiesSection = () => {
     >
       {/* Parallax Background Images */}
       <ActivityParallaxImages
+        scrollProgress={scrollProgress}
+        activeIndex={activeIndex}
+        totalActivities={activities.length}
+      />
+      
+      {/* Sree Eight Beach Video Background */}
+      <SreeEightBeachVideo
         scrollProgress={scrollProgress}
         activeIndex={activeIndex}
         totalActivities={activities.length}
