@@ -5,6 +5,7 @@ import { Waves, Utensils, Mountain, Anchor, Palmtree, Moon, Wine, Coffee } from 
 import ActivityParallaxImages from './ActivityParallaxImages';
 import SreeEightBeachVideo from './SreeEightBeachVideo';
 import MangroveAdventureVideo from './MangroveAdventureVideo';
+import ToddyVideo from './ToddyVideo';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -156,6 +157,9 @@ const ActivitiesSection = () => {
       
       {/* Mangrove Adventure Video Background */}
       <MangroveAdventureVideo />
+      
+      {/* Toddy Video Background */}
+      <ToddyVideo />
 
       {/* 3D Perspective Container */}
       <div
