@@ -39,14 +39,14 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 2,
     images: [
-      // 7 rooftop images spread across full width with staggered timing (matching surfing style)
-      { id: 'roof-1', src: '/activities/rooftop-dinner/1.png', position: { x: 'left', y: 'top', offsetX: 2, offsetY: 5 }, delay: 0, rotation: 12 },
-      { id: 'roof-2', src: '/activities/rooftop-dinner/2.png', position: { x: 'right', y: 'top', offsetX: -2, offsetY: 8 }, delay: 0.08, rotation: -8 },
-      { id: 'roof-3', src: '/activities/rooftop-dinner/3.png', position: { x: 'left', y: 'top', offsetX: 25, offsetY: 12 }, delay: 0.16, rotation: 15 },
-      { id: 'roof-4', src: '/activities/rooftop-dinner/4.png', position: { x: 'right', y: 'top', offsetX: -25, offsetY: 15 }, delay: 0.24, rotation: -12 },
-      { id: 'roof-5', src: '/activities/rooftop-dinner/5.png', position: { x: 'left', y: 'top', offsetX: 45, offsetY: 18 }, delay: 0.32, rotation: 10 },
-      { id: 'roof-6', src: '/activities/rooftop-dinner/6.png', position: { x: 'right', y: 'top', offsetX: -45, offsetY: 22 }, delay: 0.40, rotation: -15 },
-      { id: 'roof-7', src: '/activities/rooftop-dinner/7.png', position: { x: 'left', y: 'top', offsetX: 35, offsetY: 25 }, delay: 0.48, rotation: 8 },
+      // 7 rooftop images spread wide across viewport with staggered timing
+      { id: 'roof-1', src: '/activities/rooftop-dinner/1.png', position: { x: 'left', y: 'top', offsetX: -5, offsetY: 5 }, delay: 0, rotation: 12 },
+      { id: 'roof-2', src: '/activities/rooftop-dinner/2.png', position: { x: 'right', y: 'top', offsetX: 5, offsetY: 8 }, delay: 0.08, rotation: -8 },
+      { id: 'roof-3', src: '/activities/rooftop-dinner/3.png', position: { x: 'left', y: 'top', offsetX: 15, offsetY: 15 }, delay: 0.16, rotation: 15 },
+      { id: 'roof-4', src: '/activities/rooftop-dinner/4.png', position: { x: 'right', y: 'top', offsetX: -15, offsetY: 12 }, delay: 0.24, rotation: -12 },
+      { id: 'roof-5', src: '/activities/rooftop-dinner/5.png', position: { x: 'left', y: 'top', offsetX: -8, offsetY: 25 }, delay: 0.32, rotation: 10 },
+      { id: 'roof-6', src: '/activities/rooftop-dinner/6.png', position: { x: 'right', y: 'top', offsetX: 8, offsetY: 20 }, delay: 0.40, rotation: -15 },
+      { id: 'roof-7', src: '/activities/rooftop-dinner/7.png', position: { x: 'left', y: 'top', offsetX: 30, offsetY: 30 }, delay: 0.48, rotation: 8 },
     ],
   },
   {
@@ -199,30 +199,45 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       // Apply 1.5x scale multiplier for surfing and rooftop images
       const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2) ? 1.5 : 1.0;
 
-      if (delayedProgress < 0.2) {
-        const t = delayedProgress / 0.2;
+      // Phase 1: Entry - coming into focus (0 to 0.15)
+      if (delayedProgress < 0.15) {
+        const t = delayedProgress / 0.15;
         baseScale = 0.3 + 0.4 * t;
         blur = 20 - 12 * t;
-        opacity = 0.3 + 0.3 * t;
+        opacity = 0.3 + 0.35 * t;
         rotation = imageConfig.rotation * 0.3 * t;
-      } else if (delayedProgress < 0.5) {
-        const t = (delayedProgress - 0.2) / 0.3;
+      } 
+      // Phase 2: Sharpening - getting fully sharp (0.15 to 0.3)
+      else if (delayedProgress < 0.3) {
+        const t = (delayedProgress - 0.15) / 0.15;
         baseScale = 0.7 + 0.3 * t;
-        blur = 8 - 8 * t;
-        opacity = 0.6 + 0.2 * t;
+        blur = 8 - 8 * t; // Goes to 0 blur
+        opacity = 0.65 + 0.25 * t;
         rotation = imageConfig.rotation * (0.3 + 0.4 * t);
-      } else if (delayedProgress < 0.8) {
-        const t = (delayedProgress - 0.5) / 0.3;
-        baseScale = 1.0 + 0.3 * t;
-        blur = 5 * t;
-        opacity = 0.8 - 0.3 * t;
-        rotation = imageConfig.rotation * (0.7 + 0.2 * t);
-      } else {
-        const t = (delayedProgress - 0.8) / 0.2;
-        baseScale = 1.3 + 0.3 * t;
-        blur = 5 + 10 * t;
-        opacity = 0.5 - 0.5 * t;
-        rotation = imageConfig.rotation * (0.9 + 0.1 * t);
+      } 
+      // Phase 3: In focus - EXTENDED pause with zero blur (0.3 to 0.65)
+      else if (delayedProgress < 0.65) {
+        const t = (delayedProgress - 0.3) / 0.35;
+        baseScale = 1.0 + 0.15 * t; // Slow scale growth while in focus
+        blur = 0; // Stay perfectly sharp
+        opacity = 0.9 - 0.1 * t; // Very slight opacity fade
+        rotation = imageConfig.rotation * (0.7 + 0.15 * t);
+      } 
+      // Phase 4: Exiting focus - starting to blur (0.65 to 0.85)
+      else if (delayedProgress < 0.85) {
+        const t = (delayedProgress - 0.65) / 0.2;
+        baseScale = 1.15 + 0.25 * t;
+        blur = 8 * t; // Gradual blur increase
+        opacity = 0.8 - 0.35 * t;
+        rotation = imageConfig.rotation * (0.85 + 0.1 * t);
+      } 
+      // Phase 5: Exit - fully blurred out (0.85 to 1.0)
+      else {
+        const t = (delayedProgress - 0.85) / 0.15;
+        baseScale = 1.4 + 0.2 * t;
+        blur = 8 + 12 * t;
+        opacity = 0.45 - 0.45 * t;
+        rotation = imageConfig.rotation * (0.95 + 0.05 * t);
       }
 
       const scale = baseScale * scaleMultiplier;
