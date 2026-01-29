@@ -68,15 +68,15 @@ const ActivityVideosRow = ({ videos = defaultVideos, className = '' }: ActivityV
       className={`w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${className}`}
     >
       <div className="flex justify-center items-stretch gap-4 sm:gap-6 lg:gap-8">
-        {/* Left video - always visible */}
-        <div className="video-item w-full max-w-[280px] sm:max-w-[300px] lg:max-w-[320px]">
+        {/* Left video - hidden on mobile, visible on tablet+ */}
+        <div className="video-item hidden md:block w-full max-w-[280px] sm:max-w-[300px] lg:max-w-[320px]">
           <ActivityVideoPreview
             src={videos.left.src}
             poster={videos.left.poster}
           />
         </div>
 
-        {/* Middle video - hidden on mobile */}
+        {/* Middle video - hidden on mobile, visible on tablet+ */}
         <div className="video-item hidden md:block w-full max-w-[280px] sm:max-w-[300px] lg:max-w-[320px]">
           <ActivityVideoPreview
             src={videos.middle.src}
@@ -84,8 +84,8 @@ const ActivityVideosRow = ({ videos = defaultVideos, className = '' }: ActivityV
           />
         </div>
 
-        {/* Right video - hidden on mobile and tablet */}
-        <div className="video-item hidden lg:block w-full max-w-[320px]">
+        {/* Right video - visible on mobile, hidden on tablet, visible on desktop */}
+        <div className="video-item block md:hidden lg:block w-full max-w-[280px] sm:max-w-[300px] lg:max-w-[320px]">
           <ActivityVideoPreview
             src={videos.right.src}
             poster={videos.right.poster}
