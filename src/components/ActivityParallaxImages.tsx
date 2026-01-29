@@ -53,9 +53,14 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 4,
     images: [
-      { id: 'bfast-1', src: '/activities/chechis-breakfast/1.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -8 }, delay: 0, rotation: -8 },
-      { id: 'bfast-2', src: '/activities/chechis-breakfast/2.jpg', position: { x: 'left', y: 'top', offsetX: 12, offsetY: 15 }, delay: 0.25, rotation: 12 },
-      { id: 'bfast-3', src: '/activities/chechis-breakfast/3.jpg', position: { x: 'right', y: 'top', offsetX: -8, offsetY: 10 }, delay: 0.5, rotation: -10 },
+      // 7 Chechi's Breakfast images spread across full width with staggered timing
+      { id: 'bfast-1', src: '/activities/chechis-breakfast/1.png', position: { x: 'left', y: 'top', offsetX: -5, offsetY: 5 }, delay: 0, rotation: 10 },
+      { id: 'bfast-2', src: '/activities/chechis-breakfast/2.png', position: { x: 'right', y: 'top', offsetX: 5, offsetY: 8 }, delay: 0.07, rotation: -8 },
+      { id: 'bfast-3', src: '/activities/chechis-breakfast/3.png', position: { x: 'left', y: 'top', offsetX: 18, offsetY: 15 }, delay: 0.14, rotation: 12 },
+      { id: 'bfast-4', src: '/activities/chechis-breakfast/4.png', position: { x: 'right', y: 'top', offsetX: -18, offsetY: 12 }, delay: 0.21, rotation: -10 },
+      { id: 'bfast-5', src: '/activities/chechis-breakfast/5.png', position: { x: 'left', y: 'top', offsetX: -8, offsetY: 25 }, delay: 0.28, rotation: 15 },
+      { id: 'bfast-6', src: '/activities/chechis-breakfast/6.png', position: { x: 'right', y: 'top', offsetX: 8, offsetY: 20 }, delay: 0.35, rotation: -12 },
+      { id: 'bfast-7', src: '/activities/chechis-breakfast/7.png', position: { x: 'left', y: 'top', offsetX: 35, offsetY: 30 }, delay: 0.42, rotation: 8 },
     ],
   },
   {
@@ -103,6 +108,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
   const loadedImages = useRef<Set<string>>(new Set());
   const [surfingScrollProgress, setSurfingScrollProgress] = useState(0);
   const [rooftopScrollProgress, setRooftopScrollProgress] = useState(0);
+  const [breakfastScrollProgress, setBreakfastScrollProgress] = useState(0);
 
   // Flatten all images for stable rendering
   const allImages = useMemo(() => {
@@ -144,9 +150,21 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       },
     });
 
+    // Chechi's Breakfast trigger - starts before Sree Eight finishes, runs through breakfast text lifecycle
+    const breakfastTrigger = ScrollTrigger.create({
+      trigger: activitiesSection,
+      start: () => `top+=${window.innerHeight * 2.85} top`, // Start near end of Sree Eight section
+      end: () => `top+=${window.innerHeight * 4} top`, // End when breakfast text transitions to next
+      scrub: true,
+      onUpdate: (self) => {
+        setBreakfastScrollProgress(self.progress);
+      },
+    });
+
     return () => {
       surfingTrigger.kill();
       rooftopTrigger.kill();
+      breakfastTrigger.kill();
     };
   }, []);
 
@@ -164,6 +182,9 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       } else if (imageConfig.activityId === 2) {
         // Rooftop uses its own independent scroll progress
         localProgress = rooftopScrollProgress;
+      } else if (imageConfig.activityId === 4) {
+        // Chechi's Breakfast uses its own independent scroll progress
+        localProgress = breakfastScrollProgress;
       } else {
         // Other activities use main scrollProgress
         const activityIdx = imageConfig.activityId - 1;
@@ -189,8 +210,8 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       let opacity: number;
       let rotation: number;
 
-      // Apply 1.5x scale multiplier for surfing and rooftop images
-      const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2) ? 1.5 : 1.0;
+      // Apply 1.5x scale multiplier for surfing, rooftop, and breakfast images
+      const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2 || imageConfig.activityId === 4) ? 1.5 : 1.0;
 
       // Phase 1: Entry - coming into focus (0 to 0.15)
       if (delayedProgress < 0.15) {
@@ -243,7 +264,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
         transformOrigin: 'center center',
       });
     });
-  }, [scrollProgress, surfingScrollProgress, rooftopScrollProgress, totalActivities, allImages]);
+  }, [scrollProgress, surfingScrollProgress, rooftopScrollProgress, breakfastScrollProgress, totalActivities, allImages]);
 
   const getPositionStyles = (position: ActivityImage['position']): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
