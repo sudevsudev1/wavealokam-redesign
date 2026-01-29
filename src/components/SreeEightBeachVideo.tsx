@@ -15,6 +15,31 @@ const SreeEightBeachVideo = ({ scrollProgress, activeIndex, totalActivities }: S
   const containerRef = useRef<HTMLDivElement>(null);
   const [videoProgress, setVideoProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+
+  // Listen for user interaction to enable audio (browser autoplay policy)
+  useEffect(() => {
+    const handleInteraction = () => {
+      setHasUserInteracted(true);
+      // Try to unmute and play with sound if video is visible
+      const video = videoRef.current;
+      if (video && isVisible) {
+        video.muted = false;
+        video.play().catch(() => {});
+      }
+    };
+
+    // Listen for any user interaction
+    document.addEventListener('click', handleInteraction, { once: true });
+    document.addEventListener('touchstart', handleInteraction, { once: true });
+    document.addEventListener('keydown', handleInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener('click', handleInteraction);
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('keydown', handleInteraction);
+    };
+  }, [isVisible]);
 
   // ScrollTrigger for Sree Eight Beach video - starts before rooftop images disappear
   useEffect(() => {
@@ -46,13 +71,15 @@ const SreeEightBeachVideo = ({ scrollProgress, activeIndex, totalActivities }: S
     if (!video) return;
 
     if (isVisible) {
+      // Start muted if no user interaction yet, unmuted if user has interacted
+      video.muted = !hasUserInteracted;
       video.play().catch(() => {
         // Autoplay may be blocked, that's okay
       });
     } else {
       video.pause();
     }
-  }, [isVisible]);
+  }, [isVisible, hasUserInteracted]);
 
   // Animation logic based on video progress
   useEffect(() => {
@@ -114,6 +141,7 @@ const SreeEightBeachVideo = ({ scrollProgress, activeIndex, totalActivities }: S
       <video
         ref={videoRef}
         src="/videos/sree-eight-beach.mp4"
+        muted
         loop
         playsInline
         preload="auto"
