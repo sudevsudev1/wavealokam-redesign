@@ -114,7 +114,6 @@ const SreeEightBeachVideo = ({ scrollProgress, activeIndex, totalActivities }: S
       <video
         ref={videoRef}
         src="/videos/sree-eight-beach.mp4"
-        muted
         loop
         playsInline
         preload="auto"
