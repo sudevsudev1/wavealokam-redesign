@@ -25,6 +25,18 @@ const kingRoomImages = [
   '/rooms/king-room/6.png',
 ];
 
+const doubleRoomImages = [
+  '/rooms/double-room/1.png',
+  '/rooms/double-room/2.jpeg',
+  '/rooms/double-room/3.png',
+  '/rooms/double-room/4.png',
+  '/rooms/double-room/5.png',
+  '/rooms/double-room/6.png',
+  '/rooms/double-room/7.png',
+  '/rooms/double-room/8.png',
+  '/rooms/double-room/9.png',
+];
+
 const rooms: Room[] = [
   {
     id: 1,
@@ -42,7 +54,7 @@ const rooms: Room[] = [
     capacity: '2 Guests',
     price: '₹3,500',
     amenities: ['Double Bed', 'Balcony', 'Garden View', 'AC', 'Free WiFi', 'Hot Shower'],
-    images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800'],
+    images: doubleRoomImages,
   },
 ];
 
