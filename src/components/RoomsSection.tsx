@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Users, Wifi, Wind, Tv, Coffee, Bath } from 'lucide-react';
+import RoomGallery from './RoomGallery';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -12,8 +13,17 @@ interface Room {
   capacity: string;
   price: string;
   amenities: string[];
-  image: string;
+  images: string[];
 }
+
+const kingRoomImages = [
+  '/rooms/king-room/1.png',
+  '/rooms/king-room/2.png',
+  '/rooms/king-room/3.png',
+  '/rooms/king-room/4.png',
+  '/rooms/king-room/5.png',
+  '/rooms/king-room/6.png',
+];
 
 const rooms: Room[] = [
   {
@@ -23,7 +33,7 @@ const rooms: Room[] = [
     capacity: '2-3 Guests',
     price: '₹4,500',
     amenities: ['King Bed', 'Private Balcony', 'Garden View', 'AC', 'Free WiFi', 'Hot Shower'],
-    image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800',
+    images: kingRoomImages,
   },
   {
     id: 2,
@@ -32,7 +42,7 @@ const rooms: Room[] = [
     capacity: '2 Guests',
     price: '₹3,500',
     amenities: ['Double Bed', 'Balcony', 'Garden View', 'AC', 'Free WiFi', 'Hot Shower'],
-    image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800',
+    images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800'],
   },
 ];
 
@@ -109,17 +119,23 @@ const RoomsSection = () => {
               key={room.id}
               className="room-card group relative bg-card rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
             >
-              {/* Image */}
-              <div className="relative h-64 md:h-80 overflow-hidden">
-                <img
-                  src={room.image}
-                  alt={room.name}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              {/* Image Gallery or Single Image */}
+              <div className="relative">
+                {room.images.length > 1 ? (
+                  <RoomGallery images={room.images} alt={room.name} />
+                ) : (
+                  <div className="relative h-64 md:h-80 overflow-hidden">
+                    <img
+                      src={room.images[0]}
+                      alt={room.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  </div>
+                )}
                 
                 {/* Price Badge */}
-                <div className="absolute top-4 right-4 px-4 py-2 bg-wave-orange text-white font-bold rounded-full">
+                <div className="absolute top-4 right-4 px-4 py-2 bg-wave-orange text-white font-bold rounded-full z-20">
                   {room.price}/night
                 </div>
               </div>
