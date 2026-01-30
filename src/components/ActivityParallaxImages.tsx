@@ -82,9 +82,14 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 7,
     images: [
-      { id: 'jatayu-1', src: '/activities/jatayu/1.jpg', position: { x: 'left', y: 'top', offsetX: 12, offsetY: 10 }, delay: 0, rotation: 8 },
-      { id: 'jatayu-2', src: '/activities/jatayu/2.jpg', position: { x: 'right', y: 'bottom', offsetX: -10, offsetY: -12 }, delay: 0.25, rotation: -15 },
-      { id: 'jatayu-3', src: '/activities/jatayu/3.jpg', position: { x: 'left', y: 'bottom', offsetX: 15, offsetY: -8 }, delay: 0.5, rotation: 12 },
+      // 7 Jatayu images spread across full width with staggered timing
+      { id: 'jatayu-1', src: '/activities/jatayu/1.jpg', position: { x: 'left', y: 'top', offsetX: -5, offsetY: 5 }, delay: 0, rotation: 10 },
+      { id: 'jatayu-2', src: '/activities/jatayu/2.webp', position: { x: 'right', y: 'top', offsetX: 5, offsetY: 8 }, delay: 0.07, rotation: -8 },
+      { id: 'jatayu-3', src: '/activities/jatayu/3.jpg', position: { x: 'left', y: 'top', offsetX: 18, offsetY: 15 }, delay: 0.14, rotation: 12 },
+      { id: 'jatayu-4', src: '/activities/jatayu/4.webp', position: { x: 'right', y: 'top', offsetX: -18, offsetY: 12 }, delay: 0.21, rotation: -10 },
+      { id: 'jatayu-5', src: '/activities/jatayu/5.jpg', position: { x: 'left', y: 'top', offsetX: -8, offsetY: 25 }, delay: 0.28, rotation: 15 },
+      { id: 'jatayu-6', src: '/activities/jatayu/6.webp', position: { x: 'right', y: 'top', offsetX: 8, offsetY: 20 }, delay: 0.35, rotation: -12 },
+      { id: 'jatayu-7', src: '/activities/jatayu/7.jpg', position: { x: 'left', y: 'top', offsetX: 35, offsetY: 30 }, delay: 0.42, rotation: 8 },
     ],
   },
   {
@@ -109,6 +114,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
   const [surfingScrollProgress, setSurfingScrollProgress] = useState(0);
   const [rooftopScrollProgress, setRooftopScrollProgress] = useState(0);
   const [breakfastScrollProgress, setBreakfastScrollProgress] = useState(0);
+  const [jatayuScrollProgress, setJatayuScrollProgress] = useState(0);
 
   // Flatten all images for stable rendering
   const allImages = useMemo(() => {
@@ -161,10 +167,22 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       },
     });
 
+    // Jatayu trigger - starts before Toddy finishes (Activity 6), runs through Jatayu text lifecycle (Activity 7)
+    const jatayuTrigger = ScrollTrigger.create({
+      trigger: activitiesSection,
+      start: () => `top+=${window.innerHeight * 5.85} top`, // Start near end of Toddy section
+      end: () => `top+=${window.innerHeight * 7} top`, // End when Jatayu text transitions to next
+      scrub: true,
+      onUpdate: (self) => {
+        setJatayuScrollProgress(self.progress);
+      },
+    });
+
     return () => {
       surfingTrigger.kill();
       rooftopTrigger.kill();
       breakfastTrigger.kill();
+      jatayuTrigger.kill();
     };
   }, []);
 
@@ -185,6 +203,9 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       } else if (imageConfig.activityId === 4) {
         // Chechi's Breakfast uses its own independent scroll progress
         localProgress = breakfastScrollProgress;
+      } else if (imageConfig.activityId === 7) {
+        // Jatayu uses its own independent scroll progress
+        localProgress = jatayuScrollProgress;
       } else {
         // Other activities use main scrollProgress
         const activityIdx = imageConfig.activityId - 1;
@@ -211,7 +232,8 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       let rotation: number;
 
       // Apply 1.5x scale multiplier for surfing, rooftop, and breakfast images
-      const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2 || imageConfig.activityId === 4) ? 1.5 : 1.0;
+      // Apply 1.5x scale multiplier for surfing, rooftop, breakfast, and jatayu images
+      const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2 || imageConfig.activityId === 4 || imageConfig.activityId === 7) ? 1.5 : 1.0;
 
       // Phase 1: Entry - coming into focus (0 to 0.15)
       if (delayedProgress < 0.15) {
@@ -264,7 +286,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
         transformOrigin: 'center center',
       });
     });
-  }, [scrollProgress, surfingScrollProgress, rooftopScrollProgress, breakfastScrollProgress, totalActivities, allImages]);
+  }, [scrollProgress, surfingScrollProgress, rooftopScrollProgress, breakfastScrollProgress, jatayuScrollProgress, totalActivities, allImages]);
 
   const getPositionStyles = (position: ActivityImage['position']): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
