@@ -122,6 +122,9 @@ const RoomsSection = () => {
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
             Wake up to ocean breezes and waves doing their ASMR thing. You'll sleep so well you'll question if your mattress at home is actively sabotaging you.
           </p>
+          <p className="text-sm text-muted-foreground max-w-3xl mx-auto mt-3 italic font-bold">
+            Fair warning: room views range from spectacular to "spiritually this is still seaside." Some rooms see waves, some see potential. Check first. Manage expectations. Avoid divorce.
+          </p>
         </div>
 
         {/* Room Cards */}
