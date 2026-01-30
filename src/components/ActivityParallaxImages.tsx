@@ -95,9 +95,14 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 8,
     images: [
-      { id: 'night-1', src: '/activities/north-cliff-nightlife/1.jpg', position: { x: 'right', y: 'top', offsetX: -8, offsetY: 15 }, delay: 0, rotation: -10 },
-      { id: 'night-2', src: '/activities/north-cliff-nightlife/2.jpg', position: { x: 'left', y: 'bottom', offsetX: 10, offsetY: -10 }, delay: 0.3, rotation: 15 },
-      { id: 'night-3', src: '/activities/north-cliff-nightlife/3.jpg', position: { x: 'right', y: 'bottom', offsetX: -12, offsetY: -18 }, delay: 0.6, rotation: -8 },
+      // 7 North Cliff Nightlife images spread across full width with staggered timing
+      { id: 'night-1', src: '/activities/north-cliff-nightlife/1.png', position: { x: 'left', y: 'top', offsetX: -5, offsetY: 5 }, delay: 0, rotation: 10 },
+      { id: 'night-2', src: '/activities/north-cliff-nightlife/2.png', position: { x: 'right', y: 'top', offsetX: 5, offsetY: 8 }, delay: 0.07, rotation: -8 },
+      { id: 'night-3', src: '/activities/north-cliff-nightlife/3.jpg', position: { x: 'left', y: 'top', offsetX: 18, offsetY: 15 }, delay: 0.14, rotation: 12 },
+      { id: 'night-4', src: '/activities/north-cliff-nightlife/4.jpg', position: { x: 'right', y: 'top', offsetX: -18, offsetY: 12 }, delay: 0.21, rotation: -10 },
+      { id: 'night-5', src: '/activities/north-cliff-nightlife/5.jpg', position: { x: 'left', y: 'top', offsetX: -8, offsetY: 25 }, delay: 0.28, rotation: 15 },
+      { id: 'night-6', src: '/activities/north-cliff-nightlife/6.jpg', position: { x: 'right', y: 'top', offsetX: 8, offsetY: 20 }, delay: 0.35, rotation: -12 },
+      { id: 'night-7', src: '/activities/north-cliff-nightlife/7.jpg', position: { x: 'left', y: 'top', offsetX: 35, offsetY: 30 }, delay: 0.42, rotation: 8 },
     ],
   },
 ];
@@ -115,6 +120,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
   const [rooftopScrollProgress, setRooftopScrollProgress] = useState(0);
   const [breakfastScrollProgress, setBreakfastScrollProgress] = useState(0);
   const [jatayuScrollProgress, setJatayuScrollProgress] = useState(0);
+  const [nightlifeScrollProgress, setNightlifeScrollProgress] = useState(0);
 
   // Flatten all images for stable rendering
   const allImages = useMemo(() => {
@@ -178,11 +184,23 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       },
     });
 
+    // Nightlife trigger - starts before Jatayu finishes (Activity 7), runs through Nightlife text lifecycle (Activity 8)
+    const nightlifeTrigger = ScrollTrigger.create({
+      trigger: activitiesSection,
+      start: () => `top+=${window.innerHeight * 6.85} top`, // Start near end of Jatayu section
+      end: () => `top+=${window.innerHeight * 8} top`, // End when Nightlife text transitions to next
+      scrub: true,
+      onUpdate: (self) => {
+        setNightlifeScrollProgress(self.progress);
+      },
+    });
+
     return () => {
       surfingTrigger.kill();
       rooftopTrigger.kill();
       breakfastTrigger.kill();
       jatayuTrigger.kill();
+      nightlifeTrigger.kill();
     };
   }, []);
 
@@ -206,6 +224,9 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       } else if (imageConfig.activityId === 7) {
         // Jatayu uses its own independent scroll progress
         localProgress = jatayuScrollProgress;
+      } else if (imageConfig.activityId === 8) {
+        // Nightlife uses its own independent scroll progress
+        localProgress = nightlifeScrollProgress;
       } else {
         // Other activities use main scrollProgress
         const activityIdx = imageConfig.activityId - 1;
@@ -231,14 +252,13 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       let opacity: number;
       let rotation: number;
 
-      // Apply 1.5x scale multiplier for surfing, rooftop, and breakfast images
-      // Apply 1.5x scale multiplier for surfing, rooftop, breakfast, and jatayu images
-      const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2 || imageConfig.activityId === 4 || imageConfig.activityId === 7) ? 1.5 : 1.0;
+      // Apply 1.5x scale multiplier for surfing, rooftop, breakfast, jatayu, and nightlife images
+      const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2 || imageConfig.activityId === 4 || imageConfig.activityId === 7 || imageConfig.activityId === 8) ? 1.5 : 1.0;
 
-      // Jatayu uses extended focus timing: shorter entry/exit, much longer focus hold
-      const isJatayu = imageConfig.activityId === 7;
+      // Jatayu and Nightlife use extended focus timing: shorter entry/exit, much longer focus hold
+      const isExtendedFocus = imageConfig.activityId === 7 || imageConfig.activityId === 8;
       
-      if (isJatayu) {
+      if (isExtendedFocus) {
         // Jatayu timing: 0-0.08 entry, 0.08-0.15 sharpening, 0.15-0.85 focus, 0.85-0.92 exit blur, 0.92-1.0 full exit
         // Phase 1: Entry - coming into focus (0 to 0.08)
         if (delayedProgress < 0.08) {
@@ -334,7 +354,7 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
         transformOrigin: 'center center',
       });
     });
-  }, [scrollProgress, surfingScrollProgress, rooftopScrollProgress, breakfastScrollProgress, jatayuScrollProgress, totalActivities, allImages]);
+  }, [scrollProgress, surfingScrollProgress, rooftopScrollProgress, breakfastScrollProgress, jatayuScrollProgress, nightlifeScrollProgress, totalActivities, allImages]);
 
   const getPositionStyles = (position: ActivityImage['position']): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
