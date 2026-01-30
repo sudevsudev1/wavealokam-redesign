@@ -82,14 +82,14 @@ const activityImagesConfig: ActivityImagesConfig[] = [
   {
     activityId: 7,
     images: [
-      // 7 Jatayu images spread across full width with staggered timing
-      { id: 'jatayu-1', src: '/activities/jatayu/1.jpg', position: { x: 'left', y: 'top', offsetX: -5, offsetY: 5 }, delay: 0, rotation: 10 },
-      { id: 'jatayu-2', src: '/activities/jatayu/2.webp', position: { x: 'right', y: 'top', offsetX: 5, offsetY: 8 }, delay: 0.07, rotation: -8 },
-      { id: 'jatayu-3', src: '/activities/jatayu/3.jpg', position: { x: 'left', y: 'top', offsetX: 18, offsetY: 15 }, delay: 0.14, rotation: 12 },
+      // 7 Jatayu images REVERSED order, spread across full width with staggered timing
+      { id: 'jatayu-1', src: '/activities/jatayu/7.jpg', position: { x: 'left', y: 'top', offsetX: -5, offsetY: 5 }, delay: 0, rotation: 10 },
+      { id: 'jatayu-2', src: '/activities/jatayu/6.webp', position: { x: 'right', y: 'top', offsetX: 5, offsetY: 8 }, delay: 0.07, rotation: -8 },
+      { id: 'jatayu-3', src: '/activities/jatayu/5.jpg', position: { x: 'left', y: 'top', offsetX: 18, offsetY: 15 }, delay: 0.14, rotation: 12 },
       { id: 'jatayu-4', src: '/activities/jatayu/4.webp', position: { x: 'right', y: 'top', offsetX: -18, offsetY: 12 }, delay: 0.21, rotation: -10 },
-      { id: 'jatayu-5', src: '/activities/jatayu/5.jpg', position: { x: 'left', y: 'top', offsetX: -8, offsetY: 25 }, delay: 0.28, rotation: 15 },
-      { id: 'jatayu-6', src: '/activities/jatayu/6.webp', position: { x: 'right', y: 'top', offsetX: 8, offsetY: 20 }, delay: 0.35, rotation: -12 },
-      { id: 'jatayu-7', src: '/activities/jatayu/7.jpg', position: { x: 'left', y: 'top', offsetX: 35, offsetY: 30 }, delay: 0.42, rotation: 8 },
+      { id: 'jatayu-5', src: '/activities/jatayu/3.jpg', position: { x: 'left', y: 'top', offsetX: -8, offsetY: 25 }, delay: 0.28, rotation: 15 },
+      { id: 'jatayu-6', src: '/activities/jatayu/2.webp', position: { x: 'right', y: 'top', offsetX: 8, offsetY: 20 }, delay: 0.35, rotation: -12 },
+      { id: 'jatayu-7', src: '/activities/jatayu/1.jpg', position: { x: 'left', y: 'top', offsetX: 35, offsetY: 30 }, delay: 0.42, rotation: 8 },
     ],
   },
   {
@@ -235,45 +235,93 @@ const ActivityParallaxImages = ({ scrollProgress, activeIndex, totalActivities }
       // Apply 1.5x scale multiplier for surfing, rooftop, breakfast, and jatayu images
       const scaleMultiplier = (imageConfig.activityId === 1 || imageConfig.activityId === 2 || imageConfig.activityId === 4 || imageConfig.activityId === 7) ? 1.5 : 1.0;
 
-      // Phase 1: Entry - coming into focus (0 to 0.15)
-      if (delayedProgress < 0.15) {
-        const t = delayedProgress / 0.15;
-        baseScale = 0.3 + 0.4 * t;
-        blur = 20 - 12 * t;
-        opacity = 0.3 + 0.35 * t;
-        rotation = imageConfig.rotation * 0.3 * t;
-      } 
-      // Phase 2: Sharpening - getting fully sharp (0.15 to 0.3)
-      else if (delayedProgress < 0.3) {
-        const t = (delayedProgress - 0.15) / 0.15;
-        baseScale = 0.7 + 0.3 * t;
-        blur = 8 - 8 * t; // Goes to 0 blur
-        opacity = 0.65 + 0.25 * t;
-        rotation = imageConfig.rotation * (0.3 + 0.4 * t);
-      } 
-      // Phase 3: In focus - EXTENDED pause with zero blur (0.3 to 0.65)
-      else if (delayedProgress < 0.65) {
-        const t = (delayedProgress - 0.3) / 0.35;
-        baseScale = 1.0 + 0.15 * t; // Slow scale growth while in focus
-        blur = 0; // Stay perfectly sharp
-        opacity = 0.9 - 0.1 * t; // Very slight opacity fade
-        rotation = imageConfig.rotation * (0.7 + 0.15 * t);
-      } 
-      // Phase 4: Exiting focus - starting to blur (0.65 to 0.85)
-      else if (delayedProgress < 0.85) {
-        const t = (delayedProgress - 0.65) / 0.2;
-        baseScale = 1.15 + 0.25 * t;
-        blur = 8 * t; // Gradual blur increase
-        opacity = 0.8 - 0.35 * t;
-        rotation = imageConfig.rotation * (0.85 + 0.1 * t);
-      } 
-      // Phase 5: Exit - fully blurred out (0.85 to 1.0)
-      else {
-        const t = (delayedProgress - 0.85) / 0.15;
-        baseScale = 1.4 + 0.2 * t;
-        blur = 8 + 12 * t;
-        opacity = 0.45 - 0.45 * t;
-        rotation = imageConfig.rotation * (0.95 + 0.05 * t);
+      // Jatayu uses extended focus timing: shorter entry/exit, much longer focus hold
+      const isJatayu = imageConfig.activityId === 7;
+      
+      if (isJatayu) {
+        // Jatayu timing: 0-0.08 entry, 0.08-0.15 sharpening, 0.15-0.85 focus, 0.85-0.92 exit blur, 0.92-1.0 full exit
+        // Phase 1: Entry - coming into focus (0 to 0.08)
+        if (delayedProgress < 0.08) {
+          const t = delayedProgress / 0.08;
+          baseScale = 0.3 + 0.4 * t;
+          blur = 20 - 12 * t;
+          opacity = 0.3 + 0.35 * t;
+          rotation = imageConfig.rotation * 0.3 * t;
+        } 
+        // Phase 2: Sharpening - getting fully sharp (0.08 to 0.15)
+        else if (delayedProgress < 0.15) {
+          const t = (delayedProgress - 0.08) / 0.07;
+          baseScale = 0.7 + 0.3 * t;
+          blur = 8 - 8 * t;
+          opacity = 0.65 + 0.25 * t;
+          rotation = imageConfig.rotation * (0.3 + 0.4 * t);
+        } 
+        // Phase 3: In focus - EXTRA EXTENDED hold with zero blur (0.15 to 0.85)
+        else if (delayedProgress < 0.85) {
+          const t = (delayedProgress - 0.15) / 0.70;
+          baseScale = 1.0 + 0.15 * t;
+          blur = 0;
+          opacity = 0.9 - 0.1 * t;
+          rotation = imageConfig.rotation * (0.7 + 0.15 * t);
+        } 
+        // Phase 4: Exiting focus - starting to blur (0.85 to 0.92)
+        else if (delayedProgress < 0.92) {
+          const t = (delayedProgress - 0.85) / 0.07;
+          baseScale = 1.15 + 0.25 * t;
+          blur = 8 * t;
+          opacity = 0.8 - 0.35 * t;
+          rotation = imageConfig.rotation * (0.85 + 0.1 * t);
+        } 
+        // Phase 5: Exit - fully blurred out (0.92 to 1.0)
+        else {
+          const t = (delayedProgress - 0.92) / 0.08;
+          baseScale = 1.4 + 0.2 * t;
+          blur = 8 + 12 * t;
+          opacity = 0.45 - 0.45 * t;
+          rotation = imageConfig.rotation * (0.95 + 0.05 * t);
+        }
+      } else {
+        // Default timing for other activities
+        // Phase 1: Entry - coming into focus (0 to 0.15)
+        if (delayedProgress < 0.15) {
+          const t = delayedProgress / 0.15;
+          baseScale = 0.3 + 0.4 * t;
+          blur = 20 - 12 * t;
+          opacity = 0.3 + 0.35 * t;
+          rotation = imageConfig.rotation * 0.3 * t;
+        } 
+        // Phase 2: Sharpening - getting fully sharp (0.15 to 0.3)
+        else if (delayedProgress < 0.3) {
+          const t = (delayedProgress - 0.15) / 0.15;
+          baseScale = 0.7 + 0.3 * t;
+          blur = 8 - 8 * t;
+          opacity = 0.65 + 0.25 * t;
+          rotation = imageConfig.rotation * (0.3 + 0.4 * t);
+        } 
+        // Phase 3: In focus - EXTENDED pause with zero blur (0.3 to 0.65)
+        else if (delayedProgress < 0.65) {
+          const t = (delayedProgress - 0.3) / 0.35;
+          baseScale = 1.0 + 0.15 * t;
+          blur = 0;
+          opacity = 0.9 - 0.1 * t;
+          rotation = imageConfig.rotation * (0.7 + 0.15 * t);
+        } 
+        // Phase 4: Exiting focus - starting to blur (0.65 to 0.85)
+        else if (delayedProgress < 0.85) {
+          const t = (delayedProgress - 0.65) / 0.2;
+          baseScale = 1.15 + 0.25 * t;
+          blur = 8 * t;
+          opacity = 0.8 - 0.35 * t;
+          rotation = imageConfig.rotation * (0.85 + 0.1 * t);
+        } 
+        // Phase 5: Exit - fully blurred out (0.85 to 1.0)
+        else {
+          const t = (delayedProgress - 0.85) / 0.15;
+          baseScale = 1.4 + 0.2 * t;
+          blur = 8 + 12 * t;
+          opacity = 0.45 - 0.45 * t;
+          rotation = imageConfig.rotation * (0.95 + 0.05 * t);
+        }
       }
 
       const scale = baseScale * scaleMultiplier;
