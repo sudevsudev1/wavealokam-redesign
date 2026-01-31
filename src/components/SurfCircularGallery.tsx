@@ -13,8 +13,8 @@ const surfImages = [
   '/activities/surfing-new/6.webp',
   '/activities/surfing-new/7.webp',
   '/activities/surfing-new/8.webp',
-  '/activities/surfing-new/9.webp',
   '/activities/surfing-new/2.webp',
+  '/activities/surfing-new/9.webp',
 ];
 
 const TOTAL_IMAGES = surfImages.length;
