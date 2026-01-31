@@ -5,8 +5,8 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 gsap.registerPlugin(ScrollTrigger);
 
 const surfImages = [
-  '/activities/surfing-new/1.webp',
   '/activities/surfing-new/2.webp',
+  '/activities/surfing-new/1.webp',
   '/activities/surfing-new/3.webp',
   '/activities/surfing-new/4.webp',
   '/activities/surfing-new/5.webp',
