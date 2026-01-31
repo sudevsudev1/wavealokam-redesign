@@ -19,7 +19,7 @@ const surfImages = [
 
 const TOTAL_IMAGES = surfImages.length;
 const VISIBLE_ARC = 120; // degrees - shows 1/3 of circle (120 out of 360)
-const CIRCLE_RADIUS = 600; // pixels - radius of the virtual circle
+const CIRCLE_RADIUS = 800; // pixels - radius of the virtual circle
 
 interface SurfCircularGalleryProps {
   scrollProgress: number; // 0 to 1
@@ -73,12 +73,12 @@ const SurfCircularGallery = ({ scrollProgress }: SurfCircularGalleryProps) => {
         // Blur increases with distance from center
         const blurAmount = isCentered ? 0 : Math.min(distanceFromTop / 4, 12);
         
-        // Scale: larger at center, smaller at edges
-        const scale = isCentered ? 1.1 : 0.6 + (1 - distanceFromTop / 60) * 0.3;
+        // Scale: larger at center, smaller at edges - much bigger images
+        const scale = isCentered ? 1.4 : 0.9 + (1 - distanceFromTop / 60) * 0.4;
         
         // Opacity: 50% at center (as requested), fades out toward edges
         const centerOpacity = 0.5;
-        const edgeOpacity = 0.2;
+        const edgeOpacity = 0.25;
         const opacity = isInVisibleArc 
           ? (isCentered ? centerOpacity : edgeOpacity + (1 - distanceFromTop / 60) * (centerOpacity - edgeOpacity))
           : 0;
@@ -103,7 +103,7 @@ const SurfCircularGallery = ({ scrollProgress }: SurfCircularGalleryProps) => {
             <img
               src={src}
               alt={`Surfing ${index + 1}`}
-              className="w-48 h-64 md:w-64 md:h-80 lg:w-72 lg:h-96 object-cover rounded-2xl shadow-2xl"
+              className="w-64 h-[70vh] md:w-80 md:h-[80vh] lg:w-96 lg:h-[90vh] object-cover rounded-3xl shadow-2xl"
               loading="eager"
             />
           </div>
