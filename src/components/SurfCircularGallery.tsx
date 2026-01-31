@@ -86,6 +86,9 @@ const SurfCircularGallery = ({ scrollProgress }: SurfCircularGalleryProps) => {
         // Z-index: centered image on top
         const zIndex = isCentered ? 10 : Math.floor(10 - distanceFromTop / 10);
 
+        // Special vertical offset for second image (index 1) to prevent top cropping
+        const imageYOffset = index === 1 ? 80 : 0;
+
         return (
           <div
             key={index}
@@ -93,7 +96,7 @@ const SurfCircularGallery = ({ scrollProgress }: SurfCircularGalleryProps) => {
             style={{
               left: '50%',
               top: '50%',
-              transform: `translate(-50%, -50%) translate(${x}px, ${y + CIRCLE_RADIUS * 1.3}px) scale(${scale})`,
+              transform: `translate(-50%, -50%) translate(${x}px, ${y + CIRCLE_RADIUS * 1.3 + imageYOffset}px) scale(${scale})`,
               opacity,
               filter: `blur(${blurAmount}px)`,
               zIndex,
