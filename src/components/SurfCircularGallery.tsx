@@ -86,8 +86,8 @@ const SurfCircularGallery = ({ scrollProgress }: SurfCircularGalleryProps) => {
         // Z-index: centered image on top
         const zIndex = isCentered ? 10 : Math.floor(10 - distanceFromTop / 10);
 
-        // Special vertical offset for second image (index 1) to prevent top cropping
-        const imageYOffset = index === 1 ? 250 : 0;
+        // Special vertical offset for specific images to prevent cropping
+        const imageYOffset = index === 1 ? 250 : (index >= 8 ? -300 : 0);
 
         return (
           <div
