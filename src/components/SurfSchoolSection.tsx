@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Award, Users, Waves } from 'lucide-react';
+import SurfCircularGallery from './SurfCircularGallery';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -23,9 +24,25 @@ const levels = [
 const SurfSchoolSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isInView, setIsInView] = useState(false);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
+      // Main scroll progress for the circular gallery
+      ScrollTrigger.create({
+        trigger: sectionRef.current,
+        start: 'top 80%',
+        end: 'bottom 20%',
+        onUpdate: (self) => {
+          setScrollProgress(self.progress);
+        },
+        onEnter: () => setIsInView(true),
+        onLeave: () => setIsInView(false),
+        onEnterBack: () => setIsInView(true),
+        onLeaveBack: () => setIsInView(false),
+      });
+
       gsap.fromTo(
         '.surf-title',
         { opacity: 0, y: 50 },
@@ -70,20 +87,23 @@ const SurfSchoolSection = () => {
       id="surf-school"
       className="relative py-24 md:py-32 bg-wave-orange overflow-hidden"
     >
-      <div className="container mx-auto px-4">
+      {/* Circular Gallery Background */}
+      {isInView && <SurfCircularGallery scrollProgress={scrollProgress} />}
+
+      <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
         <div className="text-center mb-16">
           <p className="surf-title text-lg font-medium text-white/80 mb-2">LEARN FROM THE BEST</p>
-          <h2 className="surf-title text-display text-5xl md:text-7xl text-white mb-4">
+          <h2 className="surf-title text-display text-5xl md:text-7xl text-white mb-4 drop-shadow-lg">
             SURF SCHOOL
           </h2>
-          <p className="surf-title text-lg text-white/80 max-w-3xl mx-auto">
+          <p className="surf-title text-lg text-white/80 max-w-3xl mx-auto drop-shadow-md">
             Varkala's best surf instructors will get you riding waves in no time. Beginner or expert, they'll teach you that the ocean has a sense of humor and you're the punchline.
           </p>
         </div>
 
         {/* Brand Ambassador */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 mb-16 p-8 bg-white/20 backdrop-blur-md rounded-3xl border border-white/30 max-w-4xl mx-auto">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-8 mb-16 p-8 bg-white/30 backdrop-blur-lg rounded-3xl border border-white/40 max-w-4xl mx-auto shadow-xl">
           <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center">
             <Waves className="w-16 h-16 text-wave-orange" />
           </div>
@@ -92,8 +112,8 @@ const SurfSchoolSection = () => {
               <Award className="w-5 h-5 text-white" />
               <span className="text-white font-medium">Brand Ambassador</span>
             </div>
-            <h3 className="text-3xl md:text-4xl font-bold text-white mb-2">Sudev Nair</h3>
-            <p className="text-white/90 text-sm md:text-base">Award winning Actor, gymnast, dancer, martial artist, Sudev Nair is a lot of things. Surfer... well he did finally upgrade from foam to hardboard last Monday without crying... more than once. On an unrelated note, did we mention he is also the owner of Wavealokam? yeah...</p>
+            <h3 className="text-3xl md:text-4xl font-bold text-white mb-2 drop-shadow-md">Sudev Nair</h3>
+            <p className="text-white/95 text-sm md:text-base drop-shadow-sm">Award winning Actor, gymnast, dancer, martial artist, Sudev Nair is a lot of things. Surfer... well he did finally upgrade from foam to hardboard last Monday without crying... more than once. On an unrelated note, did we mention he is also the owner of Wavealokam? yeah...</p>
           </div>
         </div>
 
@@ -102,15 +122,15 @@ const SurfSchoolSection = () => {
           {levels.map((level, index) => (
             <div
               key={level.name}
-              className="level-card p-6 md:p-8 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 hover:bg-white/30 transition-all duration-300 hover:-translate-y-2"
+              className="level-card p-6 md:p-8 bg-white/30 backdrop-blur-lg rounded-2xl border border-white/40 hover:bg-white/40 transition-all duration-300 hover:-translate-y-2 shadow-xl"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-wave-orange font-bold">
                   {index + 1}
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white">{level.name}</h3>
+                <h3 className="text-xl md:text-2xl font-bold text-white drop-shadow-md">{level.name}</h3>
               </div>
-              <p className="text-white/90 text-sm md:text-base leading-relaxed">{level.description}</p>
+              <p className="text-white/95 text-sm md:text-base leading-relaxed drop-shadow-sm">{level.description}</p>
             </div>
           ))}
         </div>
