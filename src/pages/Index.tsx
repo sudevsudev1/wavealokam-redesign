@@ -10,9 +10,9 @@ import HeroSection from '@/components/HeroSection';
 import SurfboardScrollSection from '@/components/SurfboardScrollSection';
 import ActivitiesSection from '@/components/ActivitiesSection';
 import RoomsSection from '@/components/RoomsSection';
-// DiningSection removed as per user request
 import SurfSchoolSection from '@/components/SurfSchoolSection';
 import BookingWizard from '@/components/BookingWizard';
+import GallerySection from '@/components/GallerySection';
 import Footer from '@/components/Footer';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -56,6 +56,7 @@ const Index = () => {
       <RoomsSection />
       <SurfSchoolSection />
       <BookingWizard />
+      <GallerySection />
       <Footer />
     </div>
   );
