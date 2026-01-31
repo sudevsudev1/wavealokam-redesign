@@ -93,7 +93,7 @@ const SurfCircularGallery = ({ scrollProgress }: SurfCircularGalleryProps) => {
             style={{
               left: '50%',
               top: '50%',
-              transform: `translate(-50%, -50%) translate(${x}px, ${y + CIRCLE_RADIUS * 0.7}px) scale(${scale})`,
+              transform: `translate(-50%, -50%) translate(${x}px, ${y + CIRCLE_RADIUS * 1.3}px) scale(${scale})`,
               opacity,
               filter: `blur(${blurAmount}px)`,
               zIndex,
