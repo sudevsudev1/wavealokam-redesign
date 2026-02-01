@@ -15,7 +15,7 @@ const ChatBot = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Hey! 👋 I'm the Wavealokam chatbot - think of me as your slightly overenthusiastic concierge who actually answers questions. What can I help you with?",
+      content: "Hi. I am Drifter. Wave-a-lokam's digital representative. I might look like an AI chatbot. But trust me, that's only because I am.\n\nWhat can I help you with?",
     },
   ]);
   const [input, setInput] = useState('');
@@ -160,8 +160,8 @@ const ChatBot = () => {
             <MessageCircle className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold">Wavealokam Bot</h3>
-            <p className="text-xs text-white/80">Ask me anything about our property!</p>
+            <h3 className="font-bold">Drifter</h3>
+            <p className="text-xs text-white/80">Your brutally honest beach buddy</p>
           </div>
         </div>
 
