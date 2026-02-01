@@ -17,7 +17,7 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
   // Generate frame path
   const getFramePath = useCallback((frameNumber: number) => {
     const paddedNumber = String(frameNumber).padStart(3, '0');
-    return `/frames/frame_${paddedNumber}.webp`;
+    return `/frames/frame_${paddedNumber}_result.webp`;
   }, []);
 
   // Draw frame to canvas - this is instant since image is already decoded
