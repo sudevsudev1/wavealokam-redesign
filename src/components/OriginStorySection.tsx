@@ -5,176 +5,84 @@ import { Volume2, VolumeX } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
-// Story segments with images and narrative text
-const storySegments = [
-  {
-    image: '/origin-story/his_dream_was_simple.webp',
-    title: 'Chapter One',
-    text: 'His dream was simple...',
-    subtitle: 'A vision takes root'
-  },
-  {
-    image: '/origin-story/household_with_three_women_and_a_brother.webp',
-    title: '',
-    text: 'Growing up in a household with three women and a brother',
-    subtitle: 'shaped who he would become'
-  },
-  {
-    image: '/origin-story/the_ones_he_fantasizes_of_having.webp',
-    title: '',
-    text: 'The ones he fantasizes of having...',
-    subtitle: 'Dreams of adventure'
-  },
-  {
-    image: '/origin-story/former_beauty_queen.webp',
-    title: 'Enter Priya',
-    text: 'A former beauty queen',
-    subtitle: 'with dreams of her own'
-  },
-  {
-    image: '/origin-story/Femina_Miss_India.webp',
-    title: '',
-    text: 'Femina Miss India',
-    subtitle: 'The spotlight years'
-  },
-  {
-    image: '/origin-story/runway.webp',
-    title: '',
-    text: 'Walking the runway',
-    subtitle: 'Grace under pressure'
-  },
-  {
-    image: '/origin-story/choreographer_power_trips.webp',
-    title: '',
-    text: 'Choreographer power trips',
-    subtitle: 'The industry\'s dark side'
-  },
-  {
-    image: '/origin-story/wasnt_competent.webp',
-    title: '',
-    text: 'She wasn\'t competent, they said',
-    subtitle: 'But she knew better'
-  },
-  {
-    image: '/origin-story/that_was_unforgivable.webp',
-    title: '',
-    text: 'That was unforgivable',
-    subtitle: 'A turning point'
-  },
-  {
-    image: '/origin-story/famous_in_Kerala_-_surprise.webp',
-    title: 'Plot Twist',
-    text: 'Famous in Kerala - surprise!',
-    subtitle: 'Recognition at home'
-  },
-  {
-    image: '/origin-story/literal_beauty_queen_for_a_wife.webp',
-    title: '',
-    text: 'A literal beauty queen for a wife',
-    subtitle: 'Love finds a way'
-  },
-  {
-    image: '/origin-story/fell_in_love.webp',
-    title: '',
-    text: 'They fell in love',
-    subtitle: 'Against all odds'
-  },
-  {
-    image: '/origin-story/wedding.webp',
-    title: 'The Union',
-    text: 'The wedding',
-    subtitle: 'Two souls, one dream'
-  },
-  {
-    image: '/origin-story/got_rich.webp',
-    title: '',
-    text: 'They got rich',
-    subtitle: 'Hard work pays off'
-  },
-  {
-    image: '/origin-story/Supposed_to_be_chill_investors.webp',
-    title: 'New Beginnings',
-    text: 'Supposed to be chill investors',
-    subtitle: 'The retirement plan'
-  },
-  {
-    image: '/origin-story/Sudev_remains_the_chill_investor.webp',
-    title: '',
-    text: 'Sudev remains the chill investor',
-    subtitle: 'Living the dream'
-  },
-  {
-    image: '/origin-story/Here_s_a_picture_of_Sudev_with_his_local_friends.avif',
-    title: '',
-    text: 'Here\'s a picture of Sudev with his local friends',
-    subtitle: 'Building community'
-  },
-  {
-    image: '/origin-story/Here_is_a_picture_of_Sudev_with_all_his_friends.webp',
-    title: '',
-    text: 'Here is a picture of Sudev with all his friends',
-    subtitle: 'The extended family'
-  },
-  {
-    image: '/origin-story/That_s_when_Amardeep_discovered_Sudev_was_actually.webp',
-    title: 'The Discovery',
-    text: 'That\'s when Amardeep discovered Sudev was actually...',
-    subtitle: 'More than meets the eye'
-  },
-  {
-    image: '/origin-story/Varkala_was_their_first_trip_together.webp',
-    title: '',
-    text: 'Varkala was their first trip together',
-    subtitle: 'Where magic happens'
-  },
-  {
-    image: '/origin-story/drove_down.webp',
-    title: '',
-    text: 'They drove down',
-    subtitle: 'The journey begins'
-  },
-  {
-    image: '/origin-story/Wavealokam_started_as_a_partnership.webp',
-    title: 'Wavealokam',
-    text: 'Wavealokam started as a partnership',
-    subtitle: 'A dream takes shape'
-  },
-  {
-    image: '/origin-story/Nobody_s_living_in_a_slum_anymore.webp',
-    title: '',
-    text: 'Nobody\'s living in a slum anymore',
-    subtitle: 'Lifting everyone up'
-  },
-  {
-    image: '/origin-story/Here_we_are.webp',
-    title: '',
-    text: 'Here we are',
-    subtitle: 'The present moment'
-  },
-  {
-    image: '/origin-story/happily_ever_after.webp',
-    title: 'The End',
-    text: 'Happily ever after',
-    subtitle: '...or is it just the beginning?'
-  }
+// Content segments with optional images
+// Images appear when their segment scrolls into view
+interface ContentSegment {
+  text: string;
+  image?: string;
+  isCaption?: boolean; // For standalone image captions
+}
+
+const storyContent: ContentSegment[] = [
+  { text: '', image: '/origin-story/former_beauty_queen.webp' },
+  { text: 'Amardeep is a former beauty queen.' },
+  { text: '', image: '/origin-story/Femina_Miss_India.webp' },
+  { text: 'Femina Miss India Gujarat 2017 and elite model who spent years perfecting the art of the' },
+  { text: '', image: '/origin-story/runway.webp' },
+  { text: 'runway walk before discovering her actual calling: hospitality.' },
+  { text: '', image: '/origin-story/choreographer_power_trips.webp' },
+  { text: 'Turns out, after enough air kisses and small-minded choreographer power trips, even the glamorous life gets annoyingly unfulfilling. Who knew.' },
+  { text: 'Hospitality wasn\'t the plan though.' },
+  { text: '', image: '/origin-story/fell_in_love.webp' },
+  { text: 'She and Sudev fell in love in 2021 while he was living his "disappear for a year and forge yourself in solitude" phase. Except it wasn\'t poetic solitude - it was a slum rehabilitation housing complex in Mumbai because he genuinely had no money. True story. Also no friends, but that came standard with the Sudev package.' },
+  { text: '', image: '/origin-story/Here_is_a_picture_of_Sudev_with_all_his_friends.webp' },
+  { text: 'Here is a picture of Sudev with all his friends.', isCaption: true },
+  { text: '', image: '/origin-story/literal_beauty_queen_for_a_wife.webp' },
+  { text: 'How he managed to land a literal beauty queen for a wife remains one of life\'s great unsolved mysteries. We\'ve stopped asking.' },
+  { text: '', image: '/origin-story/Varkala_was_their_first_trip_together.webp' },
+  { text: 'Anyway, Varkala was their first trip together.' },
+  { text: '', image: '/origin-story/famous_in_Kerala_-_surprise.webp' },
+  { text: 'That\'s when Amardeep discovered Sudev was actually famous in Kerala -' },
+  { text: '', image: '/origin-story/That_s_when_Amardeep_discovered_Sudev_was_actually.webp' },
+  { text: 'surprise! He\'d found Varkala and surfing back in 2019 during what he thought was rock bottom. That was Until he had to also move to that slum rehabilitation complex because rent became too much luxury. This became his new rock bottom standard. But Varkala gave him surfing, and surfing gave him cathartic ocean weeps that eventually became a full-blown addiction. That\'s the high he now peddles to others.' },
+  { text: 'He worked hard, got popular,' },
+  { text: '', image: '/origin-story/got_rich.webp' },
+  { text: 'got rich. Possibly Amardeep\'s entry into his life shifted the cosmic odds.' },
+  { text: '', image: '/origin-story/his_dream_was_simple.webp' },
+  { text: 'Either way, his dream was simple: own a place in Varkala. A vacation home for chilling, hosting friends' },
+  { text: '', image: '/origin-story/the_ones_he_fantasizes_of_having.webp' },
+  { text: '- the ones he fantasizes of one day having, surfing,' },
+  { text: '', image: '/origin-story/happily_ever_after.webp' },
+  { text: 'living happily ever after.' },
+  { text: 'That was not to be.' },
+  { text: '', image: '/origin-story/Wavealokam_started_as_a_partnership.webp' },
+  { text: 'Wave-a-lokam started as a partnership between Sudev, Amardeep, and Sudev\'s local friend who was supposedly "well-versed with local workings and business." The plan:' },
+  { text: '', image: '/origin-story/Supposed_to_be_chill_investors.webp' },
+  { text: 'Sudev and Amardeep would be chill investors; the friend would handle operations. Classic setup. I know what you are thinking. "But Sudev has no friends."' },
+  { text: '"Exactly!"', isCaption: true },
+  { text: '', image: '/origin-story/Here_s_a_picture_of_Sudev_with_his_local_friends.avif' },
+  { text: 'Here\'s a picture of Sudev with his local friends.', isCaption: true },
+  { text: 'Said local friend turned out to be not' },
+  { text: '', image: '/origin-story/wasnt_competent.webp' },
+  { text: 'particularly competent, honest, or hardworking. Maybe forgiveable. But then they realized he wasn\'t even good with wit and one-liners.' },
+  { text: '', image: '/origin-story/that_was_unforgivable.webp' },
+  { text: 'That was unforgivable.' },
+  { text: '', image: '/origin-story/drove_down.webp' },
+  { text: 'Amardeep packed up from Mumbai, drove down to Varkala, and cleaned house. Took over like she\'d been running hospitality her entire life.' },
+  { text: '', image: '/origin-story/household_with_three_women_and_a_brother.webp' },
+  { text: 'Turns out managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation. Who knew domestic chaos was executive training?' },
+  { text: '', image: '/origin-story/Here_we_are.webp' },
+  { text: 'And so here we are.' },
+  { text: '', image: '/origin-story/Sudev_remains_the_chill_investor.webp' },
+  { text: 'Sudev remains the chill investor who shows up on non-shooting days, surfs, sips cocktails on the terrace, and returns to sets to earn money that Amardeep efficiently converts into guest satisfaction and operational excellence.' },
+  { text: 'It\'s a system. It works.' },
+  { text: '', image: '/origin-story/Nobody_s_living_in_a_slum_anymore.webp' },
+  { text: 'Nobody\'s living in a slum anymore. Progress.' },
 ];
 
 const OriginStorySection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cardsRef = useRef<HTMLDivElement[]>([]);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [audioStarted, setAudioStarted] = useState(false);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [isInSection, setIsInSection] = useState(false);
 
-  // Audio control
   const toggleMute = () => {
     if (audioRef.current) {
       if (!audioStarted) {
-        audioRef.current.play().catch(() => {
-          // Autoplay blocked, user needs to interact
-        });
+        audioRef.current.play().catch(() => {});
         setAudioStarted(true);
       }
       audioRef.current.muted = !isMuted;
@@ -183,132 +91,106 @@ const OriginStorySection = () => {
   };
 
   useEffect(() => {
-    if (!sectionRef.current || !containerRef.current) return;
+    if (!sectionRef.current) return;
 
     const section = sectionRef.current;
-    const container = containerRef.current;
-    const cards = cardsRef.current;
-    const totalCards = storySegments.length;
-    
-    // Calculate total scroll distance
-    const getScrollDistance = () => {
-      const cardWidth = window.innerWidth * 0.85;
-      const gap = window.innerWidth * 0.05;
-      return (cardWidth + gap) * (totalCards - 1);
-    };
 
-    // Main horizontal scroll animation
-    const scrollTween = gsap.to(container, {
-      x: () => -getScrollDistance(),
-      ease: 'none',
-      scrollTrigger: {
-        trigger: section,
-        start: 'top top',
-        end: () => `+=${getScrollDistance() + window.innerHeight}`,
-        pin: true,
-        scrub: 1,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          const progress = self.progress;
-          const cardIndex = Math.round(progress * (totalCards - 1));
-          setCurrentCardIndex(cardIndex);
-          
-          // Start audio when entering section
-          if (progress > 0.01 && !audioStarted && audioRef.current) {
-            audioRef.current.play().catch(() => {});
-            setAudioStarted(true);
-          }
+    // Track when user is in this section for audio button visibility
+    ScrollTrigger.create({
+      trigger: section,
+      start: 'top 80%',
+      end: 'bottom 20%',
+      onEnter: () => setIsInSection(true),
+      onLeave: () => setIsInSection(false),
+      onEnterBack: () => setIsInSection(true),
+      onLeaveBack: () => setIsInSection(false),
+    });
+
+    // Start audio when entering section
+    ScrollTrigger.create({
+      trigger: section,
+      start: 'top 50%',
+      onEnter: () => {
+        if (!audioStarted && audioRef.current) {
+          audioRef.current.play().catch(() => {});
+          setAudioStarted(true);
         }
-      }
+      },
     });
 
-    // Ken Burns effect on each card
-    cards.forEach((card, index) => {
-      if (!card) return;
-      
-      const image = card.querySelector('.story-image') as HTMLElement;
-      const textElements = card.querySelectorAll('.story-text');
-      
+    // Animate each segment
+    segmentRefs.current.forEach((segment, index) => {
+      if (!segment) return;
+
+      const image = segment.querySelector('.story-image-container');
+      const text = segment.querySelector('.story-text');
+
+      // Image animation: blur → focus → slight zoom
       if (image) {
-        // Ken Burns zoom effect
-        gsap.fromTo(image,
-          { scale: 1.1 },
-          {
-            scale: 1.3,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: section,
-              start: 'top top',
-              end: () => `+=${getScrollDistance() + window.innerHeight}`,
-              scrub: 1
-            }
-          }
-        );
-      }
+        gsap.set(image, {
+          opacity: 0,
+          scale: 0.8,
+          filter: 'blur(20px)',
+        });
 
-      // Staggered text reveal for each card
-      if (textElements.length > 0) {
-        gsap.fromTo(textElements,
-          { 
-            opacity: 0, 
-            y: 30,
-            filter: 'blur(10px)'
+        gsap.to(image, {
+          opacity: 1,
+          scale: 1,
+          filter: 'blur(0px)',
+          duration: 1,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: segment,
+            start: 'top 70%',
+            end: 'top 30%',
+            scrub: 1,
           },
-          {
-            opacity: 1,
-            y: 0,
-            filter: 'blur(0px)',
-            stagger: 0.1,
-            duration: 0.5,
-            scrollTrigger: {
-              trigger: card,
-              containerAnimation: scrollTween,
-              start: 'left 80%',
-              end: 'left 30%',
-              scrub: 1
-            }
-          }
-        );
-      }
-    });
+        });
 
-    // Parallax depth effect
-    cards.forEach((card, index) => {
-      if (!card) return;
-      
-      const depthOffset = (index % 3 - 1) * 20; // Alternate up/down
-      
-      gsap.fromTo(card,
-        { y: -depthOffset },
-        {
-          y: depthOffset,
+        // Ken Burns subtle zoom while in view
+        gsap.to(image.querySelector('img'), {
+          scale: 1.1,
           ease: 'none',
           scrollTrigger: {
-            trigger: card,
-            containerAnimation: scrollTween,
-            start: 'left right',
-            end: 'right left',
-            scrub: 1
-          }
-        }
-      );
+            trigger: segment,
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: 1,
+          },
+        });
+      }
+
+      // Text animation: fade in and up
+      if (text) {
+        gsap.set(text, {
+          opacity: 0,
+          y: 30,
+        });
+
+        gsap.to(text, {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: segment,
+            start: 'top 75%',
+            toggleActions: 'play none none reverse',
+          },
+        });
+      }
     });
 
     return () => {
-      ScrollTrigger.getAll().forEach(st => {
-        if (st.vars.trigger === section || st.vars.containerAnimation === scrollTween) {
-          st.kill();
-        }
-      });
+      ScrollTrigger.getAll().forEach(st => st.kill());
     };
   }, [audioStarted]);
 
   return (
-    <section 
+    <section
       ref={sectionRef}
       id="origin-story"
-      className="relative min-h-screen bg-gradient-to-b from-[hsl(var(--wave-purple))] via-[hsl(var(--wave-purple-light))] to-[hsl(var(--wave-blue-ocean))] overflow-hidden"
+      className="relative min-h-screen bg-gradient-to-b from-[hsl(var(--wave-purple))] via-[hsl(var(--wave-purple-light))] to-[hsl(var(--wave-blue-ocean))] py-24 md:py-32"
     >
       {/* Background Music */}
       <audio
@@ -319,85 +201,66 @@ const OriginStorySection = () => {
         preload="auto"
       />
 
-      {/* Audio Control Button */}
-      <button
-        onClick={toggleMute}
-        className="fixed bottom-8 left-8 z-50 p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110"
-        aria-label={isMuted ? 'Unmute background music' : 'Mute background music'}
-      >
-        {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-      </button>
+      {/* Audio Control Button - only visible in section */}
+      {isInSection && (
+        <button
+          onClick={toggleMute}
+          className="fixed bottom-8 left-8 z-50 p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110 animate-fade-in"
+          aria-label={isMuted ? 'Unmute background music' : 'Mute background music'}
+        >
+          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+        </button>
+      )}
 
-      {/* Section Header */}
-      <div className="absolute top-0 left-0 w-full pt-12 pb-8 px-8 z-20">
-        <h2 className="text-display-xl text-4xl md:text-6xl lg:text-7xl text-white text-center opacity-90">
-          Our Story
+      {/* Title */}
+      <div className="max-w-4xl mx-auto px-6 md:px-8 mb-16 md:mb-24">
+        <h2 className="text-4xl md:text-6xl lg:text-7xl text-white text-center font-bold leading-tight">
+          The Wave-a-lokam Origin Story
         </h2>
-        <p className="text-white/60 text-center mt-4 text-lg">
-          Scroll to explore the journey →
-        </p>
       </div>
 
-      {/* Progress Indicator */}
-      <div className="fixed top-1/2 right-8 -translate-y-1/2 z-50 flex flex-col gap-2">
-        {storySegments.map((_, index) => (
-          <div
-            key={index}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              index === currentCardIndex 
-                ? 'bg-white scale-150' 
-                : index < currentCardIndex 
-                  ? 'bg-white/60' 
-                  : 'bg-white/20'
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Horizontal Scroll Container */}
-      <div 
-        ref={containerRef}
-        className="flex items-center gap-[5vw] pt-32 pb-16 px-[7.5vw]"
-        style={{ width: `${storySegments.length * 90}vw` }}
+      {/* Blog Post Content */}
+      <div
+        ref={contentRef}
+        className="max-w-3xl mx-auto px-6 md:px-8"
       >
-        {storySegments.map((segment, index) => (
+        {storyContent.map((segment, index) => (
           <div
             key={index}
-            ref={el => { if (el) cardsRef.current[index] = el; }}
-            className="relative w-[85vw] h-[70vh] flex-shrink-0 rounded-3xl overflow-hidden shadow-2xl"
+            ref={el => { segmentRefs.current[index] = el; }}
+            className={`mb-8 ${segment.image ? 'mb-12' : ''}`}
           >
-            {/* Image with Ken Burns Effect */}
-            <div className="absolute inset-0 overflow-hidden">
-              <img
-                src={segment.image}
-                alt={segment.text}
-                className="story-image w-full h-full object-cover"
-              />
-              {/* Gradient overlay for text readability */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            </div>
+            {/* Image */}
+            {segment.image && (
+              <div className="story-image-container relative w-full mb-8 rounded-2xl overflow-hidden shadow-2xl">
+                <img
+                  src={segment.image}
+                  alt=""
+                  className="w-full h-auto object-contain"
+                  loading="lazy"
+                />
+              </div>
+            )}
 
-            {/* Text Content */}
-            <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12">
-              {segment.title && (
-                <span className="story-text inline-block px-4 py-1 mb-4 text-sm font-semibold uppercase tracking-widest text-white/90 bg-white/10 backdrop-blur-sm rounded-full">
-                  {segment.title}
-                </span>
-              )}
-              <h3 className="story-text text-display text-3xl md:text-5xl lg:text-6xl text-white mb-4">
+            {/* Text */}
+            {segment.text && (
+              <p
+                className={`story-text text-white leading-relaxed ${
+                  segment.isCaption
+                    ? 'text-lg md:text-xl text-center italic text-white/80'
+                    : 'text-xl md:text-2xl'
+                }`}
+              >
                 {segment.text}
-              </h3>
-              <p className="story-text text-white/70 text-lg md:text-xl">
-                {segment.subtitle}
               </p>
-            </div>
-
-            {/* Card number indicator */}
-            <div className="absolute top-6 right-6 text-white/30 font-bold text-6xl md:text-8xl">
-              {String(index + 1).padStart(2, '0')}
-            </div>
+            )}
           </div>
         ))}
+
+        {/* End flourish */}
+        <div className="text-center py-16">
+          <div className="inline-block w-16 h-1 bg-white/30 rounded-full" />
+        </div>
       </div>
     </section>
   );
