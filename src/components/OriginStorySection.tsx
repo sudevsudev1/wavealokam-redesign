@@ -201,16 +201,16 @@ const OriginStorySection = () => {
         preload="auto"
       />
 
-      {/* Audio Control Button - only visible in section */}
-      {isInSection && (
-        <button
-          onClick={toggleMute}
-          className="fixed bottom-8 left-8 z-50 p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110 animate-fade-in"
-          aria-label={isMuted ? 'Unmute background music' : 'Mute background music'}
-        >
-          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-        </button>
-      )}
+      {/* Audio Control Button - always rendered, visibility controlled by CSS */}
+      <button
+        onClick={toggleMute}
+        className={`fixed bottom-8 left-8 z-50 p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110 ${
+          isInSection ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
+        }`}
+        aria-label={isMuted ? 'Unmute background music' : 'Mute background music'}
+      >
+        {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+      </button>
 
       {/* Title */}
       <div className="max-w-4xl mx-auto px-6 md:px-8 mb-16 md:mb-24">
