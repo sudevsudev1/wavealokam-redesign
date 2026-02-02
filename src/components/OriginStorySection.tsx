@@ -5,56 +5,75 @@ import { Volume2, VolumeX } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
-// Text segments with their trigger images
-// When a text segment reaches center, its associated image animates in
-interface TextSegment {
+// Content segments with optional images
+// Images appear when their segment scrolls into view
+interface ContentSegment {
   text: string;
   image?: string;
-  isCaption?: boolean;
+  isCaption?: boolean; // For standalone image captions
 }
 
-const storySegments: TextSegment[] = [
-  { text: 'Amardeep is a former beauty queen.', image: '/origin-story/former_beauty_queen.webp' },
-  { text: 'Femina Miss India Gujarat 2017 and elite model who spent years perfecting the art of the', image: '/origin-story/Femina_Miss_India.webp' },
-  { text: 'runway walk before discovering her actual calling: hospitality.', image: '/origin-story/runway.webp' },
-  { text: 'Turns out, after enough air kisses and small-minded choreographer power trips, even the glamorous life gets annoyingly unfulfilling. Who knew.', image: '/origin-story/choreographer_power_trips.webp' },
+const storyContent: ContentSegment[] = [
+  { text: '', image: '/origin-story/former_beauty_queen.webp' },
+  { text: 'Amardeep is a former beauty queen.' },
+  { text: '', image: '/origin-story/Femina_Miss_India.webp' },
+  { text: 'Femina Miss India Gujarat 2017 and elite model who spent years perfecting the art of the' },
+  { text: '', image: '/origin-story/runway.webp' },
+  { text: 'runway walk before discovering her actual calling: hospitality.' },
+  { text: '', image: '/origin-story/choreographer_power_trips.webp' },
+  { text: 'Turns out, after enough air kisses and small-minded choreographer power trips, even the glamorous life gets annoyingly unfulfilling. Who knew.' },
   { text: 'Hospitality wasn\'t the plan though.' },
-  { text: 'She and Sudev fell in love in 2021 while he was living his "disappear for a year and forge yourself in solitude" phase. Except it wasn\'t poetic solitude - it was a slum rehabilitation housing complex in Mumbai because he genuinely had no money. True story. Also no friends, but that came standard with the Sudev package.', image: '/origin-story/fell_in_love.webp' },
-  { text: 'Here is a picture of Sudev with all his friends.', image: '/origin-story/Here_is_a_picture_of_Sudev_with_all_his_friends.webp', isCaption: true },
-  { text: 'How he managed to land a literal beauty queen for a wife remains one of life\'s great unsolved mysteries. We\'ve stopped asking.', image: '/origin-story/literal_beauty_queen_for_a_wife.webp' },
-  { text: 'Anyway, Varkala was their first trip together.', image: '/origin-story/Varkala_was_their_first_trip_together.webp' },
-  { text: 'That\'s when Amardeep discovered Sudev was actually famous in Kerala -', image: '/origin-story/famous_in_Kerala_-_surprise.webp' },
-  { text: 'surprise! He\'d found Varkala and surfing back in 2019 during what he thought was rock bottom. That was Until he had to also move to that slum rehabilitation complex because rent became too much luxury. This became his new rock bottom standard. But Varkala gave him surfing, and surfing gave him cathartic ocean weeps that eventually became a full-blown addiction. That\'s the high he now peddles to others.', image: '/origin-story/That_s_when_Amardeep_discovered_Sudev_was_actually.webp' },
+  { text: '', image: '/origin-story/fell_in_love.webp' },
+  { text: 'She and Sudev fell in love in 2021 while he was living his "disappear for a year and forge yourself in solitude" phase. Except it wasn\'t poetic solitude - it was a slum rehabilitation housing complex in Mumbai because he genuinely had no money. True story. Also no friends, but that came standard with the Sudev package.' },
+  { text: '', image: '/origin-story/Here_is_a_picture_of_Sudev_with_all_his_friends.webp' },
+  { text: 'Here is a picture of Sudev with all his friends.', isCaption: true },
+  { text: '', image: '/origin-story/literal_beauty_queen_for_a_wife.webp' },
+  { text: 'How he managed to land a literal beauty queen for a wife remains one of life\'s great unsolved mysteries. We\'ve stopped asking.' },
+  { text: '', image: '/origin-story/Varkala_was_their_first_trip_together.webp' },
+  { text: 'Anyway, Varkala was their first trip together.' },
+  { text: '', image: '/origin-story/famous_in_Kerala_-_surprise.webp' },
+  { text: 'That\'s when Amardeep discovered Sudev was actually famous in Kerala -' },
+  { text: '', image: '/origin-story/That_s_when_Amardeep_discovered_Sudev_was_actually.webp' },
+  { text: 'surprise! He\'d found Varkala and surfing back in 2019 during what he thought was rock bottom. That was Until he had to also move to that slum rehabilitation complex because rent became too much luxury. This became his new rock bottom standard. But Varkala gave him surfing, and surfing gave him cathartic ocean weeps that eventually became a full-blown addiction. That\'s the high he now peddles to others.' },
   { text: 'He worked hard, got popular,' },
-  { text: 'got rich. Possibly Amardeep\'s entry into his life shifted the cosmic odds.', image: '/origin-story/got_rich.webp' },
-  { text: 'Either way, his dream was simple: own a place in Varkala. A vacation home for chilling, hosting friends', image: '/origin-story/his_dream_was_simple.webp' },
-  { text: '- the ones he fantasizes of one day having, surfing,', image: '/origin-story/the_ones_he_fantasizes_of_having.webp' },
-  { text: 'living happily ever after.', image: '/origin-story/happily_ever_after.webp' },
+  { text: '', image: '/origin-story/got_rich.webp' },
+  { text: 'got rich. Possibly Amardeep\'s entry into his life shifted the cosmic odds.' },
+  { text: '', image: '/origin-story/his_dream_was_simple.webp' },
+  { text: 'Either way, his dream was simple: own a place in Varkala. A vacation home for chilling, hosting friends' },
+  { text: '', image: '/origin-story/the_ones_he_fantasizes_of_having.webp' },
+  { text: '- the ones he fantasizes of one day having, surfing,' },
+  { text: '', image: '/origin-story/happily_ever_after.webp' },
+  { text: 'living happily ever after.' },
   { text: 'That was not to be.' },
-  { text: 'Wave-a-lokam started as a partnership between Sudev, Amardeep, and Sudev\'s local friend who was supposedly "well-versed with local workings and business." The plan:', image: '/origin-story/Wavealokam_started_as_a_partnership.webp' },
-  { text: 'Sudev and Amardeep would be chill investors; the friend would handle operations. Classic setup. I know what you are thinking. "But Sudev has no friends."', image: '/origin-story/Supposed_to_be_chill_investors.webp' },
+  { text: '', image: '/origin-story/Wavealokam_started_as_a_partnership.webp' },
+  { text: 'Wave-a-lokam started as a partnership between Sudev, Amardeep, and Sudev\'s local friend who was supposedly "well-versed with local workings and business." The plan:' },
+  { text: '', image: '/origin-story/Supposed_to_be_chill_investors.webp' },
+  { text: 'Sudev and Amardeep would be chill investors; the friend would handle operations. Classic setup. I know what you are thinking. "But Sudev has no friends."' },
   { text: '"Exactly!"', isCaption: true },
-  { text: 'Here\'s a picture of Sudev with his local friends.', image: '/origin-story/Here_s_a_picture_of_Sudev_with_his_local_friends.avif', isCaption: true },
+  { text: '', image: '/origin-story/Here_s_a_picture_of_Sudev_with_his_local_friends.avif' },
+  { text: 'Here\'s a picture of Sudev with his local friends.', isCaption: true },
   { text: 'Said local friend turned out to be not' },
-  { text: 'particularly competent, honest, or hardworking. Maybe forgiveable. But then they realized he wasn\'t even good with wit and one-liners.', image: '/origin-story/wasnt_competent.webp' },
-  { text: 'That was unforgivable.', image: '/origin-story/that_was_unforgivable.webp' },
-  { text: 'Amardeep packed up from Mumbai, drove down to Varkala, and cleaned house. Took over like she\'d been running hospitality her entire life.', image: '/origin-story/drove_down.webp' },
-  { text: 'Turns out managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation. Who knew domestic chaos was executive training?', image: '/origin-story/household_with_three_women_and_a_brother.webp' },
-  { text: 'And so here we are.', image: '/origin-story/Here_we_are.webp' },
-  { text: 'Sudev remains the chill investor who shows up on non-shooting days, surfs, sips cocktails on the terrace, and returns to sets to earn money that Amardeep efficiently converts into guest satisfaction and operational excellence.', image: '/origin-story/Sudev_remains_the_chill_investor.webp' },
+  { text: '', image: '/origin-story/wasnt_competent.webp' },
+  { text: 'particularly competent, honest, or hardworking. Maybe forgiveable. But then they realized he wasn\'t even good with wit and one-liners.' },
+  { text: '', image: '/origin-story/that_was_unforgivable.webp' },
+  { text: 'That was unforgivable.' },
+  { text: '', image: '/origin-story/drove_down.webp' },
+  { text: 'Amardeep packed up from Mumbai, drove down to Varkala, and cleaned house. Took over like she\'d been running hospitality her entire life.' },
+  { text: '', image: '/origin-story/household_with_three_women_and_a_brother.webp' },
+  { text: 'Turns out managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation. Who knew domestic chaos was executive training?' },
+  { text: '', image: '/origin-story/Here_we_are.webp' },
+  { text: 'And so here we are.' },
+  { text: '', image: '/origin-story/Sudev_remains_the_chill_investor.webp' },
+  { text: 'Sudev remains the chill investor who shows up on non-shooting days, surfs, sips cocktails on the terrace, and returns to sets to earn money that Amardeep efficiently converts into guest satisfaction and operational excellence.' },
   { text: 'It\'s a system. It works.' },
-  { text: 'Nobody\'s living in a slum anymore. Progress.', image: '/origin-story/Nobody_s_living_in_a_slum_anymore.webp' },
+  { text: '', image: '/origin-story/Nobody_s_living_in_a_slum_anymore.webp' },
+  { text: 'Nobody\'s living in a slum anymore. Progress.' },
 ];
-
-// Extract unique images for background layer
-const backgroundImages = storySegments
-  .filter(s => s.image)
-  .map(s => s.image!);
 
 const OriginStorySection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const textRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const imageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [audioStarted, setAudioStarted] = useState(false);
@@ -99,54 +118,67 @@ const OriginStorySection = () => {
       },
     });
 
-    // Build a map of image index to text trigger index
-    let imageIndex = 0;
-    const imageToTextMap: { imageIdx: number; textIdx: number }[] = [];
-    storySegments.forEach((segment, textIdx) => {
-      if (segment.image) {
-        imageToTextMap.push({ imageIdx: imageIndex, textIdx });
-        imageIndex++;
-      }
-    });
+    // Animate each segment
+    segmentRefs.current.forEach((segment, index) => {
+      if (!segment) return;
 
-    // Animate each background image based on its trigger text position
-    imageToTextMap.forEach(({ imageIdx, textIdx }) => {
-      const imageEl = imageRefs.current[imageIdx];
-      const textEl = textRefs.current[textIdx];
-      
-      if (!imageEl || !textEl) return;
+      const image = segment.querySelector('.story-image-container');
+      const text = segment.querySelector('.story-text');
 
-      // Set initial state - hidden and blurred
-      gsap.set(imageEl, {
-        opacity: 0,
-        scale: 0.8,
-        filter: 'blur(30px)',
-      });
+      // Image animation: blur → focus → slight zoom
+      if (image) {
+        gsap.set(image, {
+          opacity: 0,
+          scale: 0.8,
+          filter: 'blur(20px)',
+        });
 
-      // Create scroll-driven animation
-      // Image fades in as text approaches center, sharp at center, fades out after
-      gsap.timeline({
-        scrollTrigger: {
-          trigger: textEl,
-          start: 'top 80%',
-          end: 'bottom 20%',
-          scrub: 1,
-        },
-      })
-        .to(imageEl, {
-          opacity: 0.6,
+        gsap.to(image, {
+          opacity: 1,
           scale: 1,
           filter: 'blur(0px)',
-          duration: 0.5,
+          duration: 1,
           ease: 'power2.out',
-        })
-        .to(imageEl, {
-          opacity: 0,
-          scale: 1.1,
-          filter: 'blur(20px)',
-          duration: 0.5,
-          ease: 'power2.in',
+          scrollTrigger: {
+            trigger: segment,
+            start: 'top 70%',
+            end: 'top 30%',
+            scrub: 1,
+          },
         });
+
+        // Ken Burns subtle zoom while in view
+        gsap.to(image.querySelector('img'), {
+          scale: 1.1,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: segment,
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: 1,
+          },
+        });
+      }
+
+      // Text animation: fade in and up
+      if (text) {
+        gsap.set(text, {
+          opacity: 0,
+          y: 30,
+        });
+
+        gsap.to(text, {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: segment,
+            start: 'top 75%',
+            toggleActions: 'play none none reverse',
+          },
+        });
+      }
     });
 
     return () => {
@@ -154,37 +186,12 @@ const OriginStorySection = () => {
     };
   }, [audioStarted]);
 
-  // Build image index counter for refs
-  let currentImageIndex = 0;
-
   return (
     <section
       ref={sectionRef}
       id="origin-story"
-      className="relative min-h-screen bg-gradient-to-b from-[hsl(var(--wave-purple))] via-[hsl(var(--wave-purple-light))] to-[hsl(var(--wave-blue-ocean))] py-24 md:py-32 overflow-hidden"
+      className="relative min-h-screen bg-gradient-to-b from-[hsl(var(--wave-purple))] via-[hsl(var(--wave-purple-light))] to-[hsl(var(--wave-blue-ocean))] py-24 md:py-32"
     >
-      {/* Background Images Layer - Fixed position within section */}
-      <div className="absolute inset-0 pointer-events-none">
-        {backgroundImages.map((src, idx) => (
-          <div
-            key={idx}
-            ref={el => { imageRefs.current[idx] = el; }}
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ opacity: 0 }}
-          >
-            <img
-              src={src}
-              alt=""
-              className="w-full h-full object-contain max-w-4xl mx-auto"
-              loading="lazy"
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Overlay for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[hsl(var(--wave-purple)/0.7)] via-[hsl(var(--wave-purple-light)/0.6)] to-[hsl(var(--wave-blue-ocean)/0.7)] pointer-events-none" />
-
       {/* Background Music */}
       <audio
         ref={audioRef}
@@ -194,7 +201,7 @@ const OriginStorySection = () => {
         preload="auto"
       />
 
-      {/* Audio Control Button */}
+      {/* Audio Control Button - always rendered, visibility controlled by CSS */}
       <button
         onClick={toggleMute}
         className={`fixed bottom-8 left-8 z-50 p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110 ${
@@ -205,39 +212,50 @@ const OriginStorySection = () => {
         {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
       </button>
 
-      {/* Content Layer */}
-      <div className="relative z-10">
-        {/* Title */}
-        <div className="max-w-4xl mx-auto px-6 md:px-8 mb-16 md:mb-24">
-          <h2 className="text-4xl md:text-6xl lg:text-7xl text-white text-center font-bold leading-tight drop-shadow-lg">
-            The Wave-a-lokam Origin Story
-          </h2>
-        </div>
+      {/* Title */}
+      <div className="max-w-4xl mx-auto px-6 md:px-8 mb-16 md:mb-24">
+        <h2 className="text-4xl md:text-6xl lg:text-7xl text-white text-center font-bold leading-tight">
+          The Wave-a-lokam Origin Story
+        </h2>
+      </div>
 
-        {/* Continuous Text Flow */}
-        <div className="max-w-3xl mx-auto px-6 md:px-8">
-          <div className="text-white text-xl md:text-2xl leading-relaxed drop-shadow-md">
-            {storySegments.map((segment, idx) => {
-              // Track which image this segment triggers
-              const hasImage = !!segment.image;
-              const imageIdx = hasImage ? currentImageIndex++ : -1;
-              
-              return (
-                <span
-                  key={idx}
-                  ref={el => { textRefs.current[idx] = el; }}
-                  className={`inline ${
-                    segment.isCaption
-                      ? 'block text-center italic text-white/90 my-8'
-                      : ''
-                  }`}
-                >
-                  {segment.text}{' '}
-                </span>
-              );
-            })}
+      {/* Blog Post Content */}
+      <div
+        ref={contentRef}
+        className="max-w-3xl mx-auto px-6 md:px-8"
+      >
+        {storyContent.map((segment, index) => (
+          <div
+            key={index}
+            ref={el => { segmentRefs.current[index] = el; }}
+            className={`mb-8 ${segment.image ? 'mb-12' : ''}`}
+          >
+            {/* Image */}
+            {segment.image && (
+              <div className="story-image-container relative w-full mb-8 rounded-2xl overflow-hidden shadow-2xl">
+                <img
+                  src={segment.image}
+                  alt=""
+                  className="w-full h-auto object-contain"
+                  loading="lazy"
+                />
+              </div>
+            )}
+
+            {/* Text */}
+            {segment.text && (
+              <p
+                className={`story-text text-white leading-relaxed ${
+                  segment.isCaption
+                    ? 'text-lg md:text-xl text-center italic text-white/80'
+                    : 'text-xl md:text-2xl'
+                }`}
+              >
+                {segment.text}
+              </p>
+            )}
           </div>
-        </div>
+        ))}
 
         {/* End flourish */}
         <div className="text-center py-16">
