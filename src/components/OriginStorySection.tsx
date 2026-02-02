@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, ChevronDown } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -78,6 +83,7 @@ const OriginStorySection = () => {
   const [isMuted, setIsMuted] = useState(true);
   const [audioStarted, setAudioStarted] = useState(false);
   const [isInSection, setIsInSection] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const toggleMute = () => {
     if (audioRef.current) {
@@ -91,12 +97,12 @@ const OriginStorySection = () => {
   };
 
   useEffect(() => {
-    if (!sectionRef.current) return;
+    if (!sectionRef.current || !isOpen) return;
 
     const section = sectionRef.current;
 
     // Track when user is in this section for audio button visibility
-    ScrollTrigger.create({
+    const sectionTrigger = ScrollTrigger.create({
       trigger: section,
       start: 'top 80%',
       end: 'bottom 20%',
@@ -107,7 +113,7 @@ const OriginStorySection = () => {
     });
 
     // Start audio when entering section
-    ScrollTrigger.create({
+    const audioTrigger = ScrollTrigger.create({
       trigger: section,
       start: 'top 50%',
       onEnter: () => {
@@ -119,7 +125,10 @@ const OriginStorySection = () => {
     });
 
     // Animate each segment
-    segmentRefs.current.forEach((segment, index) => {
+    const animations: gsap.core.Tween[] = [];
+    const triggers: ScrollTrigger[] = [];
+
+    segmentRefs.current.forEach((segment) => {
       if (!segment) return;
 
       const image = segment.querySelector('.story-image-container');
@@ -133,7 +142,7 @@ const OriginStorySection = () => {
           filter: 'blur(20px)',
         });
 
-        gsap.to(image, {
+        const imageTween = gsap.to(image, {
           opacity: 1,
           scale: 1,
           filter: 'blur(0px)',
@@ -146,18 +155,25 @@ const OriginStorySection = () => {
             scrub: 1,
           },
         });
+        animations.push(imageTween);
+        if (imageTween.scrollTrigger) triggers.push(imageTween.scrollTrigger);
 
         // Ken Burns subtle zoom while in view
-        gsap.to(image.querySelector('img'), {
-          scale: 1.1,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: segment,
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: 1,
-          },
-        });
+        const img = image.querySelector('img');
+        if (img) {
+          const kenBurnsTween = gsap.to(img, {
+            scale: 1.1,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: segment,
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: 1,
+            },
+          });
+          animations.push(kenBurnsTween);
+          if (kenBurnsTween.scrollTrigger) triggers.push(kenBurnsTween.scrollTrigger);
+        }
       }
 
       // Text animation: fade in and up
@@ -167,7 +183,7 @@ const OriginStorySection = () => {
           y: 30,
         });
 
-        gsap.to(text, {
+        const textTween = gsap.to(text, {
           opacity: 1,
           y: 0,
           duration: 0.8,
@@ -178,19 +194,24 @@ const OriginStorySection = () => {
             toggleActions: 'play none none reverse',
           },
         });
+        animations.push(textTween);
+        if (textTween.scrollTrigger) triggers.push(textTween.scrollTrigger);
       }
     });
 
     return () => {
-      ScrollTrigger.getAll().forEach(st => st.kill());
+      sectionTrigger.kill();
+      audioTrigger.kill();
+      triggers.forEach(st => st.kill());
+      animations.forEach(anim => anim.kill());
     };
-  }, [audioStarted]);
+  }, [audioStarted, isOpen]);
 
   return (
     <section
       ref={sectionRef}
       id="origin-story"
-      className="relative min-h-screen bg-gradient-to-b from-[hsl(var(--wave-purple))] via-[hsl(var(--wave-purple-light))] to-[hsl(var(--wave-blue-ocean))] py-24 md:py-32"
+      className="relative bg-gradient-to-b from-[hsl(var(--wave-purple))] via-[hsl(var(--wave-purple-light))] to-[hsl(var(--wave-blue-ocean))] py-24 md:py-32"
     >
       {/* Background Music */}
       <audio
@@ -205,62 +226,73 @@ const OriginStorySection = () => {
       <button
         onClick={toggleMute}
         className={`fixed bottom-8 left-8 z-50 p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110 ${
-          isInSection ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
+          isInSection && isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
         }`}
         aria-label={isMuted ? 'Unmute background music' : 'Mute background music'}
       >
         {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
       </button>
 
-      {/* Title */}
-      <div className="max-w-4xl mx-auto px-6 md:px-8 mb-16 md:mb-24">
-        <h2 className="text-4xl md:text-6xl lg:text-7xl text-white text-center font-bold leading-tight">
-          The Wave-a-lokam Origin Story
-        </h2>
-      </div>
-
-      {/* Blog Post Content */}
-      <div
-        ref={contentRef}
-        className="max-w-3xl mx-auto px-6 md:px-8"
-      >
-        {storyContent.map((segment, index) => (
-          <div
-            key={index}
-            ref={el => { segmentRefs.current[index] = el; }}
-            className={`mb-8 ${segment.image ? 'mb-12' : ''}`}
-          >
-            {/* Image */}
-            {segment.image && (
-              <div className="story-image-container relative w-full mb-8 rounded-2xl overflow-hidden shadow-2xl">
-                <img
-                  src={segment.image}
-                  alt=""
-                  className="w-full h-auto object-contain"
-                  loading="lazy"
-                />
+      <div className="max-w-4xl mx-auto px-6 md:px-8">
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          {/* Collapsible Trigger */}
+          <CollapsibleTrigger className="w-full group">
+            <div className="flex flex-col items-center gap-6 cursor-pointer">
+              <h2 className="text-4xl md:text-6xl lg:text-7xl text-white text-center font-bold leading-tight group-hover:text-white/90 transition-colors">
+                The Wave-a-lokam Origin Story
+              </h2>
+              <div className={`p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white group-hover:bg-white/20 transition-all duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                <ChevronDown size={28} />
               </div>
-            )}
+              {!isOpen && (
+                <p className="text-white/60 text-lg">Click to read</p>
+              )}
+            </div>
+          </CollapsibleTrigger>
 
-            {/* Text */}
-            {segment.text && (
-              <p
-                className={`story-text text-white leading-relaxed ${
-                  segment.isCaption
-                    ? 'text-lg md:text-xl text-center italic text-white/80'
-                    : 'text-xl md:text-2xl'
-                }`}
-              >
-                {segment.text}
-              </p>
-            )}
-          </div>
-        ))}
+          {/* Collapsible Content */}
+          <CollapsibleContent className="mt-16 md:mt-24">
+            <div ref={contentRef} className="max-w-3xl mx-auto">
+              {storyContent.map((segment, index) => (
+                <div
+                  key={index}
+                  ref={el => { segmentRefs.current[index] = el; }}
+                  className={`mb-8 ${segment.image ? 'mb-12' : ''}`}
+                >
+                  {/* Image */}
+                  {segment.image && (
+                    <div className="story-image-container relative w-full mb-8 rounded-2xl overflow-hidden shadow-2xl">
+                      <img
+                        src={segment.image}
+                        alt=""
+                        className="w-full h-auto object-contain"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
 
-        {/* End flourish */}
-        <div className="text-center py-16">
-          <div className="inline-block w-16 h-1 bg-white/30 rounded-full" />
-        </div>
+                  {/* Text */}
+                  {segment.text && (
+                    <p
+                      className={`story-text text-white leading-relaxed ${
+                        segment.isCaption
+                          ? 'text-lg md:text-xl text-center italic text-white/80'
+                          : 'text-xl md:text-2xl'
+                      }`}
+                    >
+                      {segment.text}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              {/* End flourish */}
+              <div className="text-center py-16">
+                <div className="inline-block w-16 h-1 bg-white/30 rounded-full" />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </section>
   );
