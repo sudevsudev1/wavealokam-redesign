@@ -13,6 +13,7 @@ import RoomsSection from '@/components/RoomsSection';
 import SurfSchoolSection from '@/components/SurfSchoolSection';
 import BookingWizard from '@/components/BookingWizard';
 import GallerySection from '@/components/GallerySection';
+import OriginStorySection from '@/components/OriginStorySection';
 import Footer from '@/components/Footer';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -57,6 +58,7 @@ const Index = () => {
       <SurfSchoolSection />
       <BookingWizard />
       <GallerySection />
+      <OriginStorySection />
       <Footer />
     </div>
   );
