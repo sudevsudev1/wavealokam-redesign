@@ -254,32 +254,41 @@ const BlogPost = () => {
                   </li>
                 ),
                 a: ({ href, children }) => {
-                  // Map internal links to actual routes or sections
+                  // Map internal links to actual routes or homepage hash sections
                   const linkMap: Record<string, string> = {
+                    '/': '/',
                     '/rooms': '/#rooms',
                     '/booking': '/#rooms',
                     '/surf-school': '/#surf-school',
                     '/activities': '/#activities',
                     '/dining': '/#dining',
                   };
-                  const mappedHref = href && linkMap[href] ? linkMap[href] : href;
+                  
+                  // Check if it's an internal path that needs mapping
+                  let mappedHref = href;
+                  if (href && linkMap[href] !== undefined) {
+                    mappedHref = linkMap[href];
+                  }
+                  
                   const isExternal = mappedHref?.startsWith('http');
+                  const isHomepage = mappedHref === '/';
                   const isHashLink = mappedHref?.startsWith('/#');
                   
-                  // Handle internal hash links with navigation + scroll
-                  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-                    if (isHashLink && mappedHref) {
-                      e.preventDefault();
-                      const hash = mappedHref.substring(2); // Remove '/#'
-                      // Navigate to home page first, then scroll to section
-                      window.location.href = `/${mappedHref.substring(1)}`; // This will be /#rooms etc
-                    }
-                  };
+                  // For homepage and hash links, use native anchor for proper navigation
+                  if (isHomepage || isHashLink) {
+                    return (
+                      <a 
+                        href={mappedHref}
+                        className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
+                      >
+                        {children}
+                      </a>
+                    );
+                  }
                   
                   return (
                     <a 
                       href={mappedHref} 
-                      onClick={isHashLink ? handleClick : undefined}
                       target={isExternal ? '_blank' : undefined}
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
