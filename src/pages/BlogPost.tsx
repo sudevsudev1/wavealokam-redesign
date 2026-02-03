@@ -218,20 +218,40 @@ const BlogPost = () => {
             </Button>
           </div>
 
-          {/* Markdown Content */}
-          <div className="prose prose-lg max-w-none 
-            prose-headings:font-bold prose-headings:text-foreground prose-headings:underline prose-headings:decoration-2 prose-headings:underline-offset-4
-            prose-h2:mt-10 prose-h2:mb-6
-            prose-h3:mt-8 prose-h3:mb-4
-            prose-p:text-muted-foreground prose-p:mb-6 prose-p:leading-relaxed
-            prose-li:mb-3 prose-li:text-muted-foreground
-            prose-ul:my-6 prose-ol:my-6
-            prose-a:text-primary prose-a:underline prose-a:decoration-primary prose-a:underline-offset-2 hover:prose-a:decoration-2
-            prose-strong:text-foreground prose-strong:font-semibold
-            prose-img:rounded-lg prose-img:my-8
-            prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground prose-blockquote:my-8">
+          {/* Markdown Content - Styled like Origin Story section */}
+          <div className="space-y-8">
             <ReactMarkdown
               components={{
+                h2: ({ children }) => (
+                  <h2 className="text-2xl md:text-3xl font-bold text-foreground mt-12 mb-6 underline decoration-2 underline-offset-4">
+                    {children}
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-xl md:text-2xl font-bold text-foreground mt-10 mb-4 underline decoration-2 underline-offset-4">
+                    {children}
+                  </h3>
+                ),
+                p: ({ children }) => (
+                  <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-6">
+                    {children}
+                  </p>
+                ),
+                ul: ({ children }) => (
+                  <ul className="space-y-4 my-8 pl-6 list-disc">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="space-y-4 my-8 pl-6 list-decimal">
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => (
+                  <li className="text-lg md:text-xl text-muted-foreground leading-relaxed">
+                    {children}
+                  </li>
+                ),
                 a: ({ href, children }) => {
                   // Map internal links to actual routes or sections
                   const linkMap: Record<string, string> = {
@@ -244,19 +264,32 @@ const BlogPost = () => {
                   const mappedHref = href && linkMap[href] ? linkMap[href] : href;
                   const isExternal = mappedHref?.startsWith('http');
                   
+                  // Use native <a> for proper hash navigation
                   return (
                     <a 
                       href={mappedHref} 
                       target={isExternal ? '_blank' : undefined}
                       rel={isExternal ? 'noopener noreferrer' : undefined}
-                      className="text-primary underline decoration-primary underline-offset-2 hover:decoration-2 transition-all"
+                      className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
                     >
                       {children}
                     </a>
                   );
                 },
                 strong: ({ children }) => (
-                  <span className="text-foreground">{children}</span>
+                  <span className="font-semibold text-foreground">{children}</span>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-4 border-primary pl-6 my-8 italic text-muted-foreground">
+                    {children}
+                  </blockquote>
+                ),
+                img: ({ src, alt }) => (
+                  <img 
+                    src={src} 
+                    alt={alt || ''} 
+                    className="w-full h-auto rounded-2xl my-8 shadow-lg"
+                  />
                 ),
               }}
             >
