@@ -174,7 +174,6 @@ Respond in this exact JSON format:
         { role: 'system', content: 'You are an expert SEO content writer for a surf resort in Kerala, India. Always respond with valid JSON.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.7,
     }),
   });
 
