@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.send-quiz-email]
 verify_jwt = false
+
+[functions.generate-blog-post]
+verify_jwt = false
+
+[functions.blog-cron-trigger]
+verify_jwt = false
