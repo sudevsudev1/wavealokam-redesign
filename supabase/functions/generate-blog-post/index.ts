@@ -23,48 +23,63 @@ Tone Examples:
 - Not "luxurious amenities" but "clean sheets, good AC, and strong WiFi"
 `;
 
-// Content type templates
+// Content type templates with formatting guidelines
 const CONTENT_TYPES = [
-  { type: 'listicle', template: 'Create a numbered list article with 7-10 items. Each item should have a catchy subheading and 2-3 paragraphs of engaging content.' },
-  { type: 'guide', template: 'Create a comprehensive guide with clear sections: Introduction, What You Need to Know, Step-by-Step/How-To, Pro Tips, and Conclusion.' },
-  { type: 'opinion', template: 'Write a personal, opinionated piece that shares unique insights. Use first-person perspective and include specific anecdotes.' },
-  { type: 'seasonal', template: 'Write about time-sensitive travel information. Include what to expect, what to pack, and why this season is special.' },
+  { 
+    type: 'listicle', 
+    template: 'Create a numbered list article with 7-10 items. Each item MUST have an H2 heading with the number and catchy title, followed by 2-3 paragraphs. Use **bold** for key phrases and *italics* for emphasis.' 
+  },
+  { 
+    type: 'guide', 
+    template: 'Create a comprehensive guide with H2 sections: Introduction, What You Need to Know, Step-by-Step Guide, Pro Tips, and Conclusion. Use H3 for subsections. Include **bold** key terms and *italics* for emphasis. Add bullet points for lists.' 
+  },
+  { 
+    type: 'opinion', 
+    template: 'Write a personal, opinionated piece with H2 sections for main arguments. Use first-person perspective. Include **bold** for strong statements and *italics* for personal asides. Add blockquotes for memorable statements.' 
+  },
+  { 
+    type: 'seasonal', 
+    template: 'Write about time-sensitive travel with H2 sections: Overview, What to Expect, What to Pack, Best Activities, and Final Thoughts. Use **bold** for important dates/info and *italics* for tips.' 
+  },
 ];
 
 // Keyword clusters for rotation
 const KEYWORD_CLUSTERS = [
   {
     category: 'surfing',
-    keywords: ['learn surfing India', 'surf lessons Kerala', 'beginner surfing Varkala', 'surf school India', 'best surf spots Kerala'],
+    keywords: ['learn to surf in India', 'surf lessons Kerala', 'beginner surfing Varkala', 'surf school India', 'best surf spots Kerala'],
     topics: [
-      'Complete guide to learning surfing in Varkala',
+      'Complete guide to learning to surf in Varkala',
       'Best surf spots in Kerala for beginners',
       'What to expect from your first surf lesson in India',
-      'Surfing in India: Why Varkala is the hidden gem',
+      'Why Varkala is India\'s hidden surfing gem',
       'Surf season in Kerala: When and where to catch waves',
-    ]
+    ],
+    imageQueries: ['surfing beach waves', 'surf lesson india', 'kerala beach sunset', 'tropical surfing', 'beach yoga india']
   },
   {
     category: 'travel',
-    keywords: ['Varkala travel guide', 'Kerala beach destinations', 'backpacking South India', 'things to do Varkala', 'Varkala cliff beaches'],
+    keywords: ['Varkala travel guide', 'Kerala beach destinations', 'backpacking South India', 'things to do in Varkala', 'Varkala cliff beaches'],
     topics: [
       'Varkala travel guide: Everything you need to know',
       'Hidden gems of Varkala most tourists miss',
       'A week in Varkala: The perfect itinerary',
       'Why Varkala beats Goa for beach lovers',
       'Backpacking Kerala: Varkala on a budget',
-    ]
+    ],
+    imageQueries: ['varkala cliff kerala', 'kerala beach destination', 'india backpacking', 'tropical coastline india', 'beach town india']
   },
   {
     category: 'activities',
-    keywords: ['kayaking Kerala backwaters', 'toddy shop experience Kerala', 'things to do Varkala', 'Jatayu Earth Centre', 'Kerala backwater tour'],
+    keywords: ['kayaking Kerala backwaters', 'toddy shop experience Kerala', 'things to do in Varkala', 'Jatayu Earth Centre', 'Kerala backwater tour'],
     topics: [
       'Beyond the beach: Unique activities in Varkala',
-      'Kayaking through Kerala backwaters: A local guide',
-      'The toddy shop experience: Kerala drinking culture',
+      'Kayaking through Kerala\'s backwaters: A local guide',
+      'The toddy shop experience: Kerala\'s drinking culture',
       'Day trips from Varkala worth taking',
       'Adventure activities near Varkala cliff',
-    ]
+    ],
+    imageQueries: ['kerala backwaters kayak', 'toddy shop kerala', 'jatayu statue india', 'kerala coconut trees', 'indian adventure travel']
   },
   {
     category: 'accommodation',
@@ -75,7 +90,8 @@ const KEYWORD_CLUSTERS = [
       'Varkala accommodation guide for every budget',
       'Why location matters when booking in Varkala',
       'The best areas to stay in Varkala',
-    ]
+    ],
+    imageQueries: ['beach resort india', 'boutique hotel kerala', 'tropical bedroom resort', 'beach accommodation india', 'cliff hotel view']
   },
 ];
 
@@ -98,45 +114,58 @@ function generateSlug(title: string): string {
     .substring(0, 60);
 }
 
-// Fetch Unsplash image
-async function fetchUnsplashImage(query: string, unsplashKey: string): Promise<{ url: string; attribution: string } | null> {
-  try {
-    const response = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
-      {
-        headers: {
-          'Authorization': `Client-ID ${unsplashKey}`,
-        },
+// Fetch multiple Unsplash images
+async function fetchUnsplashImages(queries: string[], unsplashKey: string, count: number = 5): Promise<Array<{ url: string; attribution: string; query: string }>> {
+  const images: Array<{ url: string; attribution: string; query: string }> = [];
+  
+  for (const query of queries.slice(0, count)) {
+    try {
+      const response = await fetch(
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
+        {
+          headers: {
+            'Authorization': `Client-ID ${unsplashKey}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        console.error('Unsplash API error:', response.status);
+        continue;
       }
-    );
-    
-    if (!response.ok) {
-      console.error('Unsplash API error:', response.status);
-      return null;
+      
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        const photo = data.results[0];
+        images.push({
+          url: photo.urls.regular,
+          attribution: `Photo by ${photo.user.name} on Unsplash`,
+          query,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching Unsplash image:', error);
     }
     
-    const data = await response.json();
-    if (data.results && data.results.length > 0) {
-      const photo = data.results[0];
-      return {
-        url: photo.urls.regular,
-        attribution: `Photo by ${photo.user.name} on Unsplash`,
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error('Error fetching Unsplash image:', error);
-    return null;
+    // Small delay to respect rate limits
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
+  
+  return images;
 }
 
-// Generate blog content using Lovable AI (OpenAI GPT-5)
+// Generate blog content using Lovable AI with enhanced formatting
 async function generateBlogContent(
   topic: string,
   keywords: string[],
   contentType: { type: string; template: string },
+  imageUrls: string[],
   lovableApiKey: string
 ): Promise<{ title: string; content: string; excerpt: string; metaTitle: string; metaDescription: string }> {
+  
+  // Create image placeholders for content
+  const imagePlaceholders = imageUrls.map((url, i) => `[IMAGE_${i + 1}]: ${url}`).join('\n');
+  
   const prompt = `${BRAND_VOICE}
 
 Content Type: ${contentType.type}
@@ -145,21 +174,47 @@ ${contentType.template}
 Target Keywords: ${keywords.join(', ')}
 Topic: ${topic}
 
-Write an SEO-optimized blog post about this topic. Requirements:
-1. Title should be catchy and include the primary keyword
-2. Content should be 1200-1800 words in Markdown format
-3. Include internal linking opportunities (mention booking, rooms, surf school, activities at Wavealokam)
-4. Use H2 and H3 headers appropriately
-5. Include a compelling meta description (under 155 characters)
-6. Write in the Wavealokam brand voice - witty, honest, conversational
+Available Images (embed these throughout the content using markdown image syntax):
+${imagePlaceholders}
+
+Write an SEO-optimized blog post. CRITICAL REQUIREMENTS:
+
+**GRAMMAR & STYLE:**
+- Use proper grammar: "learn to surf" NOT "learn surfing", "travel to India" NOT "travel India"
+- Proofread for spelling and grammar errors
+- Use active voice where possible
+- Vary sentence length for readability
+
+**FORMATTING (MANDATORY):**
+- Use ## for main section headings (H2)
+- Use ### for subsections (H3)
+- Use **bold** for key terms, important info, and emphasis
+- Use *italics* for asides, tips, and softer emphasis
+- Use bullet points (- ) for lists
+- Use numbered lists (1. 2. 3.) for step-by-step content
+- Use > for notable quotes or callouts
+- Embed the provided images using: ![Alt text](image_url)
+
+**SEO REQUIREMENTS:**
+- Title: 50-60 characters, include primary keyword naturally
+- Content: 1500-2000 words
+- Include keywords naturally (2-3% density)
+- Use keywords in at least 2 H2 headings
+- Internal links: mention booking, rooms, surf school, activities at Wavealokam
+
+**STRUCTURE:**
+- Hook opening paragraph
+- Clear H2 sections with descriptive titles
+- Each major section should have an image
+- Conclusion with call-to-action
 
 Respond in this exact JSON format:
 {
-  "title": "SEO-optimized title",
-  "content": "Full markdown content...",
-  "excerpt": "Compelling excerpt for preview cards (2-3 sentences)",
-  "metaTitle": "SEO title under 60 chars",
-  "metaDescription": "Meta description under 155 chars"
+  "title": "Grammatically correct, SEO-optimized title (50-60 chars)",
+  "content": "Full markdown content with proper formatting, images embedded...",
+  "excerpt": "Compelling excerpt for preview cards (2-3 sentences, under 200 chars)",
+  "metaTitle": "SEO title under 60 chars with keyword",
+  "metaDescription": "Meta description under 155 chars with keyword and call-to-action"
 }`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -171,7 +226,10 @@ Respond in this exact JSON format:
     body: JSON.stringify({
       model: 'openai/gpt-5',
       messages: [
-        { role: 'system', content: 'You are an expert SEO content writer for a surf resort in Kerala, India. Always respond with valid JSON.' },
+        { 
+          role: 'system', 
+          content: 'You are an expert SEO content writer and professional editor. You write grammatically perfect, well-formatted content. You ALWAYS use proper English grammar. You ALWAYS respond with valid JSON.' 
+        },
         { role: 'user', content: prompt }
       ],
     }),
@@ -194,7 +252,25 @@ Respond in this exact JSON format:
     jsonStr = content.split('```')[1].split('```')[0];
   }
   
-  return JSON.parse(jsonStr.trim());
+  const parsed = JSON.parse(jsonStr.trim());
+  
+  // Grammar check pass - common fixes
+  let fixedContent = parsed.content
+    .replace(/learn surfing/gi, 'learn to surf')
+    .replace(/learn surf/gi, 'learn to surf')
+    .replace(/travel India/gi, 'travel to India')
+    .replace(/visit India/gi, 'visit India')
+    .replace(/surfing in India/gi, 'surfing in India');
+  
+  let fixedTitle = parsed.title
+    .replace(/learn surfing/gi, 'learn to surf')
+    .replace(/learn surf/gi, 'learn to surf');
+  
+  return {
+    ...parsed,
+    title: fixedTitle,
+    content: fixedContent,
+  };
 }
 
 // Send email notification via Resend
@@ -260,24 +336,26 @@ Deno.serve(async (req) => {
     console.log(`Week ${weekNum}: Generating ${contentType.type} about "${topic}"`);
     console.log(`Keywords: ${cluster.keywords.join(', ')}`);
     
-    // Generate blog content
-    const blogContent = await generateBlogContent(topic, cluster.keywords, contentType, lovableApiKey);
-    console.log('Content generated:', blogContent.title);
+    // Fetch 5 images from Unsplash for the content
+    console.log('Fetching images from Unsplash...');
+    const images = await fetchUnsplashImages(cluster.imageQueries, unsplashKey, 5);
+    console.log(`Fetched ${images.length} images`);
     
-    // Fetch featured image from Unsplash
-    const searchQuery = `${cluster.category} Kerala beach`;
-    const featuredImage = await fetchUnsplashImage(searchQuery, unsplashKey);
-    console.log('Featured image:', featuredImage?.url || 'None');
+    // Generate blog content with images
+    const imageUrls = images.map(img => img.url);
+    const blogContent = await generateBlogContent(topic, cluster.keywords, contentType, imageUrls, lovableApiKey);
+    console.log('Content generated:', blogContent.title);
     
     // Create slug
     const slug = generateSlug(blogContent.title);
     
-    // Prepare images array
-    const images = featuredImage ? [{
-      url: featuredImage.url,
-      alt: blogContent.title,
-      attribution: featuredImage.attribution,
-    }] : [];
+    // Use first image as featured, store all in images array
+    const featuredImage = images.length > 0 ? images[0].url : null;
+    const allImages = images.map((img, i) => ({
+      url: img.url,
+      alt: `${blogContent.title} - Image ${i + 1}`,
+      attribution: img.attribution,
+    }));
     
     // Insert into database
     const { data: post, error: insertError } = await supabase
@@ -287,8 +365,8 @@ Deno.serve(async (req) => {
         slug,
         content: blogContent.content,
         excerpt: blogContent.excerpt,
-        featured_image: featuredImage?.url || null,
-        images,
+        featured_image: featuredImage,
+        images: allImages,
         keywords: cluster.keywords,
         category: cluster.category,
         status: 'published',
@@ -329,6 +407,7 @@ Deno.serve(async (req) => {
           title: post.title,
           slug: post.slug,
           category: post.category,
+          imageCount: allImages.length,
         },
       }),
       {
