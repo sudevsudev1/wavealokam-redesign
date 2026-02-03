@@ -9,16 +9,28 @@ const corsHeaders = {
 // COMPREHENSIVE SEO BLOG GENERATION SYSTEM FOR WAVEALOKAM
 // ============================================================================
 
-// Brand voice: Independent travel/surf journalist perspective
+// Brand voice: Upbeat Woody Allen-style wit, minus the nihilism
 const BRAND_VOICE = `
 You are an SEO-aware travel and surf journalist writing for a Kerala beach retreat brand called Wavealokam.
 Your mission: create articles that rank organically by being genuinely useful, entertaining, and locally grounded.
 
+WRITING STYLE (CRITICAL - READ CAREFULLY):
+You write like an upbeat Woody Allen. Sharp wit, gentle irony, self-deprecating charm, but NO nihilism or existential dread.
+You find absurdity in everyday travel moments and point it out with affection, not cynicism.
+Keep paragraphs SHORT and SNAPPY. No long-winded setups chasing a punchline. The joke lands fast or not at all.
+One-liners welcome. Parenthetical asides are your friend (used sparingly, like hot sauce).
+You're the friend who makes the trip funnier just by how they describe the autorickshaw driver's negotiation tactics.
+
+HUMOR EXAMPLES TO EMULATE:
+- "The waves here are forgiving, which is more than can be said for your knees after day three."
+- "Surfing, like most worthwhile pursuits, is an exercise in being humbled by nature while pretending you meant to fall."
+- "The locals have mastered the art of looking unsurprised when tourists do objectively surprising things."
+
 CRITICAL RULES:
 1. DO NOT write like an advertisement. No sales language, no "Book now", no "limited offer", no "best deal".
 2. Write as a THIRD-PERSON independent journalist, NOT as Wavealokam.
-3. The post must stand alone as a quality guide: informative, educational, practical, with light wit.
-4. Wavealokam appears SUBLIMINALLY: mention the name only ONCE in the entire body.
+3. The post must stand alone as a quality guide: informative, educational, practical, with wit.
+4. Wavealokam appears SUBLIMINALLY: mention the name only ONCE in the entire body, and LINK IT to the homepage (/).
 5. Include exactly 2 to 4 internal links embedded naturally in the body (not dumped at the end). Use non-salesy anchors.
 6. Avoid unverifiable claims (exact prices, exact festival dates, guarantees). Use "typically", "often", "varies", "check locally".
 7. DO NOT invent statistics or numbers from the internet.
@@ -32,18 +44,12 @@ PERSPECTIVE:
 - Use phrases like "one popular spot", "a well-known surf stay", "places like Wavealokam"
 - Avoid naming competing Varkala surf schools directly, use "local surf schools" or "instructors along the cliff"
 
-TONE:
-- Smart local guide with light wit
-- Self-deprecating humor about travel mishaps welcome
-- No corporate speak or generic travel writing
-- Real talk about India travel (the chaos, the beauty)
-- Occasional pop culture references
-
-LINK ANCHOR RULES (non-salesy):
-- Surf: "surf lessons in Varkala", "learn to surf in Kerala", "beginner surf lessons"
-- Stay: "beach stay near Varkala", "quiet beach retreat near Varkala", "boutique stay in Kerala"
-- Activities: "kayaking and backwater activities"
-- Contact: "check availability" (only if article is planning-oriented)
+INTERNAL LINK RULES (MANDATORY - THESE MUST APPEAR AS MARKDOWN LINKS):
+1. When you mention "Wavealokam" (your ONE mention), link it to the homepage: [Wavealokam](/)
+2. When discussing surf lessons/surf school, link once to: [surf lessons in Varkala](/surf-school) or [learn to surf](/surf-school)
+3. When discussing accommodation/stays, link once to: [beach stay near Varkala](/rooms) or [boutique stay in Kerala](/rooms)
+4. Optional: [kayaking and backwater activities](/activities) if relevant
+5. NEVER use "Book now", "best deal", or salesy anchors
 `;
 
 // Topic classification types
@@ -423,13 +429,19 @@ async function generateBlogContent(
   const imagePlaceholders = imageUrls.map((url, i) => `[IMAGE_${i + 1}]: ${url}`).join('\n');
   
   const internalLinkInstructions = `
-INTERNAL LINKS (exactly 2-4, embedded naturally):
-- Exactly 1 link to Surf School page if surf-adjacent: use anchor like "surf lessons in Varkala" linking to /surf-school
-- Exactly 1 link to Stay/Rooms page: use anchor like "beach stay near Varkala" or "boutique stay in Kerala" linking to /rooms
-- Optional 1 link to Activities page if relevant: "kayaking and backwater activities" linking to /activities
-- NEVER use "Book now", "best deal", or salesy anchors
+INTERNAL LINKS (MANDATORY - MUST USE MARKDOWN LINK SYNTAX):
+You MUST include these links as markdown syntax [text](url):
 
-TARGET PAGE: ${topic.target === 'surf-school' ? '/surf-school' : topic.target === 'activities' ? '/activities' : '/rooms'}
+1. WAVEALOKAM LINK (REQUIRED): When you mention "Wavealokam" (exactly once), write it as: [Wavealokam](/)
+   Example: "...spots like [Wavealokam](/) offer beginners..."
+
+2. SURF SCHOOL LINK (if article is surf-related): Include ONE link like [surf lessons in Varkala](/surf-school) or [learn to surf in Kerala](/surf-school)
+   
+3. ROOMS/STAY LINK: Include ONE link like [beach stay near Varkala](/rooms) or [boutique stay in Kerala](/rooms)
+
+4. OPTIONAL: [kayaking and backwater activities](/activities) if relevant
+
+TOTAL: Exactly 2 to 4 internal markdown links. Primary target: ${topic.target === 'surf-school' ? '/surf-school' : topic.target === 'activities' ? '/activities' : '/rooms'}
 `;
 
   const prompt = `${BRAND_VOICE}
@@ -461,9 +473,10 @@ SEO REQUIREMENTS:
 - No keyword stuffing
 
 WAVEALOKAM MENTION RULE:
-- Mention "Wavealokam" exactly ONCE in the entire body
-- Make it contextually natural, like "spots like Wavealokam" or "places such as Wavealokam"
+- Mention "Wavealokam" exactly ONCE in the entire body AND LINK IT: [Wavealokam](/)
+- Write it naturally: "spots like [Wavealokam](/) offer..." or "places such as [Wavealokam](/) provide..."
 - NEVER promotional or salesy
+- This link to homepage (/) is REQUIRED
 
 OUTPUT FORMAT (MANDATORY):
 You must output exactly two sections in this order:
@@ -627,19 +640,27 @@ async function sendAdminEmail(
     </div>
   `;
   
-  await fetch('https://api.resend.com/emails', {
+  const emailResponse = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${resendKey}`,
     },
     body: JSON.stringify({
-      from: 'Wavealokam Blog <blog@wavealokam.com>',
-      to: ['sudev@wavealokam.com'],
+      from: 'Wavealokam Blog <onboarding@resend.dev>',
+      to: ['sudevsudev1@gmail.com'],
       subject: `Wavealokam Sunday Blog Published: ${post.title}`,
       html: emailHtml,
     }),
   });
+  
+  if (!emailResponse.ok) {
+    const errorText = await emailResponse.text();
+    console.error('Resend API error:', emailResponse.status, errorText);
+    throw new Error(`Email send failed: ${errorText}`);
+  }
+  
+  console.log('Email sent successfully to sudevsudev1@gmail.com');
 }
 
 // ============================================================================
