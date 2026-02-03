@@ -219,8 +219,49 @@ const BlogPost = () => {
           </div>
 
           {/* Markdown Content */}
-          <div className="prose prose-lg max-w-none prose-headings:font-bold prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-img:rounded-lg prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground">
-            <ReactMarkdown>{post.content}</ReactMarkdown>
+          <div className="prose prose-lg max-w-none 
+            prose-headings:font-bold prose-headings:text-foreground prose-headings:underline prose-headings:decoration-2 prose-headings:underline-offset-4
+            prose-h2:mt-10 prose-h2:mb-6
+            prose-h3:mt-8 prose-h3:mb-4
+            prose-p:text-muted-foreground prose-p:mb-6 prose-p:leading-relaxed
+            prose-li:mb-3 prose-li:text-muted-foreground
+            prose-ul:my-6 prose-ol:my-6
+            prose-a:text-primary prose-a:underline prose-a:decoration-primary prose-a:underline-offset-2 hover:prose-a:decoration-2
+            prose-strong:text-foreground prose-strong:font-semibold
+            prose-img:rounded-lg prose-img:my-8
+            prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground prose-blockquote:my-8">
+            <ReactMarkdown
+              components={{
+                a: ({ href, children }) => {
+                  // Map internal links to actual routes or sections
+                  const linkMap: Record<string, string> = {
+                    '/rooms': '/#rooms',
+                    '/booking': '/#rooms',
+                    '/surf-school': '/#surf-school',
+                    '/activities': '/#activities',
+                    '/dining': '/#dining',
+                  };
+                  const mappedHref = href && linkMap[href] ? linkMap[href] : href;
+                  const isExternal = mappedHref?.startsWith('http');
+                  
+                  return (
+                    <a 
+                      href={mappedHref} 
+                      target={isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
+                      className="text-primary underline decoration-primary underline-offset-2 hover:decoration-2 transition-all"
+                    >
+                      {children}
+                    </a>
+                  );
+                },
+                strong: ({ children }) => (
+                  <span className="text-foreground">{children}</span>
+                ),
+              }}
+            >
+              {post.content}
+            </ReactMarkdown>
           </div>
 
           {/* Keywords */}
