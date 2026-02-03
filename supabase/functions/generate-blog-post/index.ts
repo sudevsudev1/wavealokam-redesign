@@ -104,6 +104,124 @@ function getWeekNumber(): number {
   return Math.floor(diff / oneWeek);
 }
 
+// Fetch trending keywords from Google Trends
+async function fetchTrendingKeywords(baseKeywords: string[]): Promise<{ trending: string[]; seasonal: string[] }> {
+  const trending: string[] = [];
+  const seasonal: string[] = [];
+  
+  try {
+    // Get current month for seasonal content
+    const month = new Date().getMonth();
+    const seasonalTerms: Record<number, string[]> = {
+      0: ['winter travel india', 'new year surf kerala'],
+      1: ['february travel kerala', 'valentine beach getaway'],
+      2: ['march surf season kerala', 'holi travel india'],
+      3: ['april beach holiday india', 'summer vacation kerala'],
+      4: ['may travel kerala', 'pre-monsoon surfing'],
+      5: ['monsoon surfing india', 'june kerala travel'],
+      6: ['monsoon waves kerala', 'july surf india'],
+      7: ['august surfing kerala', 'monsoon beach india'],
+      8: ['september surf kerala', 'onam festival travel'],
+      9: ['october travel kerala', 'diwali holiday beach'],
+      10: ['november surf season india', 'winter beach kerala'],
+      11: ['december beach holiday india', 'christmas kerala travel'],
+    };
+    
+    seasonal.push(...(seasonalTerms[month] || []));
+    
+    // Use Google Trends daily trends endpoint (public, no API key needed)
+    const trendsResponse = await fetch(
+      'https://trends.google.com/trends/api/dailytrends?hl=en-IN&geo=IN&ns=15',
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; WavealokamBot/1.0)',
+        },
+      }
+    );
+    
+    if (trendsResponse.ok) {
+      const text = await trendsResponse.text();
+      // Google Trends returns JSONP with )]}', prefix - remove it
+      const jsonStr = text.replace(/^\)\]\}',\n/, '');
+      const data = JSON.parse(jsonStr);
+      
+      // Extract trending topics related to travel/beach/surf
+      const trendingSearches = data?.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
+      
+      for (const search of trendingSearches.slice(0, 10)) {
+        const title = search?.title?.query?.toLowerCase() || '';
+        const relatedQueries = search?.relatedQueries?.map((q: { query: string }) => q.query.toLowerCase()) || [];
+        
+        // Check if any trending topic relates to our niche
+        const relevantTerms = ['travel', 'beach', 'surf', 'kerala', 'india', 'vacation', 'holiday', 'tourism', 'goa', 'ocean', 'sea'];
+        
+        if (relevantTerms.some(term => title.includes(term))) {
+          trending.push(title);
+        }
+        
+        for (const query of relatedQueries) {
+          if (relevantTerms.some(term => query.includes(term))) {
+            trending.push(query);
+          }
+        }
+      }
+    }
+    
+    console.log('Fetched seasonal keywords:', seasonal);
+    console.log('Fetched trending keywords:', trending);
+    
+  } catch (error) {
+    console.error('Error fetching trends (non-fatal):', error);
+  }
+  
+  return { trending: trending.slice(0, 5), seasonal: seasonal.slice(0, 3) };
+}
+
+// Research keyword interest using Google Trends explore
+async function getKeywordInterest(keywords: string[]): Promise<Map<string, number>> {
+  const interestMap = new Map<string, number>();
+  
+  try {
+    // Query Google Trends for relative interest in our keywords
+    const keywordStr = keywords.slice(0, 5).join(',');
+    const response = await fetch(
+      `https://trends.google.com/trends/api/explore?hl=en-IN&geo=IN&q=${encodeURIComponent(keywordStr)}&tz=-330`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; WavealokamBot/1.0)',
+        },
+      }
+    );
+    
+    if (response.ok) {
+      const text = await response.text();
+      const jsonStr = text.replace(/^\)\]\}',\n/, '');
+      const data = JSON.parse(jsonStr);
+      
+      // Extract interest values
+      const widgets = data?.widgets || [];
+      for (const widget of widgets) {
+        if (widget.id === 'TIMESERIES') {
+          const timeline = widget?.request?.comparisonItem || [];
+          timeline.forEach((item: { geo: { country: string }; complexKeywordsRestriction: { keyword: { type: string; value: string }[] } }, idx: number) => {
+            const keyword = keywords[idx];
+            if (keyword) {
+              // Assign relative interest (higher = more popular)
+              interestMap.set(keyword, 100 - idx * 20);
+            }
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting keyword interest (non-fatal):', error);
+    // Default to equal interest
+    keywords.forEach((k, i) => interestMap.set(k, 100 - i * 10));
+  }
+  
+  return interestMap;
+}
+
 // Generate slug from title
 function generateSlug(title: string): string {
   return title
@@ -331,19 +449,49 @@ Deno.serve(async (req) => {
     
     const contentType = CONTENT_TYPES[contentTypeIndex];
     const cluster = KEYWORD_CLUSTERS[clusterIndex];
-    const topic = cluster.topics[topicIndex];
+    const baseTopic = cluster.topics[topicIndex];
     
-    console.log(`Week ${weekNum}: Generating ${contentType.type} about "${topic}"`);
-    console.log(`Keywords: ${cluster.keywords.join(', ')}`);
+    console.log(`Week ${weekNum}: Starting with ${contentType.type} about "${baseTopic}"`);
+    
+    // Fetch trending and seasonal keywords from Google Trends
+    console.log('Fetching trending keywords from Google Trends...');
+    const { trending, seasonal } = await fetchTrendingKeywords(cluster.keywords);
+    
+    // Combine base keywords with trending and seasonal
+    const enhancedKeywords = [
+      ...cluster.keywords,
+      ...trending,
+      ...seasonal,
+    ].filter((k, i, arr) => arr.indexOf(k) === i); // Remove duplicates
+    
+    console.log(`Enhanced keywords: ${enhancedKeywords.join(', ')}`);
+    
+    // Get keyword interest to prioritize high-interest terms
+    const keywordInterest = await getKeywordInterest(cluster.keywords);
+    const sortedKeywords = [...cluster.keywords].sort((a, b) => {
+      return (keywordInterest.get(b) || 0) - (keywordInterest.get(a) || 0);
+    });
+    
+    // Adjust topic based on seasonal context
+    let topic = baseTopic;
+    if (seasonal.length > 0 && Math.random() > 0.5) {
+      // 50% chance to make topic seasonal
+      const month = new Date().toLocaleString('en', { month: 'long' });
+      topic = `${month} in Varkala: ${baseTopic}`;
+      console.log(`Adjusted topic for seasonality: ${topic}`);
+    }
+    
+    console.log(`Final topic: "${topic}"`);
+    console.log(`Primary keywords (by interest): ${sortedKeywords.join(', ')}`);
     
     // Fetch 5 images from Unsplash for the content
     console.log('Fetching images from Unsplash...');
     const images = await fetchUnsplashImages(cluster.imageQueries, unsplashKey, 5);
     console.log(`Fetched ${images.length} images`);
     
-    // Generate blog content with images
+    // Generate blog content with enhanced keywords
     const imageUrls = images.map(img => img.url);
-    const blogContent = await generateBlogContent(topic, cluster.keywords, contentType, imageUrls, lovableApiKey);
+    const blogContent = await generateBlogContent(topic, enhancedKeywords.slice(0, 8), contentType, imageUrls, lovableApiKey);
     console.log('Content generated:', blogContent.title);
     
     // Create slug
