@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, Tag, Share2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
@@ -9,6 +9,7 @@ import RelatedPosts from "@/components/blog/RelatedPosts";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useCallback } from "react";
 
 interface ImageData {
   url: string;
@@ -263,11 +264,22 @@ const BlogPost = () => {
                   };
                   const mappedHref = href && linkMap[href] ? linkMap[href] : href;
                   const isExternal = mappedHref?.startsWith('http');
+                  const isHashLink = mappedHref?.startsWith('/#');
                   
-                  // Use native <a> for proper hash navigation
+                  // Handle internal hash links with navigation + scroll
+                  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+                    if (isHashLink && mappedHref) {
+                      e.preventDefault();
+                      const hash = mappedHref.substring(2); // Remove '/#'
+                      // Navigate to home page first, then scroll to section
+                      window.location.href = `/${mappedHref.substring(1)}`; // This will be /#rooms etc
+                    }
+                  };
+                  
                   return (
                     <a 
                       href={mappedHref} 
+                      onClick={isHashLink ? handleClick : undefined}
                       target={isExternal ? '_blank' : undefined}
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
