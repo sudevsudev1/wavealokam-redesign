@@ -139,6 +139,7 @@ interface TrendData {
   relatedQueries: string[];
   relatedTopics: string[];
   classification: TopicClassification;
+  localTieIn: boolean;
 }
 
 interface TrendResearchResult {
@@ -148,6 +149,8 @@ interface TrendResearchResult {
   trendsSettings: string;
   futureQueue2to3Weeks: Array<{ keyword: string; classification: TopicClassification }>;
   futureQueue4to6Weeks: Array<{ keyword: string; classification: TopicClassification }>;
+  selectionReasoning: string;
+  priorityExplanation: string;
 }
 
 async function fetchGoogleTrends(keywords: string[]): Promise<TrendData[]> {
@@ -224,6 +227,10 @@ async function fetchGoogleTrends(keywords: string[]): Promise<TrendData[]> {
         classification = 'C'; // Seasonal Peak
       }
       
+      // Check for local tie-in (Kerala/Varkala relevance)
+      const localTerms = ['varkala', 'kerala', 'edava', 'kappil', 'kovalam', 'trivandrum', 'surf', 'beach', 'backwater', 'kayak'];
+      const hasLocalTieIn = localTerms.some(term => keyword.toLowerCase().includes(term));
+      
       results.push({
         keyword,
         interest7d: Math.round(seasonal7d),
@@ -233,6 +240,7 @@ async function fetchGoogleTrends(keywords: string[]): Promise<TrendData[]> {
         relatedQueries: relatedFromTrends.slice(0, 5),
         relatedTopics: [],
         classification,
+        localTieIn: hasLocalTieIn,
       });
     }
     
@@ -241,6 +249,9 @@ async function fetchGoogleTrends(keywords: string[]): Promise<TrendData[]> {
     console.error('Error fetching Google Trends (non-fatal):', error);
     // Return basic data for keywords
     for (const keyword of keywords) {
+      const localTerms = ['varkala', 'kerala', 'edava', 'kappil', 'kovalam', 'trivandrum', 'surf', 'beach', 'backwater', 'kayak'];
+      const hasLocalTieIn = localTerms.some(term => keyword.toLowerCase().includes(term));
+      
       results.push({
         keyword,
         interest7d: 50,
@@ -250,6 +261,7 @@ async function fetchGoogleTrends(keywords: string[]): Promise<TrendData[]> {
         relatedQueries: [],
         relatedTopics: [],
         classification: 'D',
+        localTieIn: hasLocalTieIn,
       });
     }
   }
@@ -305,8 +317,11 @@ async function researchKeywords(): Promise<TrendResearchResult> {
   
   const trendData = await fetchGoogleTrends(allKeywords);
   
+  // Filter to only topics with local tie-in
+  const localRelevant = trendData.filter(t => t.localTieIn);
+  
   // Sort by combined interest score
-  const sorted = [...trendData].sort((a, b) => {
+  const sorted = [...localRelevant].sort((a, b) => {
     const scoreA = a.interest7d * 0.4 + a.interest90d * 0.4 + a.interest12m * 0.2;
     const scoreB = b.interest7d * 0.4 + b.interest90d * 0.4 + b.interest12m * 0.2;
     return scoreB - scoreA;
@@ -315,12 +330,47 @@ async function researchKeywords(): Promise<TrendResearchResult> {
   // Select top candidates (3-8)
   const candidateTrends = sorted.slice(0, 6);
   
-  // Choose topic based on priority: Seasonal Peak > Rising Momentum > Weekly Spike > Evergreen
-  let chosenTopic = candidateTrends.find(t => t.classification === 'C') ||
-                    candidateTrends.find(t => t.classification === 'B') ||
-                    candidateTrends.find(t => t.classification === 'A' && t.interest7d > t.interest90d) ||
-                    candidateTrends.find(t => t.classification === 'D') ||
-                    candidateTrends[0];
+  // Apply priority rules for topic selection with detailed reasoning
+  let chosenTopic: TrendData | null = null;
+  let selectionReasoning = '';
+  let priorityExplanation = '';
+  
+  // Priority 1: Seasonal Peak topics whose rise begins in next 2-6 weeks
+  const seasonalPeaks = candidateTrends.filter(t => t.classification === 'C');
+  if (seasonalPeaks.length > 0) {
+    chosenTopic = seasonalPeaks[0];
+    selectionReasoning = `PRIORITY 1 MET: Selected "${chosenTopic.keyword}" as Seasonal Peak topic. 12-month interest (${chosenTopic.interest12m}) shows recurring pattern, 5-year data (${chosenTopic.interest5y}) confirms seasonality.`;
+    priorityExplanation = 'Seasonal Peak detected. Publishing 2-6 weeks early for maximum SEO benefit.';
+  }
+  
+  // Priority 2: Rising Momentum topics (90-day uptrend)
+  if (!chosenTopic) {
+    const risingMomentum = candidateTrends.filter(t => t.classification === 'B');
+    if (risingMomentum.length > 0) {
+      chosenTopic = risingMomentum[0];
+      selectionReasoning = `PRIORITY 2 MET: Selected "${chosenTopic.keyword}" as Rising Momentum topic. 90-day interest (${chosenTopic.interest90d}) exceeds 12-month baseline (${chosenTopic.interest12m}) by ${chosenTopic.interest90d - chosenTopic.interest12m} points.`;
+      priorityExplanation = 'Priority 1 (Seasonal Peak) not met: No topics showed seasonal rise pattern starting in next 2-6 weeks.';
+    }
+  }
+  
+  // Priority 3: Weekly Spike topics (only if still rising)
+  if (!chosenTopic) {
+    const weeklySpikes = candidateTrends.filter(t => t.classification === 'A' && t.interest7d > t.interest90d);
+    if (weeklySpikes.length > 0) {
+      chosenTopic = weeklySpikes[0];
+      selectionReasoning = `PRIORITY 3 MET: Selected "${chosenTopic.keyword}" as Weekly Spike topic still rising. 7-day interest (${chosenTopic.interest7d}) exceeds 90-day (${chosenTopic.interest90d}).`;
+      priorityExplanation = 'Priority 1 (Seasonal Peak) not met: No seasonal patterns. Priority 2 (Rising Momentum) not met: No 90-day uptrends detected.';
+    }
+  }
+  
+  // Priority 4: Evergreen fallback
+  if (!chosenTopic) {
+    chosenTopic = candidateTrends.find(t => t.classification === 'D') || candidateTrends[0] || null;
+    if (chosenTopic) {
+      selectionReasoning = `PRIORITY 4 (FALLBACK): Using evergreen topic "${chosenTopic.keyword}". Interest scores stable across all time windows (7d: ${chosenTopic.interest7d}, 90d: ${chosenTopic.interest90d}, 12m: ${chosenTopic.interest12m}).`;
+      priorityExplanation = 'Priority 1 (Seasonal Peak) not met: No seasonal patterns detected. Priority 2 (Rising Momentum) not met: No 90-day uptrends. Priority 3 (Weekly Spike) not met: No spikes still rising. Using evergreen content library.';
+    }
+  }
   
   const timingChoice = chosenTopic ? determineTimingChoice(chosenTopic.classification, chosenTopic) : 'Use evergreen fallback';
   
@@ -334,6 +384,8 @@ async function researchKeywords(): Promise<TrendResearchResult> {
     trendsSettings: 'Geography: India | Category: Travel + Sports | Time windows: 7d, 90d, 12m, 5y',
     futureQueue2to3Weeks: remaining.slice(0, 3).map(t => ({ keyword: t.keyword, classification: t.classification })),
     futureQueue4to6Weeks: remaining.slice(3, 6).map(t => ({ keyword: t.keyword, classification: t.classification })),
+    selectionReasoning,
+    priorityExplanation,
   };
 }
 
@@ -561,21 +613,30 @@ Hard rule: Never include ADMIN info inside BLOG_POST. Never include BLOG content
   const firstPara = blogPost.split('\n\n').find(p => p.length > 100 && !p.startsWith('#') && !p.startsWith('!'));
   const excerpt = firstPara ? firstPara.substring(0, 200).trim() + '...' : `A comprehensive guide to ${topic.primary}.`;
   
-  // Append trend research to admin notes
+  // Append trend research to admin notes with reasoning
   const fullAdminNotes = `
+## Topic Selection Reasoning
+
+### Why This Topic Was Chosen
+${trendResearch.selectionReasoning}
+
+### Priority Explanation
+${trendResearch.priorityExplanation}
+
 ## Trend Research Summary
 - Trends Settings: ${trendResearch.trendsSettings}
-- Candidate Trends Considered: ${trendResearch.candidateTrends.map(t => `${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join(', ')}
+- Candidate Trends Considered (${trendResearch.candidateTrends.length}):
+${trendResearch.candidateTrends.map(t => `  • ${t.keyword} (${CLASSIFICATION_LABELS[t.classification]}) - 7d: ${t.interest7d}, 90d: ${t.interest90d}, 12m: ${t.interest12m}`).join('\n')}
 - Chosen Topic Classification: ${trendResearch.chosenTopic ? CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification] : 'Evergreen'}
 - Timing Choice: ${trendResearch.timingChoice}
 - Primary Keyword: ${topic.primary}
 - Secondary Keywords: ${secondaryKeywords.join(', ')}
 
 ## Future Queue (2-3 Weeks)
-${trendResearch.futureQueue2to3Weeks.map(t => `- ${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join('\n')}
+${trendResearch.futureQueue2to3Weeks.length > 0 ? trendResearch.futureQueue2to3Weeks.map(t => `- ${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join('\n') : '(No candidates in queue)'}
 
 ## Future Queue (4-6 Weeks)
-${trendResearch.futureQueue4to6Weeks.map(t => `- ${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join('\n')}
+${trendResearch.futureQueue4to6Weeks.length > 0 ? trendResearch.futureQueue4to6Weeks.map(t => `- ${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join('\n') : '(No candidates in queue)'}
 
 ## Metadata
 - Meta Title: ${metaTitle}
@@ -601,7 +662,7 @@ ${adminNotes}
 // ============================================================================
 
 async function sendAdminEmail(
-  post: { title: string; slug: string; primary: string; classification: string; timingChoice: string; metaTitle: string; metaDescription: string; internalLinks: string[] },
+  post: { title: string; slug: string; primary: string; classification: string; timingChoice: string; metaTitle: string; metaDescription: string; internalLinks: string[]; selectionReasoning: string; priorityExplanation: string },
   adminNotes: string,
   resendKey: string,
   blogUrl: string
@@ -616,6 +677,13 @@ async function sendAdminEmail(
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #333; margin-top: 0;">${post.title}</h2>
         
+        <!-- Topic Selection Reasoning -->
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+          <h3 style="color: #856404; margin-top: 0; margin-bottom: 10px;">📊 Topic Selection Reasoning</h3>
+          <p style="color: #856404; margin: 0 0 10px 0; font-size: 14px;">${post.selectionReasoning}</p>
+          <p style="color: #856404; margin: 0; font-size: 13px; font-style: italic;">${post.priorityExplanation}</p>
+        </div>
+        
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Primary Keyword:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.primary}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Classification:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.classification}</td></tr>
@@ -629,7 +697,7 @@ async function sendAdminEmail(
         <p><a href="${blogUrl}" style="background: #FF8235; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Published Post</a></p>
         
         <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #eee;">
-          <h3 style="color: #FF8235; margin-top: 0;">Admin Notes</h3>
+          <h3 style="color: #FF8235; margin-top: 0;">Full Admin Notes</h3>
           <pre style="white-space: pre-wrap; font-size: 13px; color: #555; line-height: 1.6;">${adminNotes}</pre>
         </div>
       </div>
@@ -702,26 +770,57 @@ Deno.serve(async (req) => {
     
     const usedSlugs = recentPosts?.map(p => p.slug) || [];
     
-    // Select topic from evergreen library based on rotation
-    const evergreenTopic = selectEvergreenTopic(rotationCategory, usedSlugs);
+    // Select topic - prefer trend-based topic, fallback to evergreen library
+    let selectedTopic: { title: string; primary: string; target: string };
+    let usedTrendTopic = false;
     
-    if (!evergreenTopic) {
-      throw new Error(`No available topics for category: ${rotationCategory}`);
+    // Check if trend research found a high-priority topic (A, B, or C classification)
+    if (trendResearch.chosenTopic && 
+        ['A', 'B', 'C'].includes(trendResearch.chosenTopic.classification)) {
+      // Map the trend keyword to an evergreen topic for structure, or create a dynamic topic
+      const matchingEvergreen = Object.values(EVERGREEN_LIBRARY)
+        .flat()
+        .find(t => t.primary.toLowerCase().includes(trendResearch.chosenTopic!.keyword.toLowerCase()) ||
+                   trendResearch.chosenTopic!.keyword.toLowerCase().includes(t.primary.split(' ')[0]));
+      
+      if (matchingEvergreen && !usedSlugs.includes(generateSlug(matchingEvergreen.title))) {
+        selectedTopic = matchingEvergreen;
+        usedTrendTopic = true;
+        console.log(`Using trend-matched topic: "${selectedTopic.title}" (${CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification]})`);
+      } else {
+        // Create a dynamic topic based on the trend
+        selectedTopic = {
+          title: `${trendResearch.chosenTopic.keyword.charAt(0).toUpperCase() + trendResearch.chosenTopic.keyword.slice(1)}: A Practical Guide`,
+          primary: trendResearch.chosenTopic.keyword,
+          target: trendResearch.chosenTopic.keyword.includes('surf') ? 'surf-school' : 
+                  trendResearch.chosenTopic.keyword.includes('stay') || trendResearch.chosenTopic.keyword.includes('hotel') ? 'rooms' : 'rooms',
+        };
+        usedTrendTopic = true;
+        console.log(`Using dynamic trend topic: "${selectedTopic.title}" (${CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification]})`);
+      }
+    } else {
+      // Fallback to evergreen library based on rotation
+      const evergreenTopic = selectEvergreenTopic(rotationCategory, usedSlugs);
+      if (!evergreenTopic) {
+        throw new Error(`No available topics for category: ${rotationCategory}`);
+      }
+      selectedTopic = evergreenTopic;
+      console.log(`Using evergreen fallback topic: "${selectedTopic.title}"`);
     }
     
-    console.log(`Selected topic: "${evergreenTopic.title}"`);
+    console.log(`Final selected topic: "${selectedTopic.title}"`);
     
     // Determine format based on topic type
-    const formatType = evergreenTopic.title.includes('guide') || evergreenTopic.title.includes('how') 
+    const formatType = selectedTopic.title.includes('guide') || selectedTopic.title.includes('how') 
       ? FORMAT_TEMPLATES['practical-guide']
-      : evergreenTopic.title.includes('itinerary') 
+      : selectedTopic.title.includes('itinerary') 
         ? FORMAT_TEMPLATES['itinerary']
         : FORMAT_TEMPLATES['explainer'];
     
     // Fetch images
     console.log('Fetching images from Unsplash...');
     const imageQueries = [
-      evergreenTopic.primary,
+      selectedTopic.primary,
       'kerala beach',
       'varkala cliff',
       'surfing india',
@@ -739,7 +838,7 @@ Deno.serve(async (req) => {
     // Generate content
     console.log('Generating blog content...');
     const result = await generateBlogContent(
-      evergreenTopic,
+      selectedTopic,
       secondaryKeywords,
       trendResearch,
       images.map(img => img.url),
@@ -770,7 +869,7 @@ Deno.serve(async (req) => {
         excerpt: result.excerpt,
         featured_image: featuredImage,
         images: allImages,
-        keywords: [evergreenTopic.primary, ...secondaryKeywords],
+        keywords: [selectedTopic.primary, ...secondaryKeywords],
         category: rotationCategory,
         status: 'published',
         published_at: new Date().toISOString(),
@@ -794,12 +893,14 @@ Deno.serve(async (req) => {
         await sendAdminEmail({
           title: result.title,
           slug: result.slug,
-          primary: evergreenTopic.primary,
+          primary: selectedTopic.primary,
           classification: trendResearch.chosenTopic ? CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification] : 'Evergreen',
           timingChoice: trendResearch.timingChoice,
           metaTitle: result.metaTitle,
           metaDescription: result.metaDescription,
           internalLinks,
+          selectionReasoning: trendResearch.selectionReasoning,
+          priorityExplanation: trendResearch.priorityExplanation,
         }, result.adminNotes, resendKey, blogUrl);
         console.log('Admin email sent');
       } catch (emailError) {
