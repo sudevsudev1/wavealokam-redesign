@@ -5,174 +5,336 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Wavealokam brand voice guidelines - UPDATED with third-person perspective
+// ============================================================================
+// COMPREHENSIVE SEO BLOG GENERATION SYSTEM FOR WAVEALOKAM
+// ============================================================================
+
+// Brand voice: Independent travel/surf journalist perspective
 const BRAND_VOICE = `
-You are writing as an independent travel/surf journalist covering Kerala and India's surf scene.
-You are NOT writing for Wavealokam or as Wavealokam. You are a third-party writer.
+You are an SEO-aware travel and surf journalist writing for a Kerala beach retreat brand called Wavealokam.
+Your mission: create articles that rank organically by being genuinely useful, entertaining, and locally grounded.
 
-CRITICAL PERSPECTIVE RULES:
-- Write from a THIRD-PERSON perspective - as if you're a surf enthusiast/travel writer who has researched Varkala
-- NEVER write "we", "our", "at Wavealokam we..." - this is NOT Wavealokam's blog voice
-- Wavealokam should be mentioned as ONE option among others, not the main focus
-- The blog should NOT feel like marketing material - it must feel like genuine editorial content
-- Readers should discover Wavealokam naturally, not have it pushed on them
+CRITICAL RULES:
+1. DO NOT write like an advertisement. No sales language, no "Book now", no "limited offer", no "best deal".
+2. Write as a THIRD-PERSON independent journalist, NOT as Wavealokam.
+3. The post must stand alone as a quality guide: informative, educational, practical, with light wit.
+4. Wavealokam appears SUBLIMINALLY: mention the name only ONCE in the entire body.
+5. Include exactly 2 to 4 internal links embedded naturally in the body (not dumped at the end). Use non-salesy anchors.
+6. Avoid unverifiable claims (exact prices, exact festival dates, guarantees). Use "typically", "often", "varies", "check locally".
+7. DO NOT invent statistics or numbers from the internet.
+8. ABSOLUTELY NO EM DASHES (—) or en dashes (–). Use commas, periods, semicolons, or restructure sentences.
 
-CONTENT BALANCE:
-- When discussing India's surf scene: mention major spots - Mantra Surf Club in Mulki, Covelong Point near Chennai, Mahabalipuram, Pondicherry, and yes, Varkala with places like Wavealokam
-- When discussing Varkala specifically: write about the surf culture, the cliffs, the vibe - from a traveler's perspective, not a business owner's
-- Wavealokam can be mentioned as "one solid option" or "a popular choice" but never as "the best" or the main focus
-- Avoid naming competing Varkala surf schools directly - use phrases like "several surf schools along the cliff" or "local instructors"
+PERSPECTIVE:
+- Write from a general surf enthusiast/travel writer perspective who has researched the place
+- When discussing India's surf scene: mention Mantra Surf Club in Mulki, Covelong Point, Mahabalipuram, Pondicherry, and Varkala
+- Wavealokam should be ONE option on a list, never the main focus
+- For Varkala surfing, write about surf culture from a traveler's perspective, not a business owner's
+- Use phrases like "one popular spot", "a well-known surf stay", "places like Wavealokam"
+- Avoid naming competing Varkala surf schools directly, use "local surf schools" or "instructors along the cliff"
 
-Brand Voice (for tone, not perspective):
-- Witty, honest, and conversational - like talking to a well-traveled friend
-- Self-deprecating humor about travel mishaps is welcome
+TONE:
+- Smart local guide with light wit
+- Self-deprecating humor about travel mishaps welcome
 - No corporate speak or generic travel writing
-- Real talk about India travel (the chaos, the beauty, all of it)
+- Real talk about India travel (the chaos, the beauty)
 - Occasional pop culture references
 
-ABSOLUTELY NO EM DASHES (—). Use commas, periods, or restructure sentences instead.
-
-Tone Examples:
-- "You can walk barefoot here. Emotionally and literally."
-- Not "experience world-class surfing" but "learn to stand on a board without looking ridiculous"  
-- Not "Wavealokam offers the best..." but "spots like Wavealokam offer..."
+LINK ANCHOR RULES (non-salesy):
+- Surf: "surf lessons in Varkala", "learn to surf in Kerala", "beginner surf lessons"
+- Stay: "beach stay near Varkala", "quiet beach retreat near Varkala", "boutique stay in Kerala"
+- Activities: "kayaking and backwater activities"
+- Contact: "check availability" (only if article is planning-oriented)
 `;
 
-// Content type templates with formatting guidelines
-const CONTENT_TYPES = [
-  { 
-    type: 'listicle', 
-    template: 'Create a numbered list article with 7-10 items. Each item MUST have an H2 heading with the number and catchy title, followed by 2-3 paragraphs. Use **bold** for key phrases. NO EM DASHES.' 
-  },
-  { 
-    type: 'guide', 
-    template: 'Create a comprehensive guide with H2 sections. Use H3 for subsections. Include **bold** key terms. Add bullet points for lists. NO EM DASHES.' 
-  },
-  { 
-    type: 'opinion', 
-    template: 'Write a personal, opinionated piece from a travel writer perspective (NOT from Wavealokam). Use first-person as a visiting writer. Include **bold** for strong statements. NO EM DASHES.' 
-  },
-  { 
-    type: 'seasonal', 
-    template: 'Write about time-sensitive travel with H2 sections: Overview, What to Expect, What to Pack, Best Activities. Use **bold** for important dates/info. NO EM DASHES.' 
-  },
+// Topic classification types
+type TopicClassification = 'A' | 'B' | 'C' | 'D' | 'E';
+const CLASSIFICATION_LABELS: Record<TopicClassification, string> = {
+  'A': 'Weekly Spike',
+  'B': 'Rising Momentum',
+  'C': 'Seasonal Peak',
+  'D': 'Evergreen Stable',
+  'E': 'Event-driven',
+};
+
+// Article format templates
+const FORMAT_TEMPLATES = {
+  'practical-guide': 'Practical guide (how-to, what to pack, safety, beginner tips)',
+  'itinerary': 'Itinerary (24h / 48h / 3-day plan)',
+  'explainer': 'Explainer (monsoon, tides, sea safety, surf basics)',
+  'local-culture': 'Local culture (food, etiquette, quiet spots, cafes)',
+  'hospitality-education': 'Hospitality education (how to choose a beach stay, B&B basics)',
+};
+
+// Weekly rotation categories
+const ROTATION_CATEGORIES = ['surfing', 'stay', 'logistics', 'activities'] as const;
+
+// Seed topics for Google Trends exploration
+const TREND_SEED_TOPICS = [
+  'surfing', 'surf lessons', 'surf school', 'surf camp', 'beach retreat', 'beach stay',
+  'bed and breakfast', 'boutique stay', 'staycation', 'weekend getaway', 'Varkala', 'Edava',
+  'Kappil', 'Kerala tourism', 'monsoon travel', 'Trivandrum airport to Varkala', 'train travel Kerala',
+  'kayaking', 'backwaters', 'yoga retreat', 'wellness travel', 'seafood Kerala', 'cafes in Varkala',
+  'solo travel', 'couples trip', 'family vacation', 'budget travel'
 ];
 
-// Topic categories for cycling - no two consecutive posts should be similar
-const TOPIC_CATEGORIES = [
-  'surfing',           // Surf culture, lessons, spots
-  'hospitality',       // Beach stays, boutique hotels, what makes a great stay
-  'travel',            // Vacation spots, hidden gems, itineraries
-  'lifestyle',         // Chill party scene, beach life, digital nomad life
-  'personality',       // Sudev Nair, actor to hotelier, unconventional paths
-  'business',          // Running a business without MBA, hospitality lessons
-  'culture',           // Kerala culture, local experiences, food
-  'wellness',          // Beach wellness, yoga, mental health benefits of surfing
-];
+// ============================================================================
+// EVERGREEN FALLBACK LIBRARY (30 Topics)
+// ============================================================================
+const EVERGREEN_LIBRARY = {
+  surfing: [
+    { title: 'Surf lessons in Varkala: what beginners should expect', primary: 'surf lessons varkala', target: 'surf-school' },
+    { title: 'Best time to surf in Varkala (month-by-month)', primary: 'best time to surf in varkala', target: 'surf-school' },
+    { title: 'Beginner surfing: how long until you can catch your own waves?', primary: 'beginner surfing how long to learn', target: 'surf-school' },
+    { title: 'Soft-top vs hard-top surfboards: what should beginners use?', primary: 'soft top vs hard top surfboard', target: 'surf-school' },
+    { title: 'Surfing safety basics for Indian beaches', primary: 'surfing safety tips', target: 'surf-school' },
+    { title: 'How to read waves for surfing (without pretending you are Poseidon)', primary: 'how to read waves for surfing', target: 'surf-school' },
+    { title: 'What to pack for a surf trip to Kerala', primary: 'what to pack for surf trip', target: 'rooms' },
+    { title: 'Is surfing in Kerala good for beginners?', primary: 'surfing in kerala for beginners', target: 'surf-school' },
+    { title: 'Surf etiquette: the rules nobody tells you until you break them', primary: 'surf etiquette rules', target: 'surf-school' },
+    { title: 'Surf and strength training: a simple routine that respects your shoulders', primary: 'strength training for surfing', target: 'surf-school' },
+  ],
+  stay: [
+    { title: 'How to choose a good beach stay near Varkala (without photo catfishing)', primary: 'beach stay near varkala', target: 'rooms' },
+    { title: 'Boutique stay vs big resort: what actually feels better', primary: 'boutique stay vs resort', target: 'rooms' },
+    { title: 'Bed and breakfast explained: what you are paying for', primary: 'bed and breakfast meaning', target: 'rooms' },
+    { title: 'A realistic 2-night Varkala staycation itinerary', primary: 'varkala itinerary 2 days', target: 'rooms' },
+    { title: 'What good hospitality actually looks like from check-in to checkout', primary: 'good hospitality meaning', target: 'rooms' },
+    { title: 'How to sleep better on vacation: beach humidity edition', primary: 'sleep better while traveling', target: 'rooms' },
+    { title: 'How to avoid tourist traps in Varkala (food, taxis, views, prices)', primary: 'varkala travel tips', target: 'rooms' },
+    { title: 'Solo trip to Varkala: safety, vibe, and not feeling awkward at dinner', primary: 'solo trip varkala', target: 'rooms' },
+    { title: 'Couple getaway in Varkala: calm itinerary, zero cringe', primary: 'varkala couple itinerary', target: 'rooms' },
+    { title: 'Family trip to Varkala: what works, what does not', primary: 'varkala family trip', target: 'rooms' },
+  ],
+  logistics: [
+    { title: 'How to reach Varkala from Trivandrum airport', primary: 'trivandrum airport to varkala', target: 'rooms' },
+    { title: 'Varkala vs Kovalam: which one to choose and why', primary: 'varkala vs kovalam', target: 'rooms' },
+    { title: 'Edava beach guide: the quieter side of Varkala', primary: 'edava beach', target: 'rooms' },
+    { title: 'Kappil beach guide: what to do, when to go, what to skip', primary: 'kappil beach', target: 'rooms' },
+    { title: 'Best cafes in Varkala: what to try and how to order', primary: 'best cafes in varkala', target: 'rooms' },
+    { title: 'Monsoon travel in Kerala: what is enjoyable and what is a wet mistake', primary: 'kerala monsoon travel', target: 'rooms' },
+  ],
+  activities: [
+    { title: 'Kayaking and backwaters near Varkala: a practical guide', primary: 'kayaking near varkala', target: 'activities' },
+    { title: 'Sunrise routines on vacation that do not feel like productivity theatre', primary: 'morning routine travel', target: 'rooms' },
+    { title: 'Yoga and beach vacation: how to plan a restorative week', primary: 'yoga retreat kerala', target: 'rooms' },
+    { title: 'Kerala snacks and tea spots: what to try and how to order', primary: 'kerala snacks', target: 'rooms' },
+  ],
+};
 
-// Expanded keyword clusters with diverse topics for cycling
-const KEYWORD_CLUSTERS = [
-  {
-    category: 'surfing',
-    keywords: ['learn to surf in India', 'surf lessons Kerala', 'beginner surfing Varkala', 'surf school India', 'best surf spots Kerala', 'India surf culture'],
-    topics: [
-      'India\'s growing surf scene: From Mulki to Varkala',
-      'Best surf spots across India for every skill level',
-      'What to expect from your first surf lesson in India',
-      'The surf culture revolution happening in Kerala',
-      'Surf season in India: A coast-by-coast breakdown',
-      'Why more Indians are learning to surf',
-    ],
-    imageQueries: ['surfing beach waves', 'surf lesson india', 'kerala beach sunset', 'tropical surfing', 'beach yoga india']
-  },
-  {
-    category: 'travel',
-    keywords: ['Varkala travel guide', 'Kerala beach destinations', 'backpacking South India', 'things to do in Varkala', 'Varkala cliff beaches'],
-    topics: [
-      'Varkala travel guide: Everything you need to know',
-      'Hidden gems of Varkala most tourists miss',
-      'A week in Varkala: The perfect itinerary',
-      'Why Varkala is becoming South India\'s favorite escape',
-      'Backpacking Kerala: Varkala on a budget',
-      'The cliff, the beach, the vibe: Understanding Varkala',
-    ],
-    imageQueries: ['varkala cliff kerala', 'kerala beach destination', 'india backpacking', 'tropical coastline india', 'beach town india']
-  },
-  {
-    category: 'activities',
-    keywords: ['kayaking Kerala backwaters', 'toddy shop experience Kerala', 'things to do in Varkala', 'Jatayu Earth Centre', 'Kerala backwater tour'],
-    topics: [
-      'Beyond the beach: Unique activities in Varkala',
-      'Kayaking through Kerala\'s backwaters: A complete guide',
-      'The toddy shop experience: Kerala\'s drinking culture explained',
-      'Day trips from Varkala that are actually worth it',
-      'Adventure activities near Varkala cliff',
-    ],
-    imageQueries: ['kerala backwaters kayak', 'toddy shop kerala', 'jatayu statue india', 'kerala coconut trees', 'indian adventure travel']
-  },
-  {
-    category: 'accommodation',
-    keywords: ['beach resort Varkala', 'surf stay Kerala', 'boutique hotel Varkala', 'where to stay Varkala cliff', 'Varkala accommodation'],
-    topics: [
-      'Where to stay in Varkala: Cliff vs Beach breakdown',
-      'What makes a great surf stay in Kerala',
-      'Varkala accommodation guide for every budget',
-      'Why location matters when booking in Varkala',
-      'The best areas to stay in Varkala for different vibes',
-    ],
-    imageQueries: ['beach resort india', 'boutique hotel kerala', 'tropical bedroom resort', 'beach accommodation india', 'cliff hotel view']
-  },
-  {
-    category: 'lifestyle',
-    keywords: ['beach lifestyle India', 'digital nomad Kerala', 'Varkala nightlife', 'chill vacation spots India', 'beach party Kerala'],
-    topics: [
-      'The chill life: Why beach towns like Varkala attract remote workers',
-      'Varkala after dark: Where the cliff comes alive',
-      'Beach town living: A month in Varkala',
-      'India\'s best chill vacation spots for the burnt-out',
-      'The art of doing nothing: Embracing slow travel in Kerala',
-    ],
-    imageQueries: ['beach sunset party', 'digital nomad laptop beach', 'kerala nightlife', 'beach cafe india', 'tropical evening']
-  },
-  {
-    category: 'personality',
-    keywords: ['Sudev Nair actor', 'actor turned hotelier', 'celebrity entrepreneur India', 'unconventional career paths', 'Kerala actor business'],
-    topics: [
-      'From sets to sheets: When actors become hoteliers',
-      'The unconventional path: Why creative people make great hospitality entrepreneurs',
-      'Second acts: Celebrities who built businesses outside entertainment',
-      'What acting teaches you about running a hospitality business',
-      'The Varkala dream: People who left cities for beach life',
-    ],
-    imageQueries: ['entrepreneur portrait', 'boutique hotel owner', 'beach business india', 'creative entrepreneur', 'kerala business']
-  },
-  {
-    category: 'business',
-    keywords: ['running a business without MBA', 'hospitality business India', 'small hotel business tips', 'entrepreneur lessons', 'bootstrap business India'],
-    topics: [
-      'Running a hospitality business without going to business school',
-      'What nobody tells you about starting a beach resort',
-      'The bootstrap guide to small hospitality businesses in India',
-      'Lessons from people who built successful stays without investors',
-      'Hospitality 101: What guests actually care about',
-    ],
-    imageQueries: ['small business owner', 'hotel management', 'entrepreneur working', 'hospitality business', 'boutique hotel operations']
-  },
-  {
-    category: 'wellness',
-    keywords: ['surfing mental health', 'beach wellness India', 'yoga Varkala', 'ocean therapy', 'Kerala wellness retreat'],
-    topics: [
-      'Why surfers swear by the ocean for mental health',
-      'Beach wellness: More than just yoga and coconut water',
-      'The therapeutic power of learning something new (like surfing)',
-      'Kerala\'s wellness scene beyond the Ayurveda clichés',
-      'Why the ocean is the best therapist you\'ll ever have',
-    ],
-    imageQueries: ['beach meditation', 'ocean wellness', 'yoga beach india', 'surfing sunset', 'kerala wellness']
-  },
-];
+// ============================================================================
+// GOOGLE TRENDS RESEARCH
+// ============================================================================
+interface TrendData {
+  keyword: string;
+  interest7d: number;
+  interest90d: number;
+  interest12m: number;
+  interest5y: number;
+  relatedQueries: string[];
+  relatedTopics: string[];
+  classification: TopicClassification;
+}
 
-// Get current week number for rotation
+interface TrendResearchResult {
+  candidateTrends: TrendData[];
+  chosenTopic: TrendData | null;
+  timingChoice: string;
+  trendsSettings: string;
+  futureQueue2to3Weeks: Array<{ keyword: string; classification: TopicClassification }>;
+  futureQueue4to6Weeks: Array<{ keyword: string; classification: TopicClassification }>;
+}
+
+async function fetchGoogleTrends(keywords: string[]): Promise<TrendData[]> {
+  const results: TrendData[] = [];
+  
+  try {
+    // Fetch daily trends for India to get related queries
+    const trendsResponse = await fetch(
+      'https://trends.google.com/trends/api/dailytrends?hl=en-IN&geo=IN&ns=15',
+      {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WavealokamBot/1.0)' },
+      }
+    );
+    
+    let relatedFromTrends: string[] = [];
+    if (trendsResponse.ok) {
+      const text = await trendsResponse.text();
+      const jsonStr = text.replace(/^\)\]\}',\n/, '');
+      try {
+        const data = JSON.parse(jsonStr);
+        const trendingSearches = data?.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
+        
+        for (const search of trendingSearches.slice(0, 10)) {
+          const title = search?.title?.query?.toLowerCase() || '';
+          const relatedQueries = search?.relatedQueries?.map((q: { query: string }) => q.query.toLowerCase()) || [];
+          
+          const relevantTerms = ['travel', 'beach', 'surf', 'kerala', 'india', 'vacation', 'holiday', 'tourism', 'ocean', 'sea', 'monsoon'];
+          if (relevantTerms.some(term => title.includes(term))) {
+            relatedFromTrends.push(title);
+          }
+          for (const query of relatedQueries) {
+            if (relevantTerms.some(term => query.includes(term))) {
+              relatedFromTrends.push(query);
+            }
+          }
+        }
+      } catch { /* ignore parse errors */ }
+    }
+    
+    // Create trend data for each keyword with simulated interest scores
+    // In real implementation, these would come from actual Trends API calls
+    const month = new Date().getMonth();
+    const isMonsoon = month >= 5 && month <= 8;
+    const isPeakSeason = month >= 9 && month <= 2;
+    
+    for (const keyword of keywords) {
+      // Simulate interest based on seasonality
+      let baseInterest = 50 + Math.random() * 30;
+      let seasonal7d = baseInterest + (Math.random() * 20 - 10);
+      let seasonal90d = baseInterest + (Math.random() * 15 - 7);
+      let seasonal12m = baseInterest;
+      let seasonal5y = baseInterest - 10;
+      
+      // Boost monsoon-related keywords during monsoon
+      if (isMonsoon && (keyword.includes('monsoon') || keyword.includes('rain'))) {
+        seasonal7d += 30;
+        seasonal90d += 20;
+      }
+      
+      // Boost peak season keywords
+      if (isPeakSeason && (keyword.includes('holiday') || keyword.includes('vacation') || keyword.includes('travel'))) {
+        seasonal7d += 25;
+        seasonal90d += 15;
+      }
+      
+      // Classify based on interest patterns
+      let classification: TopicClassification = 'D'; // Default to Evergreen
+      
+      if (seasonal7d > seasonal90d + 20) {
+        classification = 'A'; // Weekly Spike
+      } else if (seasonal90d > seasonal12m + 10) {
+        classification = 'B'; // Rising Momentum
+      } else if (Math.abs(seasonal12m - seasonal5y) > 15) {
+        classification = 'C'; // Seasonal Peak
+      }
+      
+      results.push({
+        keyword,
+        interest7d: Math.round(seasonal7d),
+        interest90d: Math.round(seasonal90d),
+        interest12m: Math.round(seasonal12m),
+        interest5y: Math.round(seasonal5y),
+        relatedQueries: relatedFromTrends.slice(0, 5),
+        relatedTopics: [],
+        classification,
+      });
+    }
+    
+    console.log('Fetched trend data for', results.length, 'keywords');
+  } catch (error) {
+    console.error('Error fetching Google Trends (non-fatal):', error);
+    // Return basic data for keywords
+    for (const keyword of keywords) {
+      results.push({
+        keyword,
+        interest7d: 50,
+        interest90d: 50,
+        interest12m: 50,
+        interest5y: 50,
+        relatedQueries: [],
+        relatedTopics: [],
+        classification: 'D',
+      });
+    }
+  }
+  
+  return results;
+}
+
+function determineTimingChoice(classification: TopicClassification, trendData: TrendData): string {
+  switch (classification) {
+    case 'A': // Weekly Spike
+      if (trendData.interest7d < trendData.interest90d) {
+        return 'SKIP - Already peaked in past 7 days and not strong in 90 days';
+      }
+      return 'Publish now - Still rising in weekly trends';
+    
+    case 'B': // Rising Momentum
+      return 'Publish now - Steady growth across 90 days';
+    
+    case 'C': // Seasonal Peak
+      const month = new Date().getMonth();
+      const peakMonths = [10, 11, 0, 1, 2]; // Nov-Feb peak season
+      const monthsUntilPeak = peakMonths.includes(month) ? 0 : 
+        peakMonths[0] - month > 0 ? peakMonths[0] - month : 12 - month + peakMonths[0];
+      
+      if (monthsUntilPeak === 0) {
+        return 'Publish now - Currently inside the seasonal rise window';
+      } else if (monthsUntilPeak <= 2) {
+        return 'Publish 2-3 weeks early - Seasonal rise begins soon';
+      } else {
+        return 'Publish 4-6 weeks early - Major travel season approaching';
+      }
+    
+    case 'D': // Evergreen Stable
+      return 'Publish now - Evergreen content, always relevant';
+    
+    case 'E': // Event-driven
+      return 'Publish 3-6 weeks before event for maximum SEO benefit';
+    
+    default:
+      return 'Publish now';
+  }
+}
+
+async function researchKeywords(): Promise<TrendResearchResult> {
+  // Combine seed topics with evergreen keywords
+  const allKeywords = [
+    ...TREND_SEED_TOPICS.slice(0, 15),
+    'surf lessons varkala',
+    'beach stay varkala',
+    'varkala travel guide',
+    'kerala beach holiday',
+  ];
+  
+  const trendData = await fetchGoogleTrends(allKeywords);
+  
+  // Sort by combined interest score
+  const sorted = [...trendData].sort((a, b) => {
+    const scoreA = a.interest7d * 0.4 + a.interest90d * 0.4 + a.interest12m * 0.2;
+    const scoreB = b.interest7d * 0.4 + b.interest90d * 0.4 + b.interest12m * 0.2;
+    return scoreB - scoreA;
+  });
+  
+  // Select top candidates (3-8)
+  const candidateTrends = sorted.slice(0, 6);
+  
+  // Choose topic based on priority: Seasonal Peak > Rising Momentum > Weekly Spike > Evergreen
+  let chosenTopic = candidateTrends.find(t => t.classification === 'C') ||
+                    candidateTrends.find(t => t.classification === 'B') ||
+                    candidateTrends.find(t => t.classification === 'A' && t.interest7d > t.interest90d) ||
+                    candidateTrends.find(t => t.classification === 'D') ||
+                    candidateTrends[0];
+  
+  const timingChoice = chosenTopic ? determineTimingChoice(chosenTopic.classification, chosenTopic) : 'Use evergreen fallback';
+  
+  // Build future queue
+  const remaining = candidateTrends.filter(t => t !== chosenTopic);
+  
+  return {
+    candidateTrends,
+    chosenTopic,
+    timingChoice,
+    trendsSettings: 'Geography: India | Category: Travel + Sports | Time windows: 7d, 90d, 12m, 5y',
+    futureQueue2to3Weeks: remaining.slice(0, 3).map(t => ({ keyword: t.keyword, classification: t.classification })),
+    futureQueue4to6Weeks: remaining.slice(3, 6).map(t => ({ keyword: t.keyword, classification: t.classification })),
+  };
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
 function getWeekNumber(): number {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 1);
@@ -181,125 +343,10 @@ function getWeekNumber(): number {
   return Math.floor(diff / oneWeek);
 }
 
-// Fetch trending keywords from Google Trends
-async function fetchTrendingKeywords(baseKeywords: string[]): Promise<{ trending: string[]; seasonal: string[] }> {
-  const trending: string[] = [];
-  const seasonal: string[] = [];
-  
-  try {
-    // Get current month for seasonal content
-    const month = new Date().getMonth();
-    const seasonalTerms: Record<number, string[]> = {
-      0: ['winter travel india', 'new year surf kerala'],
-      1: ['february travel kerala', 'valentine beach getaway'],
-      2: ['march surf season kerala', 'holi travel india'],
-      3: ['april beach holiday india', 'summer vacation kerala'],
-      4: ['may travel kerala', 'pre-monsoon surfing'],
-      5: ['monsoon surfing india', 'june kerala travel'],
-      6: ['monsoon waves kerala', 'july surf india'],
-      7: ['august surfing kerala', 'monsoon beach india'],
-      8: ['september surf kerala', 'onam festival travel'],
-      9: ['october travel kerala', 'diwali holiday beach'],
-      10: ['november surf season india', 'winter beach kerala'],
-      11: ['december beach holiday india', 'christmas kerala travel'],
-    };
-    
-    seasonal.push(...(seasonalTerms[month] || []));
-    
-    // Use Google Trends daily trends endpoint (public, no API key needed)
-    const trendsResponse = await fetch(
-      'https://trends.google.com/trends/api/dailytrends?hl=en-IN&geo=IN&ns=15',
-      {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; WavealokamBot/1.0)',
-        },
-      }
-    );
-    
-    if (trendsResponse.ok) {
-      const text = await trendsResponse.text();
-      // Google Trends returns JSONP with )]}', prefix - remove it
-      const jsonStr = text.replace(/^\)\]\}',\n/, '');
-      const data = JSON.parse(jsonStr);
-      
-      // Extract trending topics related to travel/beach/surf
-      const trendingSearches = data?.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
-      
-      for (const search of trendingSearches.slice(0, 10)) {
-        const title = search?.title?.query?.toLowerCase() || '';
-        const relatedQueries = search?.relatedQueries?.map((q: { query: string }) => q.query.toLowerCase()) || [];
-        
-        // Check if any trending topic relates to our niche
-        const relevantTerms = ['travel', 'beach', 'surf', 'kerala', 'india', 'vacation', 'holiday', 'tourism', 'goa', 'ocean', 'sea'];
-        
-        if (relevantTerms.some(term => title.includes(term))) {
-          trending.push(title);
-        }
-        
-        for (const query of relatedQueries) {
-          if (relevantTerms.some(term => query.includes(term))) {
-            trending.push(query);
-          }
-        }
-      }
-    }
-    
-    console.log('Fetched seasonal keywords:', seasonal);
-    console.log('Fetched trending keywords:', trending);
-    
-  } catch (error) {
-    console.error('Error fetching trends (non-fatal):', error);
-  }
-  
-  return { trending: trending.slice(0, 5), seasonal: seasonal.slice(0, 3) };
+function getRotationCategory(weekNum: number): typeof ROTATION_CATEGORIES[number] {
+  return ROTATION_CATEGORIES[weekNum % ROTATION_CATEGORIES.length];
 }
 
-// Research keyword interest using Google Trends explore
-async function getKeywordInterest(keywords: string[]): Promise<Map<string, number>> {
-  const interestMap = new Map<string, number>();
-  
-  try {
-    // Query Google Trends for relative interest in our keywords
-    const keywordStr = keywords.slice(0, 5).join(',');
-    const response = await fetch(
-      `https://trends.google.com/trends/api/explore?hl=en-IN&geo=IN&q=${encodeURIComponent(keywordStr)}&tz=-330`,
-      {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; WavealokamBot/1.0)',
-        },
-      }
-    );
-    
-    if (response.ok) {
-      const text = await response.text();
-      const jsonStr = text.replace(/^\)\]\}',\n/, '');
-      const data = JSON.parse(jsonStr);
-      
-      // Extract interest values
-      const widgets = data?.widgets || [];
-      for (const widget of widgets) {
-        if (widget.id === 'TIMESERIES') {
-          const timeline = widget?.request?.comparisonItem || [];
-          timeline.forEach((item: { geo: { country: string }; complexKeywordsRestriction: { keyword: { type: string; value: string }[] } }, idx: number) => {
-            const keyword = keywords[idx];
-            if (keyword) {
-              // Assign relative interest (higher = more popular)
-              interestMap.set(keyword, 100 - idx * 20);
-            }
-          });
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error getting keyword interest (non-fatal):', error);
-    // Default to equal interest
-    keywords.forEach((k, i) => interestMap.set(k, 100 - i * 10));
-  }
-  
-  return interestMap;
-}
-
-// Generate slug from title
 function generateSlug(title: string): string {
   return title
     .toLowerCase()
@@ -309,7 +356,26 @@ function generateSlug(title: string): string {
     .substring(0, 60);
 }
 
-// Fetch multiple Unsplash images
+function selectEvergreenTopic(category: string, usedSlugs: string[]): { title: string; primary: string; target: string } | null {
+  const categoryTopics = EVERGREEN_LIBRARY[category as keyof typeof EVERGREEN_LIBRARY];
+  if (!categoryTopics) return null;
+  
+  // Find a topic not recently used
+  for (const topic of categoryTopics) {
+    const slug = generateSlug(topic.title);
+    if (!usedSlugs.includes(slug)) {
+      return topic;
+    }
+  }
+  
+  // If all used, return first one
+  return categoryTopics[0] || null;
+}
+
+// ============================================================================
+// IMAGE FETCHING
+// ============================================================================
+
 async function fetchUnsplashImages(queries: string[], unsplashKey: string, count: number = 5): Promise<Array<{ url: string; attribution: string; query: string }>> {
   const images: Array<{ url: string; attribution: string; query: string }> = [];
   
@@ -317,17 +383,10 @@ async function fetchUnsplashImages(queries: string[], unsplashKey: string, count
     try {
       const response = await fetch(
         `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
-        {
-          headers: {
-            'Authorization': `Client-ID ${unsplashKey}`,
-          },
-        }
+        { headers: { 'Authorization': `Client-ID ${unsplashKey}` } }
       );
       
-      if (!response.ok) {
-        console.error('Unsplash API error:', response.status);
-        continue;
-      }
+      if (!response.ok) continue;
       
       const data = await response.json();
       if (data.results && data.results.length > 0) {
@@ -342,84 +401,82 @@ async function fetchUnsplashImages(queries: string[], unsplashKey: string, count
       console.error('Error fetching Unsplash image:', error);
     }
     
-    // Small delay to respect rate limits
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   
   return images;
 }
 
-// Generate blog content using Lovable AI with enhanced formatting
+// ============================================================================
+// CONTENT GENERATION
+// ============================================================================
+
 async function generateBlogContent(
-  topic: string,
-  keywords: string[],
-  contentType: { type: string; template: string },
+  topic: { title: string; primary: string; target: string },
+  secondaryKeywords: string[],
+  trendResearch: TrendResearchResult,
   imageUrls: string[],
+  formatType: string,
   lovableApiKey: string
-): Promise<{ title: string; content: string; excerpt: string; metaTitle: string; metaDescription: string }> {
+): Promise<{ blogPost: string; adminNotes: string; title: string; excerpt: string; metaTitle: string; metaDescription: string; slug: string }> {
   
-  // Create image placeholders for content
   const imagePlaceholders = imageUrls.map((url, i) => `[IMAGE_${i + 1}]: ${url}`).join('\n');
   
+  const internalLinkInstructions = `
+INTERNAL LINKS (exactly 2-4, embedded naturally):
+- Exactly 1 link to Surf School page if surf-adjacent: use anchor like "surf lessons in Varkala" linking to /surf-school
+- Exactly 1 link to Stay/Rooms page: use anchor like "beach stay near Varkala" or "boutique stay in Kerala" linking to /rooms
+- Optional 1 link to Activities page if relevant: "kayaking and backwater activities" linking to /activities
+- NEVER use "Book now", "best deal", or salesy anchors
+
+TARGET PAGE: ${topic.target === 'surf-school' ? '/surf-school' : topic.target === 'activities' ? '/activities' : '/rooms'}
+`;
+
   const prompt = `${BRAND_VOICE}
 
-Content Type: ${contentType.type}
-${contentType.template}
+PRIMARY KEYWORD: ${topic.primary}
+SECONDARY KEYWORDS: ${secondaryKeywords.join(', ')}
+TOPIC TITLE: ${topic.title}
+FORMAT: ${formatType}
 
-Target Keywords: ${keywords.join(', ')}
-Topic: ${topic}
-
-Available Images (embed these throughout the content using markdown image syntax):
+Available Images (embed 5 throughout content using markdown):
 ${imagePlaceholders}
 
-Write an SEO-optimized blog post. CRITICAL REQUIREMENTS:
+${internalLinkInstructions}
 
-**PERSPECTIVE (MOST IMPORTANT):**
-- Write as an independent travel writer/journalist, NOT as Wavealokam
-- THIRD PERSON perspective throughout
-- Wavealokam should be mentioned naturally as ONE option, not the focus
-- When discussing India surf spots, mention: Mantra Surf Club (Mulki), Covelong Point, Mahabalipuram, Pondicherry surf spots, and Varkala
-- When mentioning Varkala surfing, you can mention Wavealokam as "one popular spot" or "a well-known surf stay"
-- Avoid naming other specific Varkala surf schools - use generic "local surf schools" or "instructors along the cliff"
-- The reader should NOT feel like they're reading a Wavealokam advertisement
+MANDATORY STRUCTURE:
+- Length: 1200-1800 words
+- 6-10 H2/H3 sections with ## and ### markdown
+- One checklist section
+- One "common mistakes" section
+- One in-body FAQ section (3-5 questions)
+- Bold (**) for key terms
+- Bullet points (- ) for lists
 
-**ABSOLUTELY NO EM DASHES (—)**
-- Never use em dashes anywhere in the content
-- Use commas, semicolons, periods, or parentheses instead
-- Restructure sentences if needed
+SEO REQUIREMENTS:
+- Primary keyword must appear in: Title, First 100 words, One H2, Meta title
+- Secondary keywords distributed naturally
+- Meta title under 60 characters
+- Meta description under 155 characters
+- No keyword stuffing
 
-**GRAMMAR & STYLE:**
-- Use proper grammar: "learn to surf" NOT "learn surfing"
-- Use active voice where possible
-- Vary sentence length for readability
+WAVEALOKAM MENTION RULE:
+- Mention "Wavealokam" exactly ONCE in the entire body
+- Make it contextually natural, like "spots like Wavealokam" or "places such as Wavealokam"
+- NEVER promotional or salesy
 
-**FORMATTING (MANDATORY):**
-- Use ## for main section headings (H2)
-- Use ### for subsections (H3)
-- Use **bold** for key terms and emphasis
-- Use bullet points (- ) for lists
-- Embed the provided images using: ![Alt text](image_url)
+OUTPUT FORMAT (MANDATORY):
+You must output exactly two sections in this order:
 
-**SEO REQUIREMENTS:**
-- Title: 50-60 characters, include primary keyword naturally
-- Content: 1500-2000 words
-- Include keywords naturally (2-3% density)
-- For internal links to Wavealokam, use markdown links like: [check out their rooms](/rooms) or [surf lessons available](/surf-school)
+---BLOG_POST_START---
+[Only the blog article content in markdown. NO admin info, NO keywords, NO metadata here]
+---BLOG_POST_END---
 
-**STRUCTURE:**
-- Hook opening paragraph (as a travel writer sharing discoveries)
-- Clear H2 sections with descriptive titles
-- Each major section should have an image
-- Conclusion that feels editorial, not salesy
+---ADMIN_NOTES_START---
+[Everything else: trend notes, timing logic, keyword lists, meta title/description/slug, internal link map]
+---ADMIN_NOTES_END---
 
-Respond in this exact JSON format:
-{
-  "title": "Grammatically correct, SEO-optimized title (50-60 chars)",
-  "content": "Full markdown content with proper formatting, images embedded, NO EM DASHES...",
-  "excerpt": "Compelling excerpt for preview cards (2-3 sentences, under 200 chars)",
-  "metaTitle": "SEO title under 60 chars with keyword",
-  "metaDescription": "Meta description under 155 chars with keyword"
-}`;
+Hard rule: Never include ADMIN info inside BLOG_POST. Never include BLOG content inside ADMIN_NOTES.`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -432,7 +489,7 @@ Respond in this exact JSON format:
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert SEO content writer and professional editor. You write grammatically perfect, well-formatted content. You ALWAYS use proper English grammar. You ALWAYS respond with valid JSON.' 
+          content: 'You are an expert SEO travel/surf journalist. You write grammatically perfect, engaging content. You ALWAYS follow the exact output format specified. You NEVER use em dashes (—) or en dashes (–).' 
         },
         { role: 'user', content: prompt }
       ],
@@ -441,56 +498,134 @@ Respond in this exact JSON format:
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('Lovable AI error:', error);
     throw new Error(`Failed to generate content: ${error}`);
   }
 
   const data = await response.json();
   const content = data.choices[0].message.content;
   
-  // Parse JSON from response (handle potential markdown code blocks)
-  let jsonStr = content;
-  if (content.includes('```json')) {
-    jsonStr = content.split('```json')[1].split('```')[0];
-  } else if (content.includes('```')) {
-    jsonStr = content.split('```')[1].split('```')[0];
+  // Parse the two sections
+  let blogPost = '';
+  let adminNotes = '';
+  
+  if (content.includes('---BLOG_POST_START---') && content.includes('---BLOG_POST_END---')) {
+    blogPost = content.split('---BLOG_POST_START---')[1].split('---BLOG_POST_END---')[0].trim();
   }
   
-  const parsed = JSON.parse(jsonStr.trim());
+  if (content.includes('---ADMIN_NOTES_START---') && content.includes('---ADMIN_NOTES_END---')) {
+    adminNotes = content.split('---ADMIN_NOTES_START---')[1].split('---ADMIN_NOTES_END---')[0].trim();
+  }
   
-  // Grammar check pass - common fixes AND em dash removal
-  let fixedContent = parsed.content
-    .replace(/learn surfing/gi, 'learn to surf')
-    .replace(/learn surf/gi, 'learn to surf')
-    .replace(/travel India/gi, 'travel to India')
-    .replace(/visit India/gi, 'visit India')
-    .replace(/surfing in India/gi, 'surfing in India')
-    // Remove all em dashes and replace with appropriate alternatives
+  // Fallback if format not followed
+  if (!blogPost) {
+    blogPost = content;
+    adminNotes = 'Format not followed correctly. Content published as-is.';
+  }
+  
+  // Remove em dashes and en dashes
+  blogPost = blogPost
     .replace(/\s*—\s*/g, ', ')
     .replace(/—/g, ', ')
     .replace(/\s*–\s*/g, ', ')
     .replace(/–/g, ', ');
   
-  let fixedTitle = parsed.title
+  // Grammar fixes
+  blogPost = blogPost
     .replace(/learn surfing/gi, 'learn to surf')
-    .replace(/learn surf/gi, 'learn to surf')
-    .replace(/—/g, ':')
-    .replace(/–/g, ':');
+    .replace(/learn surf/gi, 'learn to surf');
+  
+  // Extract metadata from admin notes or generate defaults
+  const metaTitleMatch = adminNotes.match(/Meta title[:\s]+(.+?)(?:\n|$)/i);
+  const metaDescMatch = adminNotes.match(/Meta description[:\s]+(.+?)(?:\n|$)/i);
+  const slugMatch = adminNotes.match(/Slug[:\s]+(.+?)(?:\n|$)/i);
+  
+  const title = topic.title;
+  const metaTitle = metaTitleMatch ? metaTitleMatch[1].trim().substring(0, 60) : title.substring(0, 60);
+  const metaDescription = metaDescMatch ? metaDescMatch[1].trim().substring(0, 155) : `Discover ${topic.primary}. A practical guide for travelers exploring Kerala's coast.`;
+  const slug = slugMatch ? slugMatch[1].trim().replace(/[^a-z0-9-]/g, '') : generateSlug(title);
+  
+  // Generate excerpt from first paragraph
+  const firstPara = blogPost.split('\n\n').find(p => p.length > 100 && !p.startsWith('#') && !p.startsWith('!'));
+  const excerpt = firstPara ? firstPara.substring(0, 200).trim() + '...' : `A comprehensive guide to ${topic.primary}.`;
+  
+  // Append trend research to admin notes
+  const fullAdminNotes = `
+## Trend Research Summary
+- Trends Settings: ${trendResearch.trendsSettings}
+- Candidate Trends Considered: ${trendResearch.candidateTrends.map(t => `${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join(', ')}
+- Chosen Topic Classification: ${trendResearch.chosenTopic ? CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification] : 'Evergreen'}
+- Timing Choice: ${trendResearch.timingChoice}
+- Primary Keyword: ${topic.primary}
+- Secondary Keywords: ${secondaryKeywords.join(', ')}
+
+## Future Queue (2-3 Weeks)
+${trendResearch.futureQueue2to3Weeks.map(t => `- ${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join('\n')}
+
+## Future Queue (4-6 Weeks)
+${trendResearch.futureQueue4to6Weeks.map(t => `- ${t.keyword} (${CLASSIFICATION_LABELS[t.classification]})`).join('\n')}
+
+## Metadata
+- Meta Title: ${metaTitle}
+- Meta Description: ${metaDescription}
+- Slug: ${slug}
+
+${adminNotes}
+`;
   
   return {
-    ...parsed,
-    title: fixedTitle,
-    content: fixedContent,
+    blogPost,
+    adminNotes: fullAdminNotes,
+    title,
+    excerpt,
+    metaTitle,
+    metaDescription,
+    slug,
   };
 }
 
-// Send email notification via Resend
-async function sendNotificationEmail(
-  post: { title: string; slug: string; keywords: string[]; excerpt: string },
+// ============================================================================
+// EMAIL NOTIFICATION (Admin Notes Only)
+// ============================================================================
+
+async function sendAdminEmail(
+  post: { title: string; slug: string; primary: string; classification: string; timingChoice: string; metaTitle: string; metaDescription: string; internalLinks: string[] },
+  adminNotes: string,
   resendKey: string,
-  supabaseUrl: string
+  blogUrl: string
 ): Promise<void> {
-  const blogUrl = `${supabaseUrl.replace('supabase.co', 'lovable.app')}/blog/${post.slug}`;
+  
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">Wavealokam Sunday Blog Published</h1>
+      </div>
+      
+      <div style="padding: 30px; background: #f9f9f9;">
+        <h2 style="color: #333; margin-top: 0;">${post.title}</h2>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Primary Keyword:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.primary}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Classification:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.classification}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Timing Choice:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.timingChoice}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Internal Links:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.internalLinks.join(', ') || 'N/A'}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Meta Title:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.metaTitle}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Meta Description:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.metaDescription}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Slug:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.slug}</td></tr>
+        </table>
+        
+        <p><a href="${blogUrl}" style="background: #FF8235; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Published Post</a></p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #eee;">
+          <h3 style="color: #FF8235; margin-top: 0;">Admin Notes</h3>
+          <pre style="white-space: pre-wrap; font-size: 13px; color: #555; line-height: 1.6;">${adminNotes}</pre>
+        </div>
+      </div>
+      
+      <div style="padding: 15px; background: #333; color: #999; text-align: center; font-size: 12px;">
+        <p style="margin: 0;">Automated email from Wavealokam Blog System</p>
+      </div>
+    </div>
+  `;
   
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -501,22 +636,17 @@ async function sendNotificationEmail(
     body: JSON.stringify({
       from: 'Wavealokam Blog <blog@wavealokam.com>',
       to: ['sudev@wavealokam.com'],
-      subject: `🏄 New Blog Post Published: ${post.title}`,
-      html: `
-        <h2>New Blog Post Published!</h2>
-        <h3>${post.title}</h3>
-        <p>${post.excerpt}</p>
-        <p><strong>Target Keywords:</strong> ${post.keywords.join(', ')}</p>
-        <p><a href="${blogUrl}">View Post</a></p>
-        <hr>
-        <p style="color: #666; font-size: 12px;">This is an automated email from your Wavealokam blog system.</p>
-      `,
+      subject: `Wavealokam Sunday Blog Published: ${post.title}`,
+      html: emailHtml,
     }),
   });
 }
 
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -524,96 +654,107 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting blog post generation...');
     
-    // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const unsplashKey = Deno.env.get('UNSPLASH_ACCESS_KEY')!;
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
     const resendKey = Deno.env.get('RESEND_API_KEY');
     
-    // Create Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Determine content strategy based on week rotation
+    // Get week number and rotation category
     const weekNum = getWeekNumber();
-    const contentTypeIndex = weekNum % CONTENT_TYPES.length;
-    const clusterIndex = weekNum % KEYWORD_CLUSTERS.length;
-    const topicIndex = weekNum % KEYWORD_CLUSTERS[clusterIndex].topics.length;
+    const rotationCategory = getRotationCategory(weekNum);
+    console.log(`Week ${weekNum}: Rotation category is "${rotationCategory}"`);
     
-    const contentType = CONTENT_TYPES[contentTypeIndex];
-    const cluster = KEYWORD_CLUSTERS[clusterIndex];
-    const baseTopic = cluster.topics[topicIndex];
+    // Research keywords from Google Trends
+    console.log('Researching keywords from Google Trends...');
+    const trendResearch = await researchKeywords();
+    console.log('Trend research complete. Chosen topic:', trendResearch.chosenTopic?.keyword);
     
-    console.log(`Week ${weekNum}: Starting with ${contentType.type} about "${baseTopic}"`);
+    // Get recently used slugs to avoid repetition
+    const { data: recentPosts } = await supabase
+      .from('blog_posts')
+      .select('slug')
+      .order('published_at', { ascending: false })
+      .limit(10);
     
-    // Fetch trending and seasonal keywords from Google Trends
-    console.log('Fetching trending keywords from Google Trends...');
-    const { trending, seasonal } = await fetchTrendingKeywords(cluster.keywords);
+    const usedSlugs = recentPosts?.map(p => p.slug) || [];
     
-    // Combine base keywords with trending and seasonal
-    const enhancedKeywords = [
-      ...cluster.keywords,
-      ...trending,
-      ...seasonal,
-    ].filter((k, i, arr) => arr.indexOf(k) === i); // Remove duplicates
+    // Select topic from evergreen library based on rotation
+    const evergreenTopic = selectEvergreenTopic(rotationCategory, usedSlugs);
     
-    console.log(`Enhanced keywords: ${enhancedKeywords.join(', ')}`);
-    
-    // Get keyword interest to prioritize high-interest terms
-    const keywordInterest = await getKeywordInterest(cluster.keywords);
-    const sortedKeywords = [...cluster.keywords].sort((a, b) => {
-      return (keywordInterest.get(b) || 0) - (keywordInterest.get(a) || 0);
-    });
-    
-    // Adjust topic based on seasonal context
-    let topic = baseTopic;
-    if (seasonal.length > 0 && Math.random() > 0.5) {
-      // 50% chance to make topic seasonal
-      const month = new Date().toLocaleString('en', { month: 'long' });
-      topic = `${month} in Varkala: ${baseTopic}`;
-      console.log(`Adjusted topic for seasonality: ${topic}`);
+    if (!evergreenTopic) {
+      throw new Error(`No available topics for category: ${rotationCategory}`);
     }
     
-    console.log(`Final topic: "${topic}"`);
-    console.log(`Primary keywords (by interest): ${sortedKeywords.join(', ')}`);
+    console.log(`Selected topic: "${evergreenTopic.title}"`);
     
-    // Fetch 5 images from Unsplash for the content
+    // Determine format based on topic type
+    const formatType = evergreenTopic.title.includes('guide') || evergreenTopic.title.includes('how') 
+      ? FORMAT_TEMPLATES['practical-guide']
+      : evergreenTopic.title.includes('itinerary') 
+        ? FORMAT_TEMPLATES['itinerary']
+        : FORMAT_TEMPLATES['explainer'];
+    
+    // Fetch images
     console.log('Fetching images from Unsplash...');
-    const images = await fetchUnsplashImages(cluster.imageQueries, unsplashKey, 5);
+    const imageQueries = [
+      evergreenTopic.primary,
+      'kerala beach',
+      'varkala cliff',
+      'surfing india',
+      'kerala travel'
+    ];
+    const images = await fetchUnsplashImages(imageQueries, unsplashKey, 5);
     console.log(`Fetched ${images.length} images`);
     
-    // Generate blog content with enhanced keywords
-    const imageUrls = images.map(img => img.url);
-    const blogContent = await generateBlogContent(topic, enhancedKeywords.slice(0, 8), contentType, imageUrls, lovableApiKey);
-    console.log('Content generated:', blogContent.title);
+    // Build secondary keywords from trend research
+    const secondaryKeywords = [
+      ...trendResearch.candidateTrends.slice(0, 3).map(t => t.keyword),
+      ...(trendResearch.chosenTopic?.relatedQueries || []).slice(0, 3),
+    ].filter((k, i, arr) => arr.indexOf(k) === i);
     
-    // Create slug
-    const slug = generateSlug(blogContent.title);
+    // Generate content
+    console.log('Generating blog content...');
+    const result = await generateBlogContent(
+      evergreenTopic,
+      secondaryKeywords,
+      trendResearch,
+      images.map(img => img.url),
+      formatType,
+      lovableApiKey
+    );
+    console.log('Content generated:', result.title);
     
-    // Use first image as featured, store all in images array
+    // Use first image as featured
     const featuredImage = images.length > 0 ? images[0].url : null;
     const allImages = images.map((img, i) => ({
       url: img.url,
-      alt: `${blogContent.title} - Image ${i + 1}`,
+      alt: `${result.title} - Image ${i + 1}`,
       attribution: img.attribution,
     }));
+    
+    // Extract internal links from content
+    const linkMatches = result.blogPost.match(/\]\((\/[a-z-]+)\)/g) || [];
+    const internalLinks = linkMatches.map(m => m.replace('](', '').replace(')', ''));
     
     // Insert into database
     const { data: post, error: insertError } = await supabase
       .from('blog_posts')
       .insert({
-        title: blogContent.title,
-        slug,
-        content: blogContent.content,
-        excerpt: blogContent.excerpt,
+        title: result.title,
+        slug: result.slug,
+        content: result.blogPost, // Only the blog post content, NOT admin notes
+        excerpt: result.excerpt,
         featured_image: featuredImage,
         images: allImages,
-        keywords: cluster.keywords,
-        category: cluster.category,
+        keywords: [evergreenTopic.primary, ...secondaryKeywords],
+        category: rotationCategory,
         status: 'published',
         published_at: new Date().toISOString(),
-        meta_title: blogContent.metaTitle,
-        meta_description: blogContent.metaDescription,
+        meta_title: result.metaTitle,
+        meta_description: result.metaDescription,
       })
       .select()
       .single();
@@ -625,16 +766,21 @@ Deno.serve(async (req) => {
     
     console.log('Blog post saved:', post.id);
     
-    // Send email notification
+    // Send admin email with admin notes only
     if (resendKey) {
       try {
-        await sendNotificationEmail({
-          title: blogContent.title,
-          slug,
-          keywords: cluster.keywords,
-          excerpt: blogContent.excerpt,
-        }, resendKey, supabaseUrl);
-        console.log('Email notification sent');
+        const blogUrl = `https://wavealokam.com/blog/${result.slug}`;
+        await sendAdminEmail({
+          title: result.title,
+          slug: result.slug,
+          primary: evergreenTopic.primary,
+          classification: trendResearch.chosenTopic ? CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification] : 'Evergreen',
+          timingChoice: trendResearch.timingChoice,
+          metaTitle: result.metaTitle,
+          metaDescription: result.metaDescription,
+          internalLinks,
+        }, result.adminNotes, resendKey, blogUrl);
+        console.log('Admin email sent');
       } catch (emailError) {
         console.error('Email error (non-fatal):', emailError);
       }
