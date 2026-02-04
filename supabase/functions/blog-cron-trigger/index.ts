@@ -26,20 +26,61 @@ Deno.serve(async (req) => {
       );
     }
     
-    console.log('Cron trigger: Starting blog generation...');
+    // Determine which selector to call based on current day (Asia/Kolkata timezone)
+    // Sunday = 0, Wednesday = 3
+    const now = new Date();
+    // Convert to IST (UTC+5:30)
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istTime = new Date(now.getTime() + istOffset);
+    const dayOfWeek = istTime.getUTCDay();
+    
+    // Allow manual override via query param
+    const forceSelector = url.searchParams.get('selector');
+    
+    let selectorFunction: string;
+    let selectorName: string;
+    
+    if (forceSelector === 'weekly' || forceSelector === 'seasonal') {
+      selectorFunction = forceSelector === 'weekly' ? 'weekly-selector' : 'seasonal-selector';
+      selectorName = forceSelector;
+    } else if (dayOfWeek === 0) {
+      // Sunday - Weekly Opportunity Post
+      selectorFunction = 'weekly-selector';
+      selectorName = 'weekly';
+    } else if (dayOfWeek === 3) {
+      // Wednesday - Seasonal Post
+      selectorFunction = 'seasonal-selector';
+      selectorName = 'seasonal';
+    } else {
+      // Not a scheduled day
+      console.log(`Not a scheduled day (day ${dayOfWeek}). Use ?selector=weekly or ?selector=seasonal to force.`);
+      return new Response(
+        JSON.stringify({ 
+          skipped: true, 
+          reason: `Not a scheduled day (current day: ${dayOfWeek}). Sunday=0, Wednesday=3.`,
+          hint: 'Use ?selector=weekly or ?selector=seasonal to force run.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+    
+    console.log(`Cron trigger: Starting ${selectorName} blog generation...`);
     
     // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Call the generate-blog-post function
-    const generateUrl = `${supabaseUrl}/functions/v1/generate-blog-post`;
+    // Call the appropriate selector function
+    const selectorUrl = `${supabaseUrl}/functions/v1/${selectorFunction}`;
     
-    const response = await fetch(generateUrl, {
+    const response = await fetch(selectorUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({ trigger: 'cron' }),
     });
@@ -47,16 +88,20 @@ Deno.serve(async (req) => {
     const result = await response.json();
     
     if (!response.ok) {
-      console.error('Generate function error:', result);
-      throw new Error(result.error || 'Failed to generate blog post');
+      console.error('Selector function error:', result);
+      throw new Error(result.error || `Failed to run ${selectorName} selector`);
     }
     
-    console.log('Blog post generated successfully:', result);
+    console.log(`${selectorName} blog post generated successfully:`, result);
     
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Blog post generated and published',
+        selector: selectorName,
+        message: result.skipped 
+          ? `${selectorName} selector skipped: ${result.reason}` 
+          : `${selectorName} blog post generated and published`,
+        topic: result.topic,
         post: result.post,
       }),
       {
