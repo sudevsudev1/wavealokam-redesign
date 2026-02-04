@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      automation_runs: {
+        Row: {
+          candidates_found: number | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          log_data: Json | null
+          run_type: string
+          selected_bucket: string | null
+          selected_keyword: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          candidates_found?: number | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          log_data?: Json | null
+          run_type: string
+          selected_bucket?: string | null
+          selected_keyword?: string | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          candidates_found?: number | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          log_data?: Json | null
+          run_type?: string
+          selected_bucket?: string | null
+          selected_keyword?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           category: string
@@ -65,6 +107,224 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      evergreen_topics: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: string
+          internal_link_focus: string
+          is_active: boolean
+          last_used_at: string | null
+          primary_keyword: string
+          seed_phrases: Json
+          title_ideas: Json
+          use_count: number
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: string
+          internal_link_focus: string
+          is_active?: boolean
+          last_used_at?: string | null
+          primary_keyword: string
+          seed_phrases?: Json
+          title_ideas?: Json
+          use_count?: number
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: string
+          internal_link_focus?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          primary_keyword?: string
+          seed_phrases?: Json
+          title_ideas?: Json
+          use_count?: number
+        }
+        Relationships: []
+      }
+      post_history: {
+        Row: {
+          blog_post_id: string | null
+          bucket: string
+          created_at: string
+          id: string
+          post_type: string
+          primary_keyword: string
+          publish_date: string
+          publish_day: string
+          selection_meta: Json | null
+          theme_id: string | null
+          title: string
+          url: string | null
+        }
+        Insert: {
+          blog_post_id?: string | null
+          bucket: string
+          created_at?: string
+          id?: string
+          post_type: string
+          primary_keyword: string
+          publish_date: string
+          publish_day: string
+          selection_meta?: Json | null
+          theme_id?: string | null
+          title: string
+          url?: string | null
+        }
+        Update: {
+          blog_post_id?: string | null
+          bucket?: string
+          created_at?: string
+          id?: string
+          post_type?: string
+          primary_keyword?: string
+          publish_date?: string
+          publish_day?: string
+          selection_meta?: Json | null
+          theme_id?: string | null
+          title?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_history_blog_post_id_fkey"
+            columns: ["blog_post_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seasonal_calendar: {
+        Row: {
+          active_from_mmdd: string
+          active_to_mmdd: string
+          bucket: string
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          seed_phrases: Json
+          theme_id: string
+        }
+        Insert: {
+          active_from_mmdd: string
+          active_to_mmdd: string
+          bucket: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          seed_phrases?: Json
+          theme_id: string
+        }
+        Update: {
+          active_from_mmdd?: string
+          active_to_mmdd?: string
+          bucket?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          seed_phrases?: Json
+          theme_id?: string
+        }
+        Relationships: []
+      }
+      serp_scores: {
+        Row: {
+          content_gap_score: number
+          created_at: string
+          expires_at: string
+          id: string
+          intent_score: number
+          keyword: string
+          local_fit_score: number
+          rankability_score: number
+          raw_serp_data: Json | null
+          top_10_domains: Json | null
+          total_score: number
+        }
+        Insert: {
+          content_gap_score?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          intent_score?: number
+          keyword: string
+          local_fit_score?: number
+          rankability_score?: number
+          raw_serp_data?: Json | null
+          top_10_domains?: Json | null
+          total_score?: number
+        }
+        Update: {
+          content_gap_score?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          intent_score?: number
+          keyword?: string
+          local_fit_score?: number
+          rankability_score?: number
+          raw_serp_data?: Json | null
+          top_10_domains?: Json | null
+          total_score?: number
+        }
+        Relationships: []
+      }
+      trend_candidates: {
+        Row: {
+          candidate_keyword: string
+          created_at: string
+          geo: string
+          id: string
+          interest_12m: number | null
+          interest_90d: number | null
+          is_processed: boolean
+          is_relevant: boolean | null
+          query_type: string
+          raw_data: Json | null
+          relevance_score: number | null
+          seed_keyword: string
+          source: string
+        }
+        Insert: {
+          candidate_keyword: string
+          created_at?: string
+          geo?: string
+          id?: string
+          interest_12m?: number | null
+          interest_90d?: number | null
+          is_processed?: boolean
+          is_relevant?: boolean | null
+          query_type: string
+          raw_data?: Json | null
+          relevance_score?: number | null
+          seed_keyword: string
+          source: string
+        }
+        Update: {
+          candidate_keyword?: string
+          created_at?: string
+          geo?: string
+          id?: string
+          interest_12m?: number | null
+          interest_90d?: number | null
+          is_processed?: boolean
+          is_relevant?: boolean | null
+          query_type?: string
+          raw_data?: Json | null
+          relevance_score?: number | null
+          seed_keyword?: string
+          source?: string
         }
         Relationships: []
       }
