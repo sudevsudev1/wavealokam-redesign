@@ -1,0 +1,33 @@
+name: Pytrends Discovery
+
+on:
+  # Run daily at 5:30 AM IST (00:00 UTC) to populate candidates before 7 AM selectors
+  schedule:
+    - cron: '0 0 * * *'
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+jobs:
+  discover-trends:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytrends supabase
+
+      - name: Run pytrends discovery
+        run: python scripts/pytrends_discovery.py

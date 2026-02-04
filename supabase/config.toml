@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.blog-cron-trigger]
 verify_jwt = false
+
+[functions.weekly-selector]
+verify_jwt = false
+
+[functions.seasonal-selector]
+verify_jwt = false

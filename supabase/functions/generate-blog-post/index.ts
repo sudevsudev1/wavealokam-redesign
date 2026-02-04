@@ -743,6 +743,32 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting blog post generation...');
     
+    // Parse request body for topic payload from selectors
+    let providedTopic: {
+      primaryKeyword: string;
+      workingTitle: string;
+      secondaryKeywords: string[];
+      outlineHints: string;
+      internalLinks: Array<{ url: string; anchorSuggestion: string }>;
+      bucket: string;
+      postType: 'weekly' | 'seasonal';
+      themeId?: string;
+      selectionReasoning: string;
+    } | null = null;
+    
+    let trigger = 'manual';
+    
+    try {
+      const body = await req.json();
+      if (body.topic) {
+        providedTopic = body.topic;
+        trigger = body.trigger || 'selector';
+        console.log(`Received topic payload from ${trigger}: ${providedTopic!.primaryKeyword}`);
+      }
+    } catch {
+      // No body or invalid JSON - use default topic selection
+    }
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const unsplashKey = Deno.env.get('UNSPLASH_ACCESS_KEY')!;
@@ -751,15 +777,10 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get week number and rotation category
+    // Get week number and rotation category (for fallback)
     const weekNum = getWeekNumber();
     const rotationCategory = getRotationCategory(weekNum);
     console.log(`Week ${weekNum}: Rotation category is "${rotationCategory}"`);
-    
-    // Research keywords from Google Trends
-    console.log('Researching keywords from Google Trends...');
-    const trendResearch = await researchKeywords();
-    console.log('Trend research complete. Chosen topic:', trendResearch.chosenTopic?.keyword);
     
     // Get recently used slugs to avoid repetition
     const { data: recentPosts } = await supabase
@@ -770,42 +791,92 @@ Deno.serve(async (req) => {
     
     const usedSlugs = recentPosts?.map(p => p.slug) || [];
     
-    // Select topic - prefer trend-based topic, fallback to evergreen library
+    // Topic selection
     let selectedTopic: { title: string; primary: string; target: string };
-    let usedTrendTopic = false;
+    let trendResearch: TrendResearchResult;
+    let secondaryKeywords: string[];
     
-    // Check if trend research found a high-priority topic (A, B, or C classification)
-    if (trendResearch.chosenTopic && 
-        ['A', 'B', 'C'].includes(trendResearch.chosenTopic.classification)) {
-      // Map the trend keyword to an evergreen topic for structure, or create a dynamic topic
-      const matchingEvergreen = Object.values(EVERGREEN_LIBRARY)
-        .flat()
-        .find(t => t.primary.toLowerCase().includes(trendResearch.chosenTopic!.keyword.toLowerCase()) ||
-                   trendResearch.chosenTopic!.keyword.toLowerCase().includes(t.primary.split(' ')[0]));
+    if (providedTopic) {
+      // Use the topic provided by the selector
+      selectedTopic = {
+        title: providedTopic.workingTitle,
+        primary: providedTopic.primaryKeyword,
+        target: providedTopic.internalLinks[1]?.url.replace('/#', '') || 'rooms',
+      };
       
-      if (matchingEvergreen && !usedSlugs.includes(generateSlug(matchingEvergreen.title))) {
-        selectedTopic = matchingEvergreen;
-        usedTrendTopic = true;
-        console.log(`Using trend-matched topic: "${selectedTopic.title}" (${CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification]})`);
-      } else {
-        // Create a dynamic topic based on the trend
-        selectedTopic = {
-          title: `${trendResearch.chosenTopic.keyword.charAt(0).toUpperCase() + trendResearch.chosenTopic.keyword.slice(1)}: A Practical Guide`,
-          primary: trendResearch.chosenTopic.keyword,
-          target: trendResearch.chosenTopic.keyword.includes('surf') ? 'surf-school' : 
-                  trendResearch.chosenTopic.keyword.includes('stay') || trendResearch.chosenTopic.keyword.includes('hotel') ? 'rooms' : 'rooms',
-        };
-        usedTrendTopic = true;
-        console.log(`Using dynamic trend topic: "${selectedTopic.title}" (${CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification]})`);
-      }
+      // Build a synthetic trendResearch object from the provided topic
+      trendResearch = {
+        candidateTrends: [{
+          keyword: providedTopic.primaryKeyword,
+          interest7d: 0,
+          interest90d: 0,
+          interest12m: 0,
+          interest5y: 0,
+          relatedQueries: providedTopic.secondaryKeywords,
+          relatedTopics: [],
+          classification: providedTopic.postType === 'seasonal' ? 'C' : 'B',
+          localTieIn: true,
+        }],
+        chosenTopic: {
+          keyword: providedTopic.primaryKeyword,
+          interest7d: 0,
+          interest90d: 0,
+          interest12m: 0,
+          interest5y: 0,
+          relatedQueries: providedTopic.secondaryKeywords,
+          relatedTopics: [],
+          classification: providedTopic.postType === 'seasonal' ? 'C' : 'B',
+          localTieIn: true,
+        },
+        timingChoice: 'Selected by automated selector',
+        trendsSettings: `Trigger: ${trigger} | Post type: ${providedTopic.postType}`,
+        futureQueue2to3Weeks: [],
+        futureQueue4to6Weeks: [],
+        selectionReasoning: providedTopic.selectionReasoning,
+        priorityExplanation: providedTopic.outlineHints,
+      };
+      
+      secondaryKeywords = providedTopic.secondaryKeywords;
+      console.log(`Using provided topic: "${selectedTopic.title}"`);
     } else {
-      // Fallback to evergreen library based on rotation
-      const evergreenTopic = selectEvergreenTopic(rotationCategory, usedSlugs);
-      if (!evergreenTopic) {
-        throw new Error(`No available topics for category: ${rotationCategory}`);
+      // Fallback to original trend research (for manual/legacy calls)
+      console.log('No topic payload provided, using legacy trend research...');
+      trendResearch = await researchKeywords();
+      console.log('Trend research complete. Chosen topic:', trendResearch.chosenTopic?.keyword);
+      
+      // Select topic - prefer trend-based topic, fallback to evergreen library
+      let usedTrendTopic = false;
+      
+      if (trendResearch.chosenTopic && 
+          ['A', 'B', 'C'].includes(trendResearch.chosenTopic.classification)) {
+        const matchingEvergreen = Object.values(EVERGREEN_LIBRARY)
+          .flat()
+          .find(t => t.primary.toLowerCase().includes(trendResearch.chosenTopic!.keyword.toLowerCase()) ||
+                     trendResearch.chosenTopic!.keyword.toLowerCase().includes(t.primary.split(' ')[0]));
+        
+        if (matchingEvergreen && !usedSlugs.includes(generateSlug(matchingEvergreen.title))) {
+          selectedTopic = matchingEvergreen;
+          usedTrendTopic = true;
+        } else {
+          selectedTopic = {
+            title: `${trendResearch.chosenTopic.keyword.charAt(0).toUpperCase() + trendResearch.chosenTopic.keyword.slice(1)}: A Practical Guide`,
+            primary: trendResearch.chosenTopic.keyword,
+            target: trendResearch.chosenTopic.keyword.includes('surf') ? 'surf-school' : 'rooms',
+          };
+          usedTrendTopic = true;
+        }
+      } else {
+        const evergreenTopic = selectEvergreenTopic(rotationCategory, usedSlugs);
+        if (!evergreenTopic) {
+          throw new Error(`No available topics for category: ${rotationCategory}`);
+        }
+        selectedTopic = evergreenTopic;
       }
-      selectedTopic = evergreenTopic;
-      console.log(`Using evergreen fallback topic: "${selectedTopic.title}"`);
+      
+      secondaryKeywords = [
+        ...trendResearch.candidateTrends.slice(0, 3).map(t => t.keyword),
+        ...(trendResearch.chosenTopic?.relatedQueries || []).slice(0, 3),
+      ].filter((k, i, arr) => arr.indexOf(k) === i);
     }
     
     console.log(`Final selected topic: "${selectedTopic.title}"`);
@@ -829,11 +900,8 @@ Deno.serve(async (req) => {
     const images = await fetchUnsplashImages(imageQueries, unsplashKey, 5);
     console.log(`Fetched ${images.length} images`);
     
-    // Build secondary keywords from trend research
-    const secondaryKeywords = [
-      ...trendResearch.candidateTrends.slice(0, 3).map(t => t.keyword),
-      ...(trendResearch.chosenTopic?.relatedQueries || []).slice(0, 3),
-    ].filter((k, i, arr) => arr.indexOf(k) === i);
+    // Use secondaryKeywords from topic selection (already set above)
+    // No need to redeclare
     
     // Generate content
     console.log('Generating blog content...');
