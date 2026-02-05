@@ -560,17 +560,25 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Create initial automation run record
-    const { data: runRecord } = await supabase
+    const { data: runRecord, error: runInsertError } = await supabase
       .from('automation_runs')
       .insert({
-        run_type: 'weekly_selector',
+        run_type: 'weekly',
         status: 'started',
         started_at: runStartedAt,
       })
       .select()
       .single();
     
+    if (runInsertError) {
+      console.error('Failed to create automation_runs record:', runInsertError);
+    }
+    
     const runId = runRecord?.id;
+    console.log(`Automation run created with ID: ${runId || 'FAILED'}`);
+    if (!runId) {
+      console.warn('WARNING: automation_runs insert failed, telemetry will not be persisted');
+    }
     
     // Step 0: Check keywords used in last 90 days to avoid duplicates
     const ninetyDaysAgo = new Date();
@@ -867,17 +875,25 @@ Deno.serve(async (req) => {
     runLog.run_finished_at = new Date().toISOString();
     
     // Update automation run with full log data
-    await supabase
-      .from('automation_runs')
-      .update({
-        status: 'success',
-        selected_keyword: selectedPayload.primaryKeyword,
-        selected_bucket: selectedPayload.bucket,
-        candidates_found: runLog.candidate_pool_count_after_dedupe,
-        completed_at: runLog.run_finished_at,
-        log_data: runLog,
-      })
-      .eq('id', runId);
+    if (runId) {
+      const { error: updateError } = await supabase
+        .from('automation_runs')
+        .update({
+          status: 'success',
+          selected_keyword: selectedPayload.primaryKeyword,
+          selected_bucket: selectedPayload.bucket,
+          candidates_found: runLog.candidate_pool_count_after_dedupe,
+          completed_at: runLog.run_finished_at,
+          log_data: runLog,
+        })
+        .eq('id', runId);
+      
+      if (updateError) {
+        console.error('Failed to update automation_runs:', updateError);
+      } else {
+        console.log(`Automation run ${runId} updated with success status`);
+      }
+    }
     
     return new Response(
       JSON.stringify({
