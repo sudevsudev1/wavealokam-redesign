@@ -717,7 +717,6 @@ interface RunMetadata {
   selector_name: 'weekly' | 'seasonal';
   run_started_at: string;
   run_finished_at?: string;
-  // Candidate pool
   candidate_pool_count_after_dedupe: number;
   candidate_keywords: string[];
   candidate_list: Array<{
@@ -737,17 +736,14 @@ interface RunMetadata {
     theme_id?: string;
   }>;
   active_themes?: string[];
-  // Trend metrics summary
   trend_metrics_ok_count: number;
   trend_metrics_unavailable_count: number;
   trend_metrics_error_count: number;
-  // API call counters (split)
   pytrends_calls_today: number;
   dataforseo_calls_today: number;
   serp_cache_hits: number;
   serp_cache_misses: number;
   serp_cache_reuse_window_days: number;
-  // SERP scores by candidate
   serp_scores_by_candidate: Array<{
     keyword_norm: string;
     theme_id?: string;
@@ -758,15 +754,101 @@ interface RunMetadata {
     local: number;
     from_cache: boolean;
   }>;
-  // Winner selection
   winner_keyword_norm: string | null;
   winner_theme_id?: string | null;
   winner_score: number | null;
   why_winner: string;
   decision_path: string;
-  // Fallback
   fallback_used: 'none' | 'evergreen' | 'seed_phrase';
   fallback_reason: string | null;
+}
+
+// Forensic trace types (v3)
+interface ForensicTrace {
+  version: string;
+  trigger: string;
+  run_id: string;
+  run_ts_utc: string;
+  run_ts_ist: string;
+  selector_input: {
+    geo: string;
+    timeframe: string;
+    category: string;
+    seeds_config_source: string;
+  };
+  seeds_used: Array<{
+    seed: string;
+    source: string;
+    raw_rising: string[];
+    raw_top: string[];
+    raw_topics: string[];
+    notes: string;
+  }>;
+  union_pool_before_filters: Array<{
+    keyword: string;
+    from_seed: string;
+    pytrends_bucket: string;
+  }>;
+  eliminated: Array<{
+    keyword: string;
+    from_seed: string;
+    stage: string;
+    reason_code: string;
+    reason_text: string;
+  }>;
+  dedupe: {
+    canonical_map: Array<{
+      canonical: string;
+      variants: string[];
+      kept_variant: string;
+    }>;
+    pool_after_dedupe: string[];
+  };
+  cooldown: {
+    window_days: number;
+    excluded: Array<{
+      keyword: string;
+      matched_post_id: string;
+      matched_slug: string;
+      matched_date: string;
+    }>;
+  };
+  serp_cache: {
+    reuse_window_days: number;
+    hits: Array<{
+      keyword: string;
+      cached_at: string;
+      cached_total_score: number;
+    }>;
+    misses: Array<{ keyword: string }>;
+  };
+  dataforseo: {
+    calls_made: number;
+    scored: Array<{
+      keyword: string;
+      cache_status: 'HIT' | 'MISS';
+      serp_summary: {
+        top10_domains: string[];
+        ota_count_top10: number;
+        blog_count_top10: number;
+        gov_or_wiki_count_top10: number;
+        local_brand_count_top10: number;
+      };
+      scoring: {
+        total: number;
+        intent: { score: number; why: string };
+        rankability: { score: number; why: string };
+        gap: { score: number; why: string };
+        local: { score: number; why: string };
+      };
+    }>;
+  };
+  final: {
+    winner: string;
+    winner_score: number;
+    tie_breakers: string[];
+    decision_path: string;
+  };
 }
 
 // Format trend metrics display with tri-state logic
@@ -776,6 +858,217 @@ function formatTrendMetrics(status: TrendMetricsStatus, interest7d: number | nul
   
   const format = (v: number | null) => v !== null ? String(v) : '-';
   return `${format(interest7d)} / ${format(interest90d)} / ${format(interest12m)}`;
+}
+
+// Build full forensic trace HTML for admin email
+function buildForensicTraceHtml(trace: ForensicTrace | null): string {
+  if (!trace || trace.version !== 'forensic-v3') {
+    return '<p style="color: #999;">No forensic-v3 trace available for this run.</p>';
+  }
+  
+  let html = '';
+  
+  // 1. RUN HEADER
+  html += `
+    <div style="background: #1a1a2e; color: #eee; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+      <h3 style="color: #ffc107; margin: 0 0 10px 0;">1. RUN HEADER</h3>
+      <pre style="margin: 0; font-size: 12px; white-space: pre-wrap; color: #ddd;">
+Run ID: ${trace.run_id}
+Trigger: ${trace.trigger}
+Timestamp (UTC): ${trace.run_ts_utc}
+Timestamp (IST): ${trace.run_ts_ist}
+Geo: ${trace.selector_input.geo}
+Timeframe: ${trace.selector_input.timeframe}
+Category: ${trace.selector_input.category}
+Seeds Source: ${trace.selector_input.seeds_config_source}
+      </pre>
+    </div>
+  `;
+  
+  // 2. SEEDS USED
+  html += `
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #28a745;">
+      <h3 style="color: #28a745; margin: 0 0 10px 0;">2. SEEDS USED (${trace.seeds_used.length} seeds)</h3>
+      <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 4px;">`;
+  
+  for (const seed of trace.seeds_used) {
+    html += `
+[SEED] ${seed.seed}
+  Source: ${seed.source}
+  Notes: ${seed.notes}
+  Rising (${seed.raw_rising.length}): ${seed.raw_rising.length > 0 ? seed.raw_rising.join(', ') : '(none)'}
+  Top (${seed.raw_top.length}): ${seed.raw_top.length > 0 ? seed.raw_top.join(', ') : '(none)'}
+  Topics (${seed.raw_topics.length}): ${seed.raw_topics.length > 0 ? seed.raw_topics.join(', ') : '(none)'}
+---
+`;
+  }
+  html += `</pre></div>`;
+  
+  // 3. UNION POOL BEFORE FILTERS
+  html += `
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #17a2b8;">
+      <h3 style="color: #17a2b8; margin: 0 0 10px 0;">3. UNION POOL BEFORE FILTERS (${trace.union_pool_before_filters.length} items)</h3>
+      <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 4px;">`;
+  
+  for (const item of trace.union_pool_before_filters) {
+    html += `${item.keyword} | from: ${item.from_seed} | bucket: ${item.pytrends_bucket}\n`;
+  }
+  html += `</pre></div>`;
+  
+  // 4. ELIMINATED ITEMS
+  const eliminatedByStage = new Map<string, typeof trace.eliminated>();
+  for (const item of trace.eliminated) {
+    const key = `${item.stage} (${item.reason_code})`;
+    if (!eliminatedByStage.has(key)) eliminatedByStage.set(key, []);
+    eliminatedByStage.get(key)!.push(item);
+  }
+  
+  html += `
+    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
+      <h3 style="color: #856404; margin: 0 0 10px 0;">4. ELIMINATED ITEMS (${trace.eliminated.length} total)</h3>
+      <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 4px;">`;
+  
+  for (const [stageKey, items] of eliminatedByStage) {
+    html += `\n=== ${stageKey} (${items.length} items) ===\n`;
+    for (const item of items) {
+      html += `  ${item.keyword} | from: ${item.from_seed} | ${item.reason_text}\n`;
+    }
+  }
+  if (trace.eliminated.length === 0) html += '(No eliminations)';
+  html += `</pre></div>`;
+  
+  // 5. DEDUPE MAP
+  html += `
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #6c757d;">
+      <h3 style="color: #6c757d; margin: 0 0 10px 0;">5. DEDUPE MAP (${trace.dedupe.canonical_map.length} canonical forms)</h3>
+      <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; max-height: 250px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 4px;">`;
+  
+  for (const entry of trace.dedupe.canonical_map) {
+    html += `[${entry.canonical}]\n  Variants: ${entry.variants.join(', ')}\n  Kept: ${entry.kept_variant}\n---\n`;
+  }
+  html += `\nPool after dedupe (${trace.dedupe.pool_after_dedupe.length}): ${trace.dedupe.pool_after_dedupe.join(', ')}`;
+  html += `</pre></div>`;
+  
+  // 6. RECENCY / COOLDOWN EXCLUSIONS
+  html += `
+    <div style="background: ${trace.cooldown.excluded.length > 0 ? '#f8d7da' : '#d4edda'}; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid ${trace.cooldown.excluded.length > 0 ? '#dc3545' : '#28a745'};">
+      <h3 style="color: ${trace.cooldown.excluded.length > 0 ? '#721c24' : '#155724'}; margin: 0 0 10px 0;">6. RECENCY / COOLDOWN EXCLUSIONS (${trace.cooldown.window_days}-day window)</h3>
+      <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; max-height: 200px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 4px;">`;
+  
+  if (trace.cooldown.excluded.length === 0) {
+    html += '(No cooldown exclusions)';
+  } else {
+    for (const ex of trace.cooldown.excluded) {
+      html += `${ex.keyword} | post_id: ${ex.matched_post_id} | slug: ${ex.matched_slug} | date: ${ex.matched_date}\n`;
+    }
+  }
+  html += `</pre></div>`;
+  
+  // 7. SERP CACHE
+  html += `
+    <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #17a2b8;">
+      <h3 style="color: #0c5460; margin: 0 0 10px 0;">7. SERP CACHE (${trace.serp_cache.reuse_window_days}-day reuse window)</h3>
+      <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+          <h4 style="color: #28a745; margin: 0 0 5px 0;">Cache Hits (${trace.serp_cache.hits.length})</h4>
+          <pre style="margin: 0; font-size: 10px; white-space: pre-wrap; max-height: 150px; overflow-y: auto; background: #fff; padding: 8px; border-radius: 4px;">`;
+  
+  for (const hit of trace.serp_cache.hits) {
+    html += `${hit.keyword} | score: ${hit.cached_total_score} | cached: ${hit.cached_at?.split('T')[0] || 'unknown'}\n`;
+  }
+  if (trace.serp_cache.hits.length === 0) html += '(none)';
+  
+  html += `</pre>
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+          <h4 style="color: #dc3545; margin: 0 0 5px 0;">Cache Misses (${trace.serp_cache.misses.length})</h4>
+          <pre style="margin: 0; font-size: 10px; white-space: pre-wrap; max-height: 150px; overflow-y: auto; background: #fff; padding: 8px; border-radius: 4px;">`;
+  
+  for (const miss of trace.serp_cache.misses) {
+    html += `${miss.keyword}\n`;
+  }
+  if (trace.serp_cache.misses.length === 0) html += '(none)';
+  
+  html += `</pre>
+        </div>
+      </div>
+    </div>`;
+  
+  // 8. DATAFORSEO SCORES (DETAILED)
+  html += `
+    <div style="background: #e2e3e5; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #6c757d;">
+      <h3 style="color: #383d41; margin: 0 0 10px 0;">8. DATAFORSEO SCORES (${trace.dataforseo.calls_made} API calls made)</h3>
+      <pre style="margin: 0; font-size: 10px; white-space: pre-wrap; max-height: 500px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 4px;">`;
+  
+  for (const scored of trace.dataforseo.scored) {
+    const status = scored.cache_status === 'HIT' ? '✓ CACHE HIT' : '🔄 API CALL';
+    html += `
+=== ${scored.keyword} [${status}] ===
+Total Score: ${scored.scoring.total}/100
+
+SERP Summary:
+  Top 10 Domains: ${scored.serp_summary.top10_domains.join(', ') || '(not available)'}
+  OTA Count: ${scored.serp_summary.ota_count_top10}
+  Blog Count: ${scored.serp_summary.blog_count_top10}
+  Gov/Wiki: ${scored.serp_summary.gov_or_wiki_count_top10}
+  Local Brand: ${scored.serp_summary.local_brand_count_top10}
+
+Scoring Breakdown:
+  Intent: ${scored.scoring.intent.score}/40 - ${scored.scoring.intent.why}
+  Rankability: ${scored.scoring.rankability.score}/40 - ${scored.scoring.rankability.why}
+  Gap: ${scored.scoring.gap.score}/10 - ${scored.scoring.gap.why}
+  Local: ${scored.scoring.local.score}/10 - ${scored.scoring.local.why}
+---
+`;
+  }
+  html += `</pre></div>`;
+  
+  // 9. FINAL SELECTION + DECISION PATH
+  html += `
+    <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #28a745;">
+      <h3 style="color: #155724; margin: 0 0 10px 0;">9. FINAL SELECTION + DECISION PATH</h3>
+      <pre style="margin: 0; font-size: 12px; white-space: pre-wrap; background: #fff; padding: 10px; border-radius: 4px;">
+🏆 WINNER: ${trace.final.winner}
+   Score: ${trace.final.winner_score}/100
+   
+Tie-breakers applied:
+${trace.final.tie_breakers.map(t => `  - ${t}`).join('\n') || '  (none)'}
+
+Decision Path:
+${trace.final.decision_path}
+      </pre>
+    </div>
+  `;
+  
+  return html;
+}
+
+// Build payload summary for admin email
+function buildPayloadSummaryHtml(topic: any): string {
+  if (!topic) return '';
+  
+  return `
+    <div style="background: #f0f7ff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #0066cc;">
+      <h3 style="color: #0066cc; margin: 0 0 10px 0;">10. PAYLOAD HANDED TO BLOG GENERATOR</h3>
+      <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; background: #fff; padding: 10px; border-radius: 4px;">
+Primary Keyword: ${topic.primaryKeyword || 'N/A'}
+Working Title: ${topic.workingTitle || 'N/A'}
+Secondary Keywords: ${topic.secondaryKeywords?.join(', ') || 'N/A'}
+Bucket: ${topic.bucket || 'N/A'}
+Post Type: ${topic.postType || 'N/A'}
+Theme ID: ${topic.themeId || 'N/A'}
+Classification: ${topic.classification || 'N/A'}
+
+Internal Links:
+${topic.internalLinks?.map((l: any) => `  - ${l.url} ("${l.anchorSuggestion}")`).join('\n') || '  (none)'}
+
+Outline Hints: ${topic.outlineHints || 'N/A'}
+
+Selection Reasoning:
+${topic.selectionReasoning || 'N/A'}
+      </pre>
+    </div>
+  `;
 }
 
 function buildCandidatePoolHtml(runMetadata: RunMetadata | null): string {
@@ -873,11 +1166,19 @@ async function sendAdminEmail(
   adminNotes: string,
   resendKey: string,
   blogUrl: string,
-  runMetadata: RunMetadata | null = null
+  runMetadata: RunMetadata | null = null,
+  forensicTrace: ForensicTrace | null = null,
+  providedTopic: any = null
 ): Promise<void> {
   
   // Build candidate pool section
   const candidatePoolHtml = buildCandidatePoolHtml(runMetadata);
+  
+  // Build full forensic trace HTML
+  const forensicTraceHtml = buildForensicTraceHtml(forensicTrace);
+  
+  // Build payload summary HTML
+  const payloadSummaryHtml = buildPayloadSummaryHtml(providedTopic);
   
   // Summary stats - use new field names
   const poolCount = runMetadata?.candidate_pool_count_after_dedupe || 0;
@@ -893,29 +1194,28 @@ async function sendAdminEmail(
   const trendUnavail = runMetadata?.trend_metrics_unavailable_count || 0;
   const trendErr = runMetadata?.trend_metrics_error_count || 0;
   
+  // Forensic version badge
+  const forensicVersionBadge = forensicTrace?.version === 'forensic-v3' 
+    ? '<span style="background: #28a745; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px;">forensic-v3 ✓</span>'
+    : '<span style="background: #dc3545; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px;">No forensic trace</span>';
+  
   const emailHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto;">
+    <div style="font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto;">
       <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 20px; text-align: center;">
         <h1 style="color: white; margin: 0;">Wavealokam ${runMetadata?.selector_name === 'seasonal' ? 'Wednesday' : 'Sunday'} Blog Published</h1>
+        <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">${forensicVersionBadge}</p>
       </div>
       
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #333; margin-top: 0;">${post.title}</h2>
         
-        <!-- Decision Path (NEW) -->
+        <!-- Quick Summary Section -->
         <div style="background: #e3f2fd; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1976d2;">
           <h3 style="color: #1976d2; margin: 0 0 8px 0; font-size: 14px;">🛤️ Decision Path</h3>
           <p style="color: #0d47a1; margin: 0; font-size: 13px; font-family: monospace; word-break: break-all;">${decisionPath || 'N/A'}</p>
         </div>
         
-        <!-- Topic Selection Reasoning -->
-        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
-          <h3 style="color: #856404; margin-top: 0; margin-bottom: 10px;">📊 Topic Selection Reasoning</h3>
-          <p style="color: #856404; margin: 0 0 10px 0; font-size: 14px;">${post.selectionReasoning}</p>
-          ${runMetadata?.why_winner ? `<p style="color: #856404; margin: 0; font-size: 13px;"><strong>Why winner:</strong> ${runMetadata.why_winner}</p>` : ''}
-        </div>
-        
-        <!-- Stats Summary - Updated with split counters -->
+        <!-- Stats Summary -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
           <div style="background: #e3f2fd; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
             <div style="font-size: 22px; font-weight: bold; color: #1976d2;">${poolCount}</div>
@@ -939,7 +1239,7 @@ async function sendAdminEmail(
           </div>
         </div>
         
-        <!-- Trend Metrics Summary (NEW) -->
+        <!-- Trend Metrics Summary -->
         <div style="background: #f5f5f5; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
           <span style="font-size: 12px; color: #666;">Trend Metrics Status:</span>
           <span style="font-size: 12px;"><span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px;">OK: ${trendOk}</span></span>
@@ -954,13 +1254,30 @@ async function sendAdminEmail(
         </div>
         ` : ''}
         
-        <!-- Candidate Pool Table -->
+        <p><a href="${blogUrl}" style="background: #FF8235; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Published Post</a></p>
+        
+        <!-- ============================================== -->
+        <!-- FULL FORENSIC TRACE (100-PAGE DIAGNOSTIC) -->
+        <!-- ============================================== -->
+        
+        <div style="background: #1a1a2e; padding: 20px; border-radius: 12px; margin: 30px 0;">
+          <h2 style="color: #ffc107; margin: 0 0 20px 0; text-align: center;">📊 COMPLETE FORENSIC TRACE (${forensicTrace?.version || 'N/A'})</h2>
+          <p style="color: #aaa; text-align: center; margin-bottom: 20px; font-size: 12px;">
+            This section contains the complete pipeline audit from selector to blog generation. No truncation.
+          </p>
+          
+          ${forensicTraceHtml}
+          
+          ${payloadSummaryHtml}
+        </div>
+        
+        <!-- Legacy candidate pool (compact view) -->
         <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; overflow-x: auto;">
-          <h3 style="color: #333; margin-top: 0; margin-bottom: 10px;">📋 All ${poolCount} Candidates Considered</h3>
-          <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Full provenance: source seed, bucket, pytrends type, trend metrics (with status), and SERP scores (0-100)</p>
+          <h3 style="color: #333; margin-top: 0; margin-bottom: 10px;">📋 Quick Reference: ${poolCount} Candidates</h3>
           ${candidatePoolHtml}
         </div>
         
+        <!-- Post metadata -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Primary Keyword:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.primary}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Classification:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.classification}</td></tr>
@@ -971,8 +1288,6 @@ async function sendAdminEmail(
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Slug:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.slug}</td></tr>
         </table>
         
-        <p><a href="${blogUrl}" style="background: #FF8235; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Published Post</a></p>
-        
         <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #eee;">
           <h3 style="color: #FF8235; margin-top: 0;">Full Admin Notes</h3>
           <pre style="white-space: pre-wrap; font-size: 13px; color: #555; line-height: 1.6;">${adminNotes}</pre>
@@ -980,7 +1295,7 @@ async function sendAdminEmail(
       </div>
       
       <div style="padding: 15px; background: #333; color: #999; text-align: center; font-size: 12px;">
-        <p style="margin: 0;">Automated email from Wavealokam Blog System | Triggered by: ${runMetadata?.triggered_by || 'unknown'}</p>
+        <p style="margin: 0;">Automated email from Wavealokam Blog System | Triggered by: ${runMetadata?.triggered_by || 'unknown'} | Trace: ${forensicTrace?.version || 'none'}</p>
       </div>
     </div>
   `;
@@ -1039,6 +1354,7 @@ Deno.serve(async (req) => {
     
     let trigger = 'manual';
     let runMetadata: RunMetadata | null = null;
+    let forensicTrace: ForensicTrace | null = null;
     
     try {
       const body = await req.json();
@@ -1046,9 +1362,10 @@ Deno.serve(async (req) => {
         providedTopic = body.topic;
         trigger = body.trigger || 'selector';
         runMetadata = body.runMetadata || null;
+        forensicTrace = body.forensicTrace || null;
         console.log(`Received topic payload from ${trigger}: ${providedTopic!.primaryKeyword}`);
-        if (runMetadata) {
-          console.log(`Run metadata: ${runMetadata.candidate_pool_count_after_dedupe} candidates, ${runMetadata.serp_cache_hits} cache hits, ${runMetadata.dataforseo_calls_today} DataForSEO calls`);
+        if (forensicTrace?.version) {
+          console.log(`Forensic trace: ${forensicTrace.version}, run_id: ${forensicTrace.run_id}`);
         }
       }
     } catch {
@@ -1288,7 +1605,7 @@ Deno.serve(async (req) => {
           internalLinks,
           selectionReasoning: trendResearch.selectionReasoning,
           priorityExplanation: trendResearch.priorityExplanation,
-        }, result.adminNotes, resendKey, blogUrl, runMetadata);
+        }, result.adminNotes, resendKey, blogUrl, runMetadata, forensicTrace, providedTopic);
         console.log('Admin email sent');
       } catch (emailError) {
         console.error('Email error (non-fatal):', emailError);
