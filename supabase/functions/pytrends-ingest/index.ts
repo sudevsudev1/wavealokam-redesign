@@ -25,9 +25,8 @@
    }
  
    try {
-     // Authenticate with BLOG_CRON_SECRET
-     const url = new URL(req.url);
-     const token = url.searchParams.get('token');
+     // Authenticate with BLOG_CRON_SECRET from header
+     const token = req.headers.get('x-cron-secret');
      const expectedToken = Deno.env.get('BLOG_CRON_SECRET');
      
      if (!token || token !== expectedToken) {
@@ -75,56 +74,63 @@
  
      // Process each candidate with UPSERT logic
      for (const candidate of candidates) {
-       try {
-         // Check if exists
-         const { data: existing } = await supabase
+       // Check if exists by keyword_norm (UNIQUE constraint)
+       const { data: existing } = await supabase
+         .from('trend_candidates')
+         .select('id, seen_count, seeds')
+         .eq('keyword_norm', candidate.keyword_norm)
+         .maybeSingle();
+ 
+       if (existing) {
+         // UPDATE existing record - merge seeds and increment seen_count
+         const newSeenCount = (existing.seen_count || 0) + 1;
+         const existingSeeds = existing.seeds || [];
+         const mergedSeeds = [...new Set([...existingSeeds, ...(candidate.seeds || [])])];
+ 
+         const { error: updateError } = await supabase
            .from('trend_candidates')
-           .select('id, seen_count, seeds')
-           .eq('keyword_norm', candidate.keyword_norm)
-           .maybeSingle();
- 
-         if (existing) {
-           // UPDATE existing record
-           const newSeenCount = (existing.seen_count || 0) + 1;
-           const existingSeeds = existing.seeds || [];
-           const mergedSeeds = [...new Set([...existingSeeds, ...(candidate.seeds || [])])];
- 
-           await supabase
-             .from('trend_candidates')
-             .update({
-               last_seen_at: now,
-               seen_count: newSeenCount,
-               seeds: mergedSeeds,
-               last_pytrends_meta: candidate.last_pytrends_meta,
-               relevance_score: candidate.relevance_score,
-             })
-             .eq('id', existing.id);
-         } else {
-           // INSERT new record
-           await supabase
-             .from('trend_candidates')
-             .insert({
-               keyword_raw: candidate.keyword_raw,
-               keyword_norm: candidate.keyword_norm,
-               candidate_keyword: candidate.keyword_raw,
-               seed_keyword: candidate.seed_keyword,
-               source: candidate.source,
-               source_type: candidate.source_type || 'related_queries',
-               query_type: candidate.query_type,
-               is_relevant: candidate.is_relevant,
-               relevance_score: candidate.relevance_score,
-               first_seen_at: now,
-               last_seen_at: now,
-               seen_count: 1,
-               seeds: candidate.seeds || [],
-               last_pytrends_meta: candidate.last_pytrends_meta,
-             });
+           .update({
+             last_seen_at: now,
+             seen_count: newSeenCount,
+             seeds: mergedSeeds,
+             last_pytrends_meta: candidate.last_pytrends_meta,
+             relevance_score: candidate.relevance_score,
+           })
+           .eq('id', existing.id);
+         
+         if (updateError) {
+           console.error(`Update error for ${candidate.keyword_norm}:`, updateError.message);
+           errors++;
+           continue;
          }
-         upserted++;
-       } catch (err) {
-         console.error(`Error upserting ${candidate.keyword_norm}:`, err);
-         errors++;
+       } else {
+         // INSERT new record
+         const { error: insertError } = await supabase
+           .from('trend_candidates')
+           .insert({
+             keyword_raw: candidate.keyword_raw,
+             keyword_norm: candidate.keyword_norm,
+             candidate_keyword: candidate.keyword_raw,
+             seed_keyword: candidate.seed_keyword,
+             source: candidate.source,
+             source_type: candidate.source_type || 'related_queries',
+             query_type: candidate.query_type,
+             is_relevant: candidate.is_relevant,
+             relevance_score: candidate.relevance_score,
+             first_seen_at: now,
+             last_seen_at: now,
+             seen_count: 1,
+             seeds: candidate.seeds || [],
+             last_pytrends_meta: candidate.last_pytrends_meta,
+           });
+         
+         if (insertError) {
+           console.error(`Insert error for ${candidate.keyword_norm}:`, insertError.message);
+           errors++;
+           continue;
+         }
        }
+       upserted++;
      }
  
      console.log(`Ingestion complete: ${upserted} upserted, ${errors} errors`);
