@@ -6,20 +6,22 @@ Runs daily via GitHub Actions. NO SERP scoring - just candidate collection.
 Uses strict keyword normalization and deduplication.
 """
 
-import os
-import sys
-import time
-import re
-from datetime import datetime, timedelta
-from typing import List, Dict, Any
-
-try:
-    from pytrends.request import TrendReq
-    from supabase import create_client, Client
-except ImportError as e:
-    print(f"Missing dependency: {e}")
-    print("Install with: pip install pytrends supabase")
-    sys.exit(1)
+ import os
+ import sys
+ import time
+ import re
+ import json
+ import urllib.request
+ import urllib.error
+ from datetime import datetime
+ from typing import List, Dict, Any
+ 
+ try:
+     from pytrends.request import TrendReq
+ except ImportError as e:
+     print(f"Missing dependency: {e}")
+     print("Install with: pip install pytrends")
+     sys.exit(1)
 
 
 def normalize_keyword(keyword: str) -> str:
@@ -228,16 +230,18 @@ def main():
     print(f"Started at: {datetime.utcnow().isoformat()}")
     print("=" * 60)
     
-    # Get Supabase credentials
-    supabase_url = os.environ.get('SUPABASE_URL')
-    supabase_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+     # Get Edge Function endpoint and auth token
+     supabase_url = os.environ.get('SUPABASE_URL')
+     blog_cron_secret = os.environ.get('BLOG_CRON_SECRET')
     
-    if not supabase_url or not supabase_key:
-        print("ERROR: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables")
+     if not supabase_url or not blog_cron_secret:
+         print("ERROR: Missing SUPABASE_URL or BLOG_CRON_SECRET environment variables")
         sys.exit(1)
     
-    # Initialize clients
-    supabase: Client = create_client(supabase_url, supabase_key)
+     # Construct Edge Function URL
+     ingest_url = f"{supabase_url}/functions/v1/pytrends-ingest?token={blog_cron_secret}"
+     
+     # Initialize pytrends
     pytrends = TrendReq(hl='en-IN', tz=330)  # IST timezone
     
     # Track candidates by keyword_norm for deduplication within this run
@@ -276,75 +280,36 @@ def main():
         print("No candidates found. Exiting.")
         return
     
-    # Prune old candidates (older than 60 days based on last_seen_at)
-    cutoff_date = (datetime.utcnow() - timedelta(days=60)).isoformat()
-    try:
-        supabase.table('trend_candidates').delete().lt('last_seen_at', cutoff_date).execute()
-        print(f"Pruned old candidates not seen since {cutoff_date}")
-    except Exception as e:
-        print(f"Warning: Could not prune old candidates: {e}")
-    
-    # UPSERT candidates using keyword_norm as unique key
-    print(f"\nUpserting {len(all_candidates)} candidates into Supabase...")
-    
-    now_iso = datetime.utcnow().isoformat()
-    upserted = 0
-    errors = 0
-    
-    # Process one by one for proper upsert handling
-    for i in range(0, len(all_candidates), batch_size):
-        batch = all_candidates[i:i+batch_size]
-        
-        for candidate in batch:
-            try:
-                # Check if exists
-                existing = supabase.table('trend_candidates').select('id, seen_count, seeds').eq('keyword_norm', candidate['keyword_norm']).execute()
-                
-                if existing.data and len(existing.data) > 0:
-                    # UPDATE existing record
-                    record = existing.data[0]
-                    new_seen_count = (record.get('seen_count') or 0) + 1
-                    existing_seeds = record.get('seeds') or []
-                    
-                    # Merge seeds
-                    merged_seeds = list(set(existing_seeds + candidate.get('seeds', [])))
-                    
-                    supabase.table('trend_candidates').update({
-                        'last_seen_at': now_iso,
-                        'seen_count': new_seen_count,
-                        'seeds': merged_seeds,
-                        'last_pytrends_meta': candidate.get('last_pytrends_meta'),
-                        'relevance_score': candidate.get('relevance_score'),
-                    }).eq('id', record['id']).execute()
-                else:
-                    # INSERT new record
-                    supabase.table('trend_candidates').insert({
-                        'keyword_raw': candidate['keyword_raw'],
-                        'keyword_norm': candidate['keyword_norm'],
-                        'candidate_keyword': candidate['keyword_raw'],  # Keep for backwards compat
-                        'seed_keyword': candidate['seed_keyword'],
-                        'source': candidate['source'],
-                        'source_type': candidate.get('source_type', 'related_queries'),
-                        'query_type': candidate['query_type'],
-                        'is_relevant': candidate['is_relevant'],
-                        'relevance_score': candidate['relevance_score'],
-                        'first_seen_at': now_iso,
-                        'last_seen_at': now_iso,
-                        'seen_count': 1,
-                        'seeds': candidate.get('seeds', []),
-                        'last_pytrends_meta': candidate.get('last_pytrends_meta'),
-                    }).execute()
-                
-                upserted += 1
-                
-            except Exception as e:
-                errors += 1
-                print(f"  Error upserting '{candidate['keyword_norm']}': {e}")
-        
-        print(f"  Processed batch {i//batch_size + 1} ({len(batch)} records)")
+     # Prepare payload for Edge Function
+     payload = {
+         'candidates': all_candidates,
+         'prune_before_days': 60
+     }
+     
+     print(f"\nSending {len(all_candidates)} candidates to Edge Function...")
+     
+     try:
+         # Send to Edge Function
+         data = json.dumps(payload).encode('utf-8')
+         req = urllib.request.Request(
+             ingest_url,
+             data=data,
+             headers={'Content-Type': 'application/json'},
+             method='POST'
+         )
+         
+         with urllib.request.urlopen(req, timeout=120) as response:
+             result = json.loads(response.read().decode('utf-8'))
+             print(f"Edge Function response: {result}")
+             
+     except urllib.error.HTTPError as e:
+         print(f"HTTP Error {e.code}: {e.read().decode('utf-8')}")
+         sys.exit(1)
+     except Exception as e:
+         print(f"Error calling Edge Function: {e}")
+         sys.exit(1)
     
     print(f"\n{'=' * 60}")
-    print(f"Upserted: {upserted}, Errors: {errors}")
     print(f"Discovery complete at: {datetime.utcnow().isoformat()}")
     print("=" * 60)
 
