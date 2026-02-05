@@ -1,5 +1,8 @@
 project_id = "elnybcgxfjzabmrmhcrr"
 
+[functions.pytrends-ingest]
+verify_jwt = false
+
 [functions.send-itinerary-email]
 verify_jwt = false
 
