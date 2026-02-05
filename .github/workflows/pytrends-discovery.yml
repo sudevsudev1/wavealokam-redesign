@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
 
 env:
-  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+   SUPABASE_URL: https://elnybcgxfjzabmrmhcrr.supabase.co
+   BLOG_CRON_SECRET: ${{ secrets.BLOG_CRON_SECRET }}
 
 jobs:
   discover-trends:
@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytrends supabase
+           pip install pytrends
 
       - name: Run pytrends discovery
         run: python scripts/pytrends_discovery.py
