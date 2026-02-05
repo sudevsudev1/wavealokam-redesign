@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.seasonal-selector]
 verify_jwt = false
+
+[functions.reset-selector-state]
+verify_jwt = false
