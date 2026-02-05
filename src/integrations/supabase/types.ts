@@ -117,6 +117,7 @@ export type Database = {
           id: string
           internal_link_focus: string
           is_active: boolean
+          keyword_norm: string | null
           last_used_at: string | null
           primary_keyword: string
           seed_phrases: Json
@@ -129,6 +130,7 @@ export type Database = {
           id?: string
           internal_link_focus: string
           is_active?: boolean
+          keyword_norm?: string | null
           last_used_at?: string | null
           primary_keyword: string
           seed_phrases?: Json
@@ -141,6 +143,7 @@ export type Database = {
           id?: string
           internal_link_focus?: string
           is_active?: boolean
+          keyword_norm?: string | null
           last_used_at?: string | null
           primary_keyword?: string
           seed_phrases?: Json
@@ -155,6 +158,7 @@ export type Database = {
           bucket: string
           created_at: string
           id: string
+          keyword_norm: string | null
           post_type: string
           primary_keyword: string
           publish_date: string
@@ -169,6 +173,7 @@ export type Database = {
           bucket: string
           created_at?: string
           id?: string
+          keyword_norm?: string | null
           post_type: string
           primary_keyword: string
           publish_date: string
@@ -183,6 +188,7 @@ export type Database = {
           bucket?: string
           created_at?: string
           id?: string
+          keyword_norm?: string | null
           post_type?: string
           primary_keyword?: string
           publish_date?: string
@@ -247,6 +253,8 @@ export type Database = {
           intent_score: number
           keyword: string
           local_fit_score: number
+          locale: string | null
+          provider: string | null
           rankability_score: number
           raw_serp_data: Json | null
           top_10_domains: Json | null
@@ -260,6 +268,8 @@ export type Database = {
           intent_score?: number
           keyword: string
           local_fit_score?: number
+          locale?: string | null
+          provider?: string | null
           rankability_score?: number
           raw_serp_data?: Json | null
           top_10_domains?: Json | null
@@ -273,6 +283,8 @@ export type Database = {
           intent_score?: number
           keyword?: string
           local_fit_score?: number
+          locale?: string | null
+          provider?: string | null
           rankability_score?: number
           raw_serp_data?: Json | null
           top_10_domains?: Json | null
@@ -284,47 +296,71 @@ export type Database = {
         Row: {
           candidate_keyword: string
           created_at: string
+          first_seen_at: string | null
           geo: string
           id: string
           interest_12m: number | null
           interest_90d: number | null
           is_processed: boolean
           is_relevant: boolean | null
+          keyword_norm: string | null
+          keyword_raw: string | null
+          last_pytrends_meta: Json | null
+          last_seen_at: string | null
           query_type: string
           raw_data: Json | null
           relevance_score: number | null
           seed_keyword: string
+          seeds: Json | null
+          seen_count: number | null
           source: string
+          source_type: string | null
         }
         Insert: {
           candidate_keyword: string
           created_at?: string
+          first_seen_at?: string | null
           geo?: string
           id?: string
           interest_12m?: number | null
           interest_90d?: number | null
           is_processed?: boolean
           is_relevant?: boolean | null
+          keyword_norm?: string | null
+          keyword_raw?: string | null
+          last_pytrends_meta?: Json | null
+          last_seen_at?: string | null
           query_type: string
           raw_data?: Json | null
           relevance_score?: number | null
           seed_keyword: string
+          seeds?: Json | null
+          seen_count?: number | null
           source: string
+          source_type?: string | null
         }
         Update: {
           candidate_keyword?: string
           created_at?: string
+          first_seen_at?: string | null
           geo?: string
           id?: string
           interest_12m?: number | null
           interest_90d?: number | null
           is_processed?: boolean
           is_relevant?: boolean | null
+          keyword_norm?: string | null
+          keyword_raw?: string | null
+          last_pytrends_meta?: Json | null
+          last_seen_at?: string | null
           query_type?: string
           raw_data?: Json | null
           relevance_score?: number | null
           seed_keyword?: string
+          seeds?: Json | null
+          seen_count?: number | null
           source?: string
+          source_type?: string | null
         }
         Relationships: []
       }
