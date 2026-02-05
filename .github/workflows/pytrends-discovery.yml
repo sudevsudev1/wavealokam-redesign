@@ -1,7 +1,8 @@
 name: Pytrends Discovery
 
 on:
-  # Run daily at 5:30 AM IST (00:00 UTC) to populate candidates before 7 AM selectors
+  # Run daily at 5:30 AM IST (00:00 UTC) to populate candidates before 7 AM selectors  
+  # 5:30 AM IST = 00:00 UTC (IST is UTC+5:30)
   schedule:
     - cron: '0 0 * * *'
   # Allow manual trigger for testing
@@ -31,3 +32,6 @@ jobs:
 
       - name: Run pytrends discovery
         run: python scripts/pytrends_discovery.py
+
+      - name: Log completion
+        run: echo "Pytrends discovery completed at $(date -u)"

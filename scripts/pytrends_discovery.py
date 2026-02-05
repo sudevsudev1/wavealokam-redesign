@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Pytrends Discovery Script
-Fetches Related Queries (Top + Rising) from Google Trends and writes candidates to Supabase.
-Runs daily via GitHub Actions to populate trend_candidates table.
+Fetches Related Queries (Top + Rising) from Google Trends and UPSERTS candidates to Supabase.
+Runs daily via GitHub Actions. NO SERP scoring - just candidate collection.
+Uses strict keyword normalization and deduplication.
 """
 
 import os
 import sys
 import time
-import json
+import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
@@ -19,6 +20,35 @@ except ImportError as e:
     print(f"Missing dependency: {e}")
     print("Install with: pip install pytrends supabase")
     sys.exit(1)
+
+
+def normalize_keyword(keyword: str) -> str:
+    """
+    Normalize keyword for deduplication.
+    - trim whitespace
+    - lowercase
+    - collapse multiple spaces to single space
+    - normalize apostrophes/quotes
+    - strip leading/trailing punctuation
+    - keep numbers
+    """
+    if not keyword:
+        return ""
+    
+    # Lowercase and strip
+    result = keyword.lower().strip()
+    
+    # Normalize quotes and apostrophes
+    result = result.replace("'", "'").replace("'", "'").replace('"', '"').replace('"', '"')
+    
+    # Collapse multiple spaces
+    result = re.sub(r'\s+', ' ', result)
+    
+    # Strip leading/trailing punctuation (but keep internal)
+    result = re.sub(r'^[^\w\s]+|[^\w\s]+$', '', result)
+    
+    return result.strip()
+
 
 # Seed keywords for discovery
 SEED_KEYWORDS = [
@@ -138,51 +168,55 @@ def calculate_relevance_score(keyword: str) -> int:
     return min(score, 100)
 
 
-def fetch_related_queries(pytrends: TrendReq, keyword: str, timeframe: str = 'today 3-m') -> List[Dict[str, Any]]:
-    """Fetch related queries for a keyword."""
+def fetch_related_queries(pytrends: TrendReq, seed_keyword: str, timeframe: str = 'today 3-m') -> List[Dict[str, Any]]:
+    """Fetch related queries for a seed keyword."""
     candidates = []
     
     try:
-        pytrends.build_payload([keyword], cat=0, timeframe=timeframe, geo='IN')
+        pytrends.build_payload([seed_keyword], cat=0, timeframe=timeframe, geo='IN')
         related = pytrends.related_queries()
         
-        if keyword in related and related[keyword]:
+        if seed_keyword in related and related[seed_keyword]:
             # Process TOP queries
-            top_df = related[keyword].get('top')
+            top_df = related[seed_keyword].get('top')
             if top_df is not None and not top_df.empty:
                 for _, row in top_df.iterrows():
                     query = row.get('query', '')
                     value = row.get('value', 0)
-                    if query and is_relevant(query):
+                    keyword_norm = normalize_keyword(query)
+                    if query and keyword_norm and is_relevant(query):
                         candidates.append({
-                            'seed_keyword': keyword,
-                            'candidate_keyword': query,
+                            'seed_keyword': seed_keyword,
+                            'keyword_raw': query,
+                            'keyword_norm': keyword_norm,
                             'query_type': 'top',
                             'source': 'pytrends',
-                            'interest_90d': int(value) if value else None,
-                            'raw_data': {'value': int(value) if value else 0}
+                            'source_type': 'related_queries',
+                            'last_pytrends_meta': {'value': int(value) if value else 0, 'rank_type': 'top'}
                         })
             
             # Process RISING queries
-            rising_df = related[keyword].get('rising')
+            rising_df = related[seed_keyword].get('rising')
             if rising_df is not None and not rising_df.empty:
                 for _, row in rising_df.iterrows():
                     query = row.get('query', '')
                     value = row.get('value', '')
-                    if query and is_relevant(query):
+                    keyword_norm = normalize_keyword(query)
+                    if query and keyword_norm and is_relevant(query):
                         # Rising can have 'Breakout' or percentage values
                         is_breakout = str(value) == 'Breakout' or str(value).endswith('%')
                         candidates.append({
-                            'seed_keyword': keyword,
-                            'candidate_keyword': query,
+                            'seed_keyword': seed_keyword,
+                            'keyword_raw': query,
+                            'keyword_norm': keyword_norm,
                             'query_type': 'rising',
                             'source': 'pytrends',
-                            'interest_90d': 100 if is_breakout else (int(value) if isinstance(value, (int, float)) else None),
-                            'raw_data': {'value': str(value), 'is_breakout': is_breakout}
+                            'source_type': 'related_queries',
+                            'last_pytrends_meta': {'value': str(value), 'is_breakout': is_breakout, 'rank_type': 'rising'}
                         })
         
     except Exception as e:
-        print(f"  Error fetching related queries for '{keyword}': {e}")
+        print(f"  Error fetching related queries for '{seed_keyword}': {e}")
     
     return candidates
 
@@ -206,8 +240,8 @@ def main():
     supabase: Client = create_client(supabase_url, supabase_key)
     pytrends = TrendReq(hl='en-IN', tz=330)  # IST timezone
     
-    all_candidates: List[Dict[str, Any]] = []
-    seen_keywords = set()
+    # Track candidates by keyword_norm for deduplication within this run
+    candidates_by_norm: Dict[str, Dict[str, Any]] = {}
     
     # Process each seed keyword
     for i, seed in enumerate(SEED_KEYWORDS):
@@ -217,18 +251,24 @@ def main():
         candidates = fetch_related_queries(pytrends, seed, 'today 3-m')
         
         for c in candidates:
-            kw = c['candidate_keyword'].lower()
-            if kw not in seen_keywords:
-                seen_keywords.add(kw)
+            kw_norm = c['keyword_norm']
+            if kw_norm not in candidates_by_norm:
                 c['is_relevant'] = True
-                c['relevance_score'] = calculate_relevance_score(c['candidate_keyword'])
-                all_candidates.append(c)
+                c['relevance_score'] = calculate_relevance_score(c['keyword_raw'])
+                c['seeds'] = [seed]
+                candidates_by_norm[kw_norm] = c
+            else:
+                # Append seed if new
+                existing = candidates_by_norm[kw_norm]
+                if seed not in existing.get('seeds', []):
+                    existing['seeds'].append(seed)
         
         print(f"  Found {len(candidates)} relevant candidates")
         
         # Rate limiting - Google Trends is sensitive
         time.sleep(2)
     
+    all_candidates = list(candidates_by_norm.values())
     print(f"\n{'=' * 60}")
     print(f"Total unique candidates: {len(all_candidates)}")
     
@@ -236,28 +276,75 @@ def main():
         print("No candidates found. Exiting.")
         return
     
-    # Clear old unprocessed candidates (older than 7 days)
-    cutoff_date = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    # Prune old candidates (older than 60 days based on last_seen_at)
+    cutoff_date = (datetime.utcnow() - timedelta(days=60)).isoformat()
     try:
-        supabase.table('trend_candidates').delete().lt('created_at', cutoff_date).eq('is_processed', False).execute()
-        print(f"Cleaned up old unprocessed candidates before {cutoff_date}")
+        supabase.table('trend_candidates').delete().lt('last_seen_at', cutoff_date).execute()
+        print(f"Pruned old candidates not seen since {cutoff_date}")
     except Exception as e:
-        print(f"Warning: Could not clean up old candidates: {e}")
+        print(f"Warning: Could not prune old candidates: {e}")
     
-    # Insert new candidates
-    print(f"\nInserting {len(all_candidates)} candidates into Supabase...")
+    # UPSERT candidates using keyword_norm as unique key
+    print(f"\nUpserting {len(all_candidates)} candidates into Supabase...")
     
-    # Batch insert in chunks of 50
-    batch_size = 50
+    now_iso = datetime.utcnow().isoformat()
+    upserted = 0
+    errors = 0
+    
+    # Process one by one for proper upsert handling
     for i in range(0, len(all_candidates), batch_size):
         batch = all_candidates[i:i+batch_size]
-        try:
-            supabase.table('trend_candidates').insert(batch).execute()
-            print(f"  Inserted batch {i//batch_size + 1} ({len(batch)} records)")
-        except Exception as e:
-            print(f"  Error inserting batch: {e}")
+        
+        for candidate in batch:
+            try:
+                # Check if exists
+                existing = supabase.table('trend_candidates').select('id, seen_count, seeds').eq('keyword_norm', candidate['keyword_norm']).execute()
+                
+                if existing.data and len(existing.data) > 0:
+                    # UPDATE existing record
+                    record = existing.data[0]
+                    new_seen_count = (record.get('seen_count') or 0) + 1
+                    existing_seeds = record.get('seeds') or []
+                    
+                    # Merge seeds
+                    merged_seeds = list(set(existing_seeds + candidate.get('seeds', [])))
+                    
+                    supabase.table('trend_candidates').update({
+                        'last_seen_at': now_iso,
+                        'seen_count': new_seen_count,
+                        'seeds': merged_seeds,
+                        'last_pytrends_meta': candidate.get('last_pytrends_meta'),
+                        'relevance_score': candidate.get('relevance_score'),
+                    }).eq('id', record['id']).execute()
+                else:
+                    # INSERT new record
+                    supabase.table('trend_candidates').insert({
+                        'keyword_raw': candidate['keyword_raw'],
+                        'keyword_norm': candidate['keyword_norm'],
+                        'candidate_keyword': candidate['keyword_raw'],  # Keep for backwards compat
+                        'seed_keyword': candidate['seed_keyword'],
+                        'source': candidate['source'],
+                        'source_type': candidate.get('source_type', 'related_queries'),
+                        'query_type': candidate['query_type'],
+                        'is_relevant': candidate['is_relevant'],
+                        'relevance_score': candidate['relevance_score'],
+                        'first_seen_at': now_iso,
+                        'last_seen_at': now_iso,
+                        'seen_count': 1,
+                        'seeds': candidate.get('seeds', []),
+                        'last_pytrends_meta': candidate.get('last_pytrends_meta'),
+                    }).execute()
+                
+                upserted += 1
+                
+            except Exception as e:
+                errors += 1
+                print(f"  Error upserting '{candidate['keyword_norm']}': {e}")
+        
+        print(f"  Processed batch {i//batch_size + 1} ({len(batch)} records)")
     
     print(f"\n{'=' * 60}")
+    print(f"Upserted: {upserted}, Errors: {errors}")
     print(f"Discovery complete at: {datetime.utcnow().isoformat()}")
     print("=" * 60)
 

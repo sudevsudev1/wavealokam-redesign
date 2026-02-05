@@ -5,6 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Normalize keyword for consistent cache lookups
+function normalizeKeyword(keyword: string): string {
+  if (!keyword) return "";
+  let result = keyword.toLowerCase().trim();
+  result = result.replace(/\s+/g, ' ');
+  result = result.replace(/^[^\w\s]+|[^\w\s]+$/g, '');
+  return result.trim();
+}
+
 // Intent modifiers for scoring
 const INTENT_MODIFIERS = [
   'price', 'cost', 'package', 'booking', 'book', 'stay', 'resort', 'beach stay',
@@ -46,6 +55,17 @@ interface SerpScore {
   topDomains: string[];
 }
 
+interface CachedScore {
+  keyword: string;
+  intent_score: number;
+  rankability_score: number;
+  content_gap_score: number;
+  local_fit_score: number;
+  total_score: number;
+  top_10_domains: string[];
+  created_at: string;
+}
+
 interface TopicPayload {
   primaryKeyword: string;
   workingTitle: string;
@@ -56,6 +76,7 @@ interface TopicPayload {
   postType: 'weekly' | 'seasonal';
   themeId: string;
   selectionReasoning: string;
+  keywordNorm: string;
 }
 
 // Check if a theme is active for the current date
@@ -118,19 +139,55 @@ function calculateLocalFitScore(keyword: string): number {
   return Math.min(score, 10);
 }
 
-// Score a keyword using DataForSEO or SerpApi
+// Check if cached score is still valid (within 30 days)
+function isCacheValid(cachedScore: CachedScore): boolean {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const createdAt = new Date(cachedScore.created_at);
+  return createdAt >= thirtyDaysAgo;
+}
+
+// Score a keyword using DataForSEO (with 30-day cache reuse)
 async function scoreKeywordWithSerp(
   keyword: string,
+  keywordNorm: string,
+  supabase: any,
   dataForSeoLogin: string | undefined,
-  dataForSeoPassword: string | undefined,
-  serpApiKey: string | undefined
+  dataForSeoPassword: string | undefined
 ): Promise<SerpScore> {
+  // First check cache (30-day validity)
+  const { data: cachedScores } = await supabase
+    .from('serp_scores')
+    .select('*')
+    .eq('keyword', keywordNorm)
+    .eq('provider', 'dataforseo')
+    .eq('locale', 'IN-en')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  
+  if (cachedScores && cachedScores.length > 0 && isCacheValid(cachedScores[0])) {
+    console.log(`  Cache HIT for "${keywordNorm}"`);
+    const cached = cachedScores[0];
+    return {
+      keyword,
+      intentScore: cached.intent_score,
+      rankabilityScore: cached.rankability_score,
+      contentGapScore: cached.content_gap_score,
+      localFitScore: cached.local_fit_score,
+      totalScore: cached.total_score,
+      topDomains: cached.top_10_domains || [],
+    };
+  }
+  
+  console.log(`  Cache MISS for "${keywordNorm}" - calling SERP API`);
+  
   const intentScore = calculateIntentScore(keyword);
   const localFitScore = calculateLocalFitScore(keyword);
   
   let rankabilityScore = 20;
   let contentGapScore = 5;
   let topDomains: string[] = [];
+  let serpSnapshot: any = null;
   
   // Try DataForSEO first
   if (dataForSeoLogin && dataForSeoPassword) {
@@ -157,43 +214,37 @@ async function scoreKeywordWithSerp(
         
         rankabilityScore = calculateRankabilityScore(topDomains);
         contentGapScore = calculateContentGapScore(snippets);
+        
+        serpSnapshot = results.slice(0, 10).map((r: any) => ({
+          domain: r.domain,
+          title: r.title?.substring(0, 100),
+        }));
       }
     } catch (error) {
       console.error('DataForSEO error:', error);
     }
   }
-  // Fallback to SerpApi
-  else if (serpApiKey) {
-    try {
-      const params = new URLSearchParams({
-        api_key: serpApiKey,
-        q: keyword,
-        location: 'India',
-        google_domain: 'google.co.in',
-        gl: 'in',
-        hl: 'en',
-        num: '10',
-      });
-      
-      const response = await fetch(`https://serpapi.com/search?${params}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const results = data?.organic_results || [];
-        topDomains = results.slice(0, 10).map((r: any) => {
-          try { return new URL(r.link).hostname; } catch { return ''; }
-        });
-        const snippets = results.slice(0, 10).map((r: any) => r.snippet || '');
-        
-        rankabilityScore = calculateRankabilityScore(topDomains);
-        contentGapScore = calculateContentGapScore(snippets);
-      }
-    } catch (error) {
-      console.error('SerpApi error:', error);
-    }
-  }
   
   const totalScore = intentScore + rankabilityScore + contentGapScore + localFitScore;
+  
+  // Cache the new score (upsert)
+  try {
+    await supabase.from('serp_scores').upsert({
+      keyword: keywordNorm,
+      provider: 'dataforseo',
+      locale: 'IN-en',
+      intent_score: intentScore,
+      rankability_score: rankabilityScore,
+      content_gap_score: contentGapScore,
+      local_fit_score: localFitScore,
+      total_score: totalScore,
+      top_10_domains: topDomains,
+      raw_serp_data: serpSnapshot,
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    }, { onConflict: 'keyword,provider,locale' });
+  } catch (e) {
+    console.error('Failed to cache SERP score:', e);
+  }
   
   return {
     keyword,
@@ -218,7 +269,6 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const dataForSeoLogin = Deno.env.get('DATAFORSEO_LOGIN');
     const dataForSeoPassword = Deno.env.get('DATAFORSEO_PASSWORD');
-    const serpApiKey = Deno.env.get('SERP_API_KEY');
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
@@ -266,70 +316,73 @@ Deno.serve(async (req) => {
     }
     
     // Step 2: Get trend candidates matching seasonal theme seed phrases
-    let allCandidates: Array<{ theme: SeasonalTheme; keyword: string; score: SerpScore }> = [];
+    let allCandidates: Array<{ theme: SeasonalTheme; keyword: string; keywordNorm: string; score: SerpScore }> = [];
+    const scoredNorms = new Set<string>();
+    let cacheHits = 0;
+    let cacheMisses = 0;
     
     for (const theme of activeThemes) {
       const seedPhrases = theme.seed_phrases as string[];
       
-      // Look for candidates in trend_candidates that match this theme's seed phrases
+      // Look for candidates in trend_candidates from last 7 days that match this theme's seed phrases
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
       const { data: trendCandidates } = await supabase
         .from('trend_candidates')
         .select('*')
         .eq('is_relevant', true)
         .gte('relevance_score', 20)
-        .in('seed_keyword', seedPhrases)
+        .gte('last_seen_at', sevenDaysAgo.toISOString())
         .order('relevance_score', { ascending: false })
         .limit(10);
       
-      // Also use seed phrases directly if no trend candidates
-      const keywordsToScore = trendCandidates && trendCandidates.length > 0
-        ? trendCandidates.map(c => c.candidate_keyword)
-        : seedPhrases.slice(0, 5);
+      // Filter trend candidates to those matching theme seed phrases
+      const matchingCandidates = (trendCandidates || []).filter(c => {
+        const candidateKw = (c.candidate_keyword || '').toLowerCase();
+        return seedPhrases.some(seed => candidateKw.includes(seed.toLowerCase()) || seed.toLowerCase().includes(candidateKw));
+      });
       
-      for (const keyword of keywordsToScore) {
-        // Check cached score
-        const { data: cachedScore } = await supabase
+      // Use matching candidates or fall back to seed phrases directly
+      const keywordsToScore = matchingCandidates.length > 0
+        ? matchingCandidates.map(c => ({ raw: c.candidate_keyword, norm: c.keyword_norm || normalizeKeyword(c.candidate_keyword) }))
+        : seedPhrases.slice(0, 5).map(s => ({ raw: s, norm: normalizeKeyword(s) }));
+      
+      for (const { raw: keyword, norm: keywordNorm } of keywordsToScore) {
+        // Skip if already scored this norm
+        if (scoredNorms.has(keywordNorm)) continue;
+        scoredNorms.add(keywordNorm);
+        
+        // Check cache status for logging
+        const cachedCheck = await supabase
           .from('serp_scores')
-          .select('*')
-          .eq('keyword', keyword)
-          .gt('expires_at', new Date().toISOString())
-          .single();
+          .select('created_at')
+          .eq('keyword', keywordNorm)
+          .eq('provider', 'dataforseo')
+          .eq('locale', 'IN-en')
+          .limit(1);
         
-        let score: SerpScore;
-        
-        if (cachedScore) {
-          score = {
-            keyword: cachedScore.keyword,
-            intentScore: cachedScore.intent_score,
-            rankabilityScore: cachedScore.rankability_score,
-            contentGapScore: cachedScore.content_gap_score,
-            localFitScore: cachedScore.local_fit_score,
-            totalScore: cachedScore.total_score,
-            topDomains: cachedScore.top_10_domains as string[],
-          };
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        if (cachedCheck.data?.[0] && new Date(cachedCheck.data[0].created_at) >= thirtyDaysAgo) {
+          cacheHits++;
         } else {
-          score = await scoreKeywordWithSerp(
-            keyword,
-            dataForSeoLogin,
-            dataForSeoPassword,
-            serpApiKey
-          );
-          
-          // Cache the score
-          await supabase.from('serp_scores').insert({
-            keyword: score.keyword,
-            intent_score: score.intentScore,
-            rankability_score: score.rankabilityScore,
-            content_gap_score: score.contentGapScore,
-            local_fit_score: score.localFitScore,
-            total_score: score.totalScore,
-            top_10_domains: score.topDomains,
-          });
+          cacheMisses++;
         }
         
-        allCandidates.push({ theme, keyword, score });
+        const score = await scoreKeywordWithSerp(
+          keyword,
+          keywordNorm,
+          supabase,
+          dataForSeoLogin,
+          dataForSeoPassword
+        );
+        
+        allCandidates.push({ theme, keyword, keywordNorm, score });
       }
     }
+    
+    console.log(`SERP scoring: ${cacheHits} cache hits, ${cacheMisses} API calls`);
     
     // Step 3: Select highest scoring candidate across all active themes
     allCandidates.sort((a, b) => b.score.totalScore - a.score.totalScore);
@@ -338,10 +391,12 @@ Deno.serve(async (req) => {
       // Fallback: use first active theme's first seed phrase
       const fallbackTheme = activeThemes[0];
       const fallbackKeyword = (fallbackTheme.seed_phrases as string[])[0];
+      const fallbackNorm = normalizeKeyword(fallbackKeyword);
       
       allCandidates.push({
         theme: fallbackTheme,
         keyword: fallbackKeyword,
+        keywordNorm: fallbackNorm,
         score: {
           keyword: fallbackKeyword,
           intentScore: calculateIntentScore(fallbackKeyword),
@@ -369,7 +424,8 @@ Deno.serve(async (req) => {
       bucket: winner.theme.bucket,
       postType: 'seasonal',
       themeId: winner.theme.theme_id,
-      selectionReasoning: `SEASONAL SELECTION (${winner.theme.theme_id}): Keyword "${winner.keyword}" scored ${winner.score.totalScore}/100. Active theme window: ${winner.theme.active_from_mmdd} to ${winner.theme.active_to_mmdd}. Evaluated ${allCandidates.length} candidates across ${activeThemes.length} active themes.`,
+      selectionReasoning: `SEASONAL SELECTION (${winner.theme.theme_id}): Keyword "${winner.keyword}" scored ${winner.score.totalScore}/100. Active theme window: ${winner.theme.active_from_mmdd} to ${winner.theme.active_to_mmdd}. Evaluated ${allCandidates.length} candidates. SERP cache: ${cacheHits} hits, ${cacheMisses} API calls.`,
+      keywordNorm: winner.keywordNorm,
     };
     
     console.log(`Selected seasonal topic: ${selectedPayload.primaryKeyword}`);
@@ -402,6 +458,7 @@ Deno.serve(async (req) => {
       post_type: 'seasonal',
       theme_id: winner.theme.theme_id,
       primary_keyword: selectedPayload.primaryKeyword,
+      keyword_norm: selectedPayload.keywordNorm,
       bucket: selectedPayload.bucket,
       title: generateResult.post?.title || selectedPayload.workingTitle,
       url: generateResult.post?.slug ? `/blog/${generateResult.post.slug}` : null,
@@ -411,6 +468,8 @@ Deno.serve(async (req) => {
         topScores: allCandidates.slice(0, 5).map(c => c.score),
         candidatesEvaluated: allCandidates.length,
         activeThemes: activeThemes.map(t => t.theme_id),
+        cacheHits,
+        cacheMisses,
       },
     });
     
