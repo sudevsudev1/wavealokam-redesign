@@ -47,12 +47,26 @@ interface SeasonalTheme {
 
 interface SerpScore {
   keyword: string;
+  keywordNorm: string;
   intentScore: number;
   rankabilityScore: number;
   contentGapScore: number;
   localFitScore: number;
   totalScore: number;
   topDomains: string[];
+  fromCache: boolean;
+}
+
+interface CandidateInfo {
+  keyword_norm: string;
+  pytrends_type: string;
+  seen_count: number;
+  last_seen_at: string;
+  relevance_score: number;
+  has_trend_data: boolean;
+  interest_90d: number | null;
+  interest_12m: number | null;
+  theme_id: string;
 }
 
 interface CachedScore {
@@ -77,6 +91,38 @@ interface TopicPayload {
   themeId: string;
   selectionReasoning: string;
   keywordNorm: string;
+  classification: string;
+  candidatePoolCount: number;
+  serpCacheHits: number;
+  serpApiCalls: number;
+}
+
+interface AutomationRunLog {
+  triggered_by: 'cron' | 'manual_test';
+  selector_name: 'weekly' | 'seasonal';
+  run_started_at: string;
+  run_finished_at?: string;
+  candidate_pool_count: number;
+  candidate_list: CandidateInfo[];
+  active_themes: string[];
+  serp_cache_hits_count: number;
+  serp_api_calls_count: number;
+  serp_scores_by_candidate: Array<{
+    keyword_norm: string;
+    theme_id: string;
+    total: number;
+    intent: number;
+    rankability: number;
+    gap: number;
+    local: number;
+    from_cache: boolean;
+  }>;
+  winner_keyword_norm: string | null;
+  winner_theme_id: string | null;
+  winner_score: number | null;
+  why_winner: string;
+  fallback_used: 'none' | 'seed_phrase';
+  fallback_reason: string | null;
 }
 
 // Check if a theme is active for the current date
@@ -170,12 +216,14 @@ async function scoreKeywordWithSerp(
     const cached = cachedScores[0];
     return {
       keyword,
+      keywordNorm,
       intentScore: cached.intent_score,
       rankabilityScore: cached.rankability_score,
       contentGapScore: cached.content_gap_score,
       localFitScore: cached.local_fit_score,
       totalScore: cached.total_score,
       topDomains: cached.top_10_domains || [],
+      fromCache: true,
     };
   }
   
@@ -248,12 +296,14 @@ async function scoreKeywordWithSerp(
   
   return {
     keyword,
+    keywordNorm,
     intentScore,
     rankabilityScore,
     contentGapScore,
     localFitScore,
     totalScore,
     topDomains,
+    fromCache: false,
   };
 }
 
@@ -262,8 +312,34 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const runStartedAt = new Date().toISOString();
+  let runLog: AutomationRunLog = {
+    triggered_by: 'cron',
+    selector_name: 'seasonal',
+    run_started_at: runStartedAt,
+    candidate_pool_count: 0,
+    candidate_list: [],
+    active_themes: [],
+    serp_cache_hits_count: 0,
+    serp_api_calls_count: 0,
+    serp_scores_by_candidate: [],
+    winner_keyword_norm: null,
+    winner_theme_id: null,
+    winner_score: null,
+    why_winner: '',
+    fallback_used: 'none',
+    fallback_reason: null,
+  };
+
   try {
+    // Check if triggered manually
+    const url = new URL(req.url);
+    if (url.searchParams.get('test') === 'true' || url.searchParams.get('manual') === 'true') {
+      runLog.triggered_by = 'manual_test';
+    }
+    
     console.log('Seasonal Selector: Starting...');
+    console.log(`Triggered by: ${runLog.triggered_by}`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -272,17 +348,18 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Log automation run
-    const { data: runLog } = await supabase
+    // Create initial automation run record
+    const { data: runRecord } = await supabase
       .from('automation_runs')
       .insert({
         run_type: 'seasonal_selector',
         status: 'started',
+        started_at: runStartedAt,
       })
       .select()
       .single();
     
-    const runId = runLog?.id;
+    const runId = runRecord?.id;
     
     // Step 1: Get active seasonal themes
     const { data: allThemes } = await supabase
@@ -290,18 +367,22 @@ Deno.serve(async (req) => {
       .select('*')
       .eq('is_active', true);
     
-    const activeThemes = (allThemes || []).filter(isThemeActive);
+    const activeThemes = (allThemes || []).filter(isThemeActive) as SeasonalTheme[];
+    runLog.active_themes = activeThemes.map(t => t.theme_id);
     
-    console.log(`Found ${activeThemes.length} active seasonal themes`);
+    console.log(`Found ${activeThemes.length} active seasonal themes: ${runLog.active_themes.join(', ')}`);
     
     if (activeThemes.length === 0) {
       // No active themes - skip this Wednesday
+      runLog.run_finished_at = new Date().toISOString();
+      runLog.why_winner = 'Skipped: No active seasonal themes for current date';
+      
       await supabase
         .from('automation_runs')
         .update({
           status: 'skipped',
-          completed_at: new Date().toISOString(),
-          log_data: { reason: 'No active seasonal themes for current date' },
+          completed_at: runLog.run_finished_at,
+          log_data: runLog,
         })
         .eq('id', runId);
       
@@ -310,16 +391,16 @@ Deno.serve(async (req) => {
           success: true,
           skipped: true,
           reason: 'No active seasonal themes',
+          runLog,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     // Step 2: Get trend candidates matching seasonal theme seed phrases
-    let allCandidates: Array<{ theme: SeasonalTheme; keyword: string; keywordNorm: string; score: SerpScore }> = [];
+    type CandidateWithScore = { theme: SeasonalTheme; keyword: string; keywordNorm: string; score: SerpScore; candidateInfo: CandidateInfo };
+    let allCandidates: CandidateWithScore[] = [];
     const scoredNorms = new Set<string>();
-    let cacheHits = 0;
-    let cacheMisses = 0;
     
     for (const theme of activeThemes) {
       const seedPhrases = theme.seed_phrases as string[];
@@ -345,30 +426,23 @@ Deno.serve(async (req) => {
       
       // Use matching candidates or fall back to seed phrases directly
       const keywordsToScore = matchingCandidates.length > 0
-        ? matchingCandidates.map(c => ({ raw: c.candidate_keyword, norm: c.keyword_norm || normalizeKeyword(c.candidate_keyword) }))
-        : seedPhrases.slice(0, 5).map(s => ({ raw: s, norm: normalizeKeyword(s) }));
+        ? matchingCandidates.map(c => ({ 
+            raw: c.candidate_keyword, 
+            norm: c.keyword_norm || normalizeKeyword(c.candidate_keyword),
+            fromTrend: true,
+            trendData: c,
+          }))
+        : seedPhrases.slice(0, 5).map(s => ({ 
+            raw: s, 
+            norm: normalizeKeyword(s),
+            fromTrend: false,
+            trendData: null,
+          }));
       
-      for (const { raw: keyword, norm: keywordNorm } of keywordsToScore) {
+      for (const { raw: keyword, norm: keywordNorm, fromTrend, trendData } of keywordsToScore) {
         // Skip if already scored this norm
         if (scoredNorms.has(keywordNorm)) continue;
         scoredNorms.add(keywordNorm);
-        
-        // Check cache status for logging
-        const cachedCheck = await supabase
-          .from('serp_scores')
-          .select('created_at')
-          .eq('keyword', keywordNorm)
-          .eq('provider', 'dataforseo')
-          .eq('locale', 'IN-en')
-          .limit(1);
-        
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        if (cachedCheck.data?.[0] && new Date(cachedCheck.data[0].created_at) >= thirtyDaysAgo) {
-          cacheHits++;
-        } else {
-          cacheMisses++;
-        }
         
         const score = await scoreKeywordWithSerp(
           keyword,
@@ -378,11 +452,42 @@ Deno.serve(async (req) => {
           dataForSeoPassword
         );
         
-        allCandidates.push({ theme, keyword, keywordNorm, score });
+        if (score.fromCache) {
+          runLog.serp_cache_hits_count++;
+        } else {
+          runLog.serp_api_calls_count++;
+        }
+        
+        const candidateInfo: CandidateInfo = {
+          keyword_norm: keywordNorm,
+          pytrends_type: trendData?.query_type || 'seed_phrase',
+          seen_count: trendData?.seen_count || 0,
+          last_seen_at: trendData?.last_seen_at || '',
+          relevance_score: trendData?.relevance_score || 0,
+          has_trend_data: fromTrend && (trendData?.interest_90d !== null || trendData?.interest_12m !== null),
+          interest_90d: trendData?.interest_90d || null,
+          interest_12m: trendData?.interest_12m || null,
+          theme_id: theme.theme_id,
+        };
+        
+        runLog.candidate_list.push(candidateInfo);
+        runLog.serp_scores_by_candidate.push({
+          keyword_norm: keywordNorm,
+          theme_id: theme.theme_id,
+          total: score.totalScore,
+          intent: score.intentScore,
+          rankability: score.rankabilityScore,
+          gap: score.contentGapScore,
+          local: score.localFitScore,
+          from_cache: score.fromCache,
+        });
+        
+        allCandidates.push({ theme, keyword, keywordNorm, score, candidateInfo });
       }
     }
     
-    console.log(`SERP scoring: ${cacheHits} cache hits, ${cacheMisses} API calls`);
+    runLog.candidate_pool_count = allCandidates.length;
+    console.log(`SERP scoring: ${runLog.serp_cache_hits_count} cache hits, ${runLog.serp_api_calls_count} API calls`);
     
     // Step 3: Select highest scoring candidate across all active themes
     allCandidates.sort((a, b) => b.score.totalScore - a.score.totalScore);
@@ -393,23 +498,56 @@ Deno.serve(async (req) => {
       const fallbackKeyword = (fallbackTheme.seed_phrases as string[])[0];
       const fallbackNorm = normalizeKeyword(fallbackKeyword);
       
+      runLog.fallback_used = 'seed_phrase';
+      runLog.fallback_reason = 'No trend candidates matched seasonal themes; using first seed phrase';
+      
       allCandidates.push({
         theme: fallbackTheme,
         keyword: fallbackKeyword,
         keywordNorm: fallbackNorm,
         score: {
           keyword: fallbackKeyword,
+          keywordNorm: fallbackNorm,
           intentScore: calculateIntentScore(fallbackKeyword),
           rankabilityScore: 20,
           contentGapScore: 5,
           localFitScore: calculateLocalFitScore(fallbackKeyword),
           totalScore: 35,
           topDomains: [],
+          fromCache: false,
+        },
+        candidateInfo: {
+          keyword_norm: fallbackNorm,
+          pytrends_type: 'seed_phrase',
+          seen_count: 0,
+          last_seen_at: '',
+          relevance_score: 0,
+          has_trend_data: false,
+          interest_90d: null,
+          interest_12m: null,
+          theme_id: fallbackTheme.theme_id,
         },
       });
     }
     
     const winner = allCandidates[0];
+    
+    // Determine classification
+    let classification = 'Seasonal Theme';
+    if (winner.candidateInfo.has_trend_data) {
+      if (winner.candidateInfo.pytrends_type === 'rising') {
+        classification = 'Seasonal + Rising Momentum';
+      } else if (winner.candidateInfo.interest_90d && winner.candidateInfo.interest_90d > 50) {
+        classification = 'Seasonal + Weekly Spike';
+      }
+    } else if (!winner.candidateInfo.has_trend_data && winner.candidateInfo.pytrends_type === 'seed_phrase') {
+      classification = 'Seasonal Theme (no trend data)';
+    }
+    
+    runLog.winner_keyword_norm = winner.keywordNorm;
+    runLog.winner_theme_id = winner.theme.theme_id;
+    runLog.winner_score = winner.score.totalScore;
+    runLog.why_winner = `Highest SERP score (${winner.score.totalScore}/100) among ${allCandidates.length} candidates for theme "${winner.theme.theme_id}". Intent: ${winner.score.intentScore}/40, Rankability: ${winner.score.rankabilityScore}/40, Gap: ${winner.score.contentGapScore}/10, Local: ${winner.score.localFitScore}/10.`;
     
     // Step 4: Build topic payload
     const selectedPayload: TopicPayload = {
@@ -424,8 +562,12 @@ Deno.serve(async (req) => {
       bucket: winner.theme.bucket,
       postType: 'seasonal',
       themeId: winner.theme.theme_id,
-      selectionReasoning: `SEASONAL SELECTION (${winner.theme.theme_id}): Keyword "${winner.keyword}" scored ${winner.score.totalScore}/100. Active theme window: ${winner.theme.active_from_mmdd} to ${winner.theme.active_to_mmdd}. Evaluated ${allCandidates.length} candidates. SERP cache: ${cacheHits} hits, ${cacheMisses} API calls.`,
+      selectionReasoning: `SEASONAL SELECTION (${winner.theme.theme_id}): Keyword "${winner.keyword}" scored ${winner.score.totalScore}/100. Classification: ${classification}. Active theme window: ${winner.theme.active_from_mmdd} to ${winner.theme.active_to_mmdd}. Evaluated ${allCandidates.length} candidates. SERP cache: ${runLog.serp_cache_hits_count} hits, ${runLog.serp_api_calls_count} API calls.`,
       keywordNorm: winner.keywordNorm,
+      classification,
+      candidatePoolCount: allCandidates.length,
+      serpCacheHits: runLog.serp_cache_hits_count,
+      serpApiCalls: runLog.serp_api_calls_count,
     };
     
     console.log(`Selected seasonal topic: ${selectedPayload.primaryKeyword}`);
@@ -442,6 +584,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         topic: selectedPayload,
         trigger: 'seasonal_selector',
+        runMetadata: runLog,
       }),
     });
     
@@ -465,15 +608,27 @@ Deno.serve(async (req) => {
       blog_post_id: generateResult.post?.id || null,
       selection_meta: {
         reasoning: selectedPayload.selectionReasoning,
-        topScores: allCandidates.slice(0, 5).map(c => c.score),
+        topScores: allCandidates.slice(0, 5).map(c => ({
+          keyword_norm: c.keywordNorm,
+          theme_id: c.theme.theme_id,
+          total: c.score.totalScore,
+          intent: c.score.intentScore,
+          rankability: c.score.rankabilityScore,
+          gap: c.score.contentGapScore,
+          local: c.score.localFitScore,
+        })),
         candidatesEvaluated: allCandidates.length,
-        activeThemes: activeThemes.map(t => t.theme_id),
-        cacheHits,
-        cacheMisses,
+        activeThemes: runLog.active_themes,
+        cacheHits: runLog.serp_cache_hits_count,
+        cacheMisses: runLog.serp_api_calls_count,
+        classification,
       },
     });
     
-    // Update automation run
+    // Finalize run log
+    runLog.run_finished_at = new Date().toISOString();
+    
+    // Update automation run with full log data
     await supabase
       .from('automation_runs')
       .update({
@@ -481,12 +636,8 @@ Deno.serve(async (req) => {
         selected_keyword: selectedPayload.primaryKeyword,
         selected_bucket: selectedPayload.bucket,
         candidates_found: allCandidates.length,
-        completed_at: new Date().toISOString(),
-        log_data: {
-          selectionReasoning: selectedPayload.selectionReasoning,
-          themeId: winner.theme.theme_id,
-          blogPostId: generateResult.post?.id,
-        },
+        completed_at: runLog.run_finished_at,
+        log_data: runLog,
       })
       .eq('id', runId);
     
@@ -497,6 +648,7 @@ Deno.serve(async (req) => {
         bucket: selectedPayload.bucket,
         themeId: winner.theme.theme_id,
         post: generateResult.post,
+        runLog,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -505,8 +657,10 @@ Deno.serve(async (req) => {
     console.error('Seasonal Selector error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
+    runLog.run_finished_at = new Date().toISOString();
+    
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: errorMessage, runLog }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
