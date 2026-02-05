@@ -706,391 +706,164 @@ ${adminNotes}
 }
 
 // ============================================================================
-// EMAIL NOTIFICATION (Full Forensic Trace)
+// EMAIL NOTIFICATION (Admin Notes Only)
 // ============================================================================
 
 // Trend metrics status type
 type TrendMetricsStatus = 'OK' | 'UNAVAILABLE' | 'ERROR';
 
-interface ForensicTrace {
-  run_id: string | null;
+interface RunMetadata {
   triggered_by: 'cron' | 'manual_test';
-  selector: 'weekly-selector' | 'seasonal-selector';
-  time_started_utc: string;
-  time_finished_utc?: string;
-  environment: string;
-  config_snapshot: {
-    geo: string;
-    timeframe: string;
-    category: string;
-    search_type: string;
-    repetition_window_days: number;
-    serp_cache_window_days: number;
-  };
-  seed_expansion_results: Array<{
-    seed_term: string;
-    seed_bucket: string;
-    pytrends_method: string;
-    timeframe: string;
-    geo: string;
-    raw_results: Array<{ keyword: string; type: string; value: string | number; rank: number }>;
-    result_count: number;
-  }>;
-  normalization_report: {
-    rules_applied: string[];
-    duplicates_detected: Array<{ keyword: string; count: number; from_seeds: string[] }>;
-    deduped_pool_size: number;
-  };
-  relevance_filter_report: {
-    eliminated: Array<{ keyword: string; reason: string; details?: string }>;
-    reason_totals: Record<string, number>;
-    remaining_pool: string[];
-  };
-  recency_report: {
-    excluded_recent_posts: Array<{ keyword: string; reason: string; post_slug?: string; published_at?: string }>;
-    excluded_recent_bucket: Array<{ keyword: string; reason: string; bucket?: string; last_used_at?: string }>;
-    cache_reuse_hits: Array<{ keyword: string; scored_at: string; cached_score: number }>;
-    remaining_for_scoring: string[];
-  };
-  trend_metrics_results: Array<{
+  selector_name: 'weekly' | 'seasonal';
+  run_started_at: string;
+  run_finished_at?: string;
+  // Candidate pool
+  candidate_pool_count_after_dedupe: number;
+  candidate_keywords: string[];
+  candidate_list: Array<{
     keyword_norm: string;
+    pytrends_type: string;
+    seen_count: number;
+    first_seen_at: string | null;
+    last_seen_at: string | null;
+    relevance_score: number;
+    source_seed: string | null;
+    source_seed_bucket: string | null;
+    source_method: string;
+    trend_metrics_status: TrendMetricsStatus;
     interest_7d: number | null;
     interest_90d: number | null;
     interest_12m: number | null;
-    momentum_7d: number | null;
-    momentum_90d: number | null;
-    seasonal_position: string | null;
-    status: TrendMetricsStatus;
-    error_message?: string;
-    error_step?: string;
+    theme_id?: string;
   }>;
-  trend_api_calls_count: number;
-  serp_cache_hits_list: Array<{ keyword: string; scored_at: string; cached_score: number }>;
-  serp_cache_misses_list: string[];
-  dataforseo_api_calls_count: number;
-  serp_scoring_results: Array<{
+  active_themes?: string[];
+  // Trend metrics summary
+  trend_metrics_ok_count: number;
+  trend_metrics_unavailable_count: number;
+  trend_metrics_error_count: number;
+  // API call counters (split)
+  pytrends_calls_today: number;
+  dataforseo_calls_today: number;
+  serp_cache_hits: number;
+  serp_cache_misses: number;
+  serp_cache_reuse_window_days: number;
+  // SERP scores by candidate
+  serp_scores_by_candidate: Array<{
     keyword_norm: string;
+    theme_id?: string;
+    total: number;
+    intent: number;
+    rankability: number;
+    gap: number;
+    local: number;
     from_cache: boolean;
-    cached_at?: string;
-    intent_score: number;
-    intent_explanation: string;
-    rankability_score: number;
-    rankability_explanation: string;
-    gap_score: number;
-    gap_explanation: string;
-    local_score: number;
-    local_explanation: string;
-    total_score: number;
-    top_domains?: string[];
   }>;
-  final_selection_table: Array<{
-    keyword_norm: string;
-    trend_7d: number | null;
-    trend_90d: number | null;
-    trend_12m: number | null;
-    trend_status: TrendMetricsStatus;
-    serp_score: number;
-    cache_hit: boolean;
-    why_not_chosen?: string;
-  }>;
+  // Winner selection
   winner_keyword_norm: string | null;
+  winner_theme_id?: string | null;
   winner_score: number | null;
-  winner_classification: string;
-  winner_source_seed: string | null;
-  winner_source_bucket: string | null;
-  decision_rule: string;
+  why_winner: string;
   decision_path: string;
-  fallback_used: 'none' | 'evergreen';
+  // Fallback
+  fallback_used: 'none' | 'evergreen' | 'seed_phrase';
   fallback_reason: string | null;
 }
 
-function formatTrendMetrics(status: TrendMetricsStatus, v7d: number | null, v90d: number | null, v12m: number | null): string {
+// Format trend metrics display with tri-state logic
+function formatTrendMetrics(status: TrendMetricsStatus, interest7d: number | null, interest90d: number | null, interest12m: number | null): string {
   if (status === 'UNAVAILABLE') return '<span style="color: #999;">N/A</span>';
   if (status === 'ERROR') return '<span style="color: #dc3545;">ERR</span>';
+  
   const format = (v: number | null) => v !== null ? String(v) : '-';
-  return `${format(v7d)} / ${format(v90d)} / ${format(v12m)}`;
+  return `${format(interest7d)} / ${format(interest90d)} / ${format(interest12m)}`;
 }
 
-function buildForensicTraceHtml(trace: ForensicTrace | null): string {
-  if (!trace) return '<p style="color: #666;">No forensic trace available</p>';
+function buildCandidatePoolHtml(runMetadata: RunMetadata | null): string {
+  if (!runMetadata || runMetadata.candidate_pool_count_after_dedupe === 0) {
+    return '<p style="color: #666;">No trend candidates available</p>';
+  }
   
-  let html = '';
-  
-  // SECTION 1: RUN HEADER
-  html += `
-    <div style="background: #1a237e; color: white; padding: 15px; border-radius: 8px 8px 0 0; margin-top: 20px;">
-      <h3 style="margin: 0; font-size: 16px;">📋 SECTION 1: RUN HEADER</h3>
-    </div>
-    <div style="background: #e8eaf6; padding: 15px; border: 1px solid #1a237e; margin-bottom: 15px;">
-      <table style="width: 100%; font-size: 12px;">
-        <tr><td style="width: 40%; padding: 3px;"><strong>run_id:</strong></td><td style="font-family: monospace;">${trace.run_id || 'N/A'}</td></tr>
-        <tr><td style="padding: 3px;"><strong>triggered_by:</strong></td><td><span style="background: ${trace.triggered_by === 'cron' ? '#4caf50' : '#ff9800'}; color: white; padding: 2px 8px; border-radius: 3px;">${trace.triggered_by}</span></td></tr>
-        <tr><td style="padding: 3px;"><strong>selector:</strong></td><td>${trace.selector}</td></tr>
-        <tr><td style="padding: 3px;"><strong>time_started_utc:</strong></td><td>${trace.time_started_utc}</td></tr>
-        <tr><td style="padding: 3px;"><strong>time_finished_utc:</strong></td><td>${trace.time_finished_utc || 'In progress'}</td></tr>
-        <tr><td style="padding: 3px;"><strong>environment:</strong></td><td>${trace.environment}</td></tr>
-      </table>
-      <div style="margin-top: 10px; background: #fff; padding: 10px; border-radius: 4px;">
-        <strong>Config Snapshot:</strong>
-        <code style="display: block; font-size: 11px; margin-top: 5px;">
-          geo: ${trace.config_snapshot.geo} | timeframe: ${trace.config_snapshot.timeframe} | category: ${trace.config_snapshot.category} | 
-          repetition_window: ${trace.config_snapshot.repetition_window_days}d | serp_cache_window: ${trace.config_snapshot.serp_cache_window_days}d
-        </code>
-      </div>
-    </div>
+  // Build a table of all candidates with their provenance, pytrends data and SERP scores
+  let html = `
+    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px;">
+      <thead>
+        <tr style="background: #f0f0f0;">
+          <th style="padding: 6px; text-align: left; border: 1px solid #ddd;">Keyword</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Source</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Bucket</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Type</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Seen</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Trend (7d/90d/12m)</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Status</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">SERP</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">I/R/G/L</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Cache</th>
+        </tr>
+      </thead>
+      <tbody>
   `;
   
-  // SECTION 2: SEED EXPANSION OUTPUT
-  html += `
-    <div style="background: #00695c; color: white; padding: 15px; border-radius: 8px 8px 0 0;">
-      <h3 style="margin: 0; font-size: 16px;">🌱 SECTION 2: SEED EXPANSION OUTPUT (${trace.seed_expansion_results.length} seeds)</h3>
-    </div>
-    <div style="background: #e0f2f1; padding: 15px; border: 1px solid #00695c; margin-bottom: 15px; max-height: 300px; overflow-y: auto;">
-  `;
+  // Sort by SERP score descending
+  const candidatesWithScores = runMetadata.candidate_list.map(c => {
+    const serpScore = runMetadata.serp_scores_by_candidate.find(s => s.keyword_norm === c.keyword_norm);
+    return { ...c, serpScore };
+  }).sort((a, b) => (b.serpScore?.total || 0) - (a.serpScore?.total || 0));
   
-  for (const seed of trace.seed_expansion_results.slice(0, 10)) {
-    const keywordsList = seed.raw_results.slice(0, 5).map(r => r.keyword).join(', ');
+  for (const candidate of candidatesWithScores) {
+    const isWinner = candidate.keyword_norm === runMetadata.winner_keyword_norm;
+    const rowStyle = isWinner ? 'background: #d4edda; font-weight: bold;' : '';
+    
+    // Trend metrics display with tri-state
+    const trendDataDisplay = formatTrendMetrics(
+      candidate.trend_metrics_status, 
+      candidate.interest_7d, 
+      candidate.interest_90d, 
+      candidate.interest_12m
+    );
+    
+    // Status badge
+    const statusBadge = candidate.trend_metrics_status === 'OK' 
+      ? '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">OK</span>'
+      : candidate.trend_metrics_status === 'ERROR'
+        ? '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">ERR</span>'
+        : '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">N/A</span>';
+    
+    // Source seed display (truncate if too long)
+    const sourceSeed = candidate.source_seed 
+      ? (candidate.source_seed.length > 15 ? candidate.source_seed.substring(0, 15) + '...' : candidate.source_seed)
+      : '-';
+    
+    const serpScore = candidate.serpScore;
+    const serpDisplay = serpScore ? serpScore.total : '-';
+    const serpBreakdown = serpScore 
+      ? `${serpScore.intent}/${serpScore.rankability}/${serpScore.gap}/${serpScore.local}`
+      : '-';
+    const cacheDisplay = serpScore 
+      ? (serpScore.from_cache ? '✓' : '🔄')
+      : '-';
+    
     html += `
-      <div style="background: white; padding: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 11px;">
-        <strong>Seed: "${seed.seed_term}"</strong> (${seed.seed_bucket}) → ${seed.result_count} results<br>
-        <span style="color: #666;">Method: ${seed.pytrends_method} | geo: ${seed.geo} | timeframe: ${seed.timeframe}</span><br>
-        <span style="color: #333;">Top 5: ${keywordsList}${seed.result_count > 5 ? '...' : ''}</span>
-      </div>
+      <tr style="${rowStyle}">
+        <td style="padding: 5px; border: 1px solid #ddd; max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${candidate.keyword_norm}${isWinner ? ' 🏆' : ''}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-size: 10px;" title="${candidate.source_seed || ''}">${sourceSeed}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-size: 10px;">${candidate.source_seed_bucket || '-'}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${candidate.pytrends_type}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${candidate.seen_count}×</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${trendDataDisplay}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${statusBadge}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${serpDisplay}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-size: 10px;">${serpBreakdown}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${cacheDisplay}</td>
+      </tr>
     `;
   }
-  html += '</div>';
   
-  // SECTION 3: NORMALIZATION + DEDUPE
-  html += `
-    <div style="background: #5d4037; color: white; padding: 15px; border-radius: 8px 8px 0 0;">
-      <h3 style="margin: 0; font-size: 16px;">🔄 SECTION 3: NORMALIZATION + DEDUPE</h3>
-    </div>
-    <div style="background: #efebe9; padding: 15px; border: 1px solid #5d4037; margin-bottom: 15px;">
-      <p style="margin: 0 0 10px 0; font-size: 12px;"><strong>Rules applied:</strong> ${trace.normalization_report.rules_applied.join(', ')}</p>
-      <p style="margin: 0 0 10px 0; font-size: 12px;"><strong>Duplicates detected:</strong> ${trace.normalization_report.duplicates_detected.length}</p>
-      ${trace.normalization_report.duplicates_detected.length > 0 ? `
-        <div style="background: white; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 100px; overflow-y: auto;">
-          ${trace.normalization_report.duplicates_detected.slice(0, 10).map(d => 
-            `<span style="background: #ffecb3; padding: 2px 4px; margin: 2px; display: inline-block; border-radius: 2px;">${d.keyword} (${d.count}x from: ${d.from_seeds.join(', ')})</span>`
-          ).join('')}
-        </div>
-      ` : ''}
-      <p style="margin: 10px 0 0 0; font-size: 14px;"><strong>Deduped pool size: <span style="color: #2e7d32;">${trace.normalization_report.deduped_pool_size}</span></strong></p>
-    </div>
-  `;
-  
-  // SECTION 4: RELEVANCE FILTERING
-  const reasonTotals = Object.entries(trace.relevance_filter_report.reason_totals).filter(([_, v]) => v > 0);
-  html += `
-    <div style="background: #b71c1c; color: white; padding: 15px; border-radius: 8px 8px 0 0;">
-      <h3 style="margin: 0; font-size: 16px;">🚫 SECTION 4: RELEVANCE FILTERING (${trace.relevance_filter_report.eliminated.length} eliminated)</h3>
-    </div>
-    <div style="background: #ffebee; padding: 15px; border: 1px solid #b71c1c; margin-bottom: 15px;">
-      ${reasonTotals.length > 0 ? `
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-          ${reasonTotals.map(([reason, count]) => 
-            `<span style="background: #ef5350; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">${reason}: ${count}</span>`
-          ).join('')}
-        </div>
-      ` : '<p style="color: #666; margin: 0;">No keywords eliminated by relevance filter</p>'}
-      ${trace.relevance_filter_report.eliminated.length > 0 ? `
-        <details style="font-size: 11px;">
-          <summary style="cursor: pointer; color: #666;">View eliminated keywords</summary>
-          <div style="background: white; padding: 8px; margin-top: 5px; border-radius: 4px; max-height: 150px; overflow-y: auto;">
-            ${trace.relevance_filter_report.eliminated.slice(0, 20).map(e => 
-              `<div style="margin-bottom: 3px;"><span style="color: #b71c1c;">${e.keyword}</span> → ${e.reason} ${e.details ? `(${e.details})` : ''}</div>`
-            ).join('')}
-          </div>
-        </details>
-      ` : ''}
-      <p style="margin: 10px 0 0 0; font-size: 14px;"><strong>Remaining pool: <span style="color: #2e7d32;">${trace.relevance_filter_report.remaining_pool.length}</span></strong></p>
-    </div>
-  `;
-  
-  // SECTION 5: RECENCY EXCLUSIONS
-  html += `
-    <div style="background: #ff6f00; color: white; padding: 15px; border-radius: 8px 8px 0 0;">
-      <h3 style="margin: 0; font-size: 16px;">📅 SECTION 5: RECENCY / REPETITION EXCLUSIONS</h3>
-    </div>
-    <div style="background: #fff3e0; padding: 15px; border: 1px solid #ff6f00; margin-bottom: 15px;">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px;">
-        <div>
-          <strong>Excluded (recent posts):</strong> ${trace.recency_report.excluded_recent_posts.length}
-          ${trace.recency_report.excluded_recent_posts.length > 0 ? `
-            <div style="background: white; padding: 5px; margin-top: 5px; border-radius: 4px; max-height: 80px; overflow-y: auto;">
-              ${trace.recency_report.excluded_recent_posts.slice(0, 5).map(e => 
-                `<div>${e.keyword} → ${e.post_slug} (${e.published_at})</div>`
-              ).join('')}
-            </div>
-          ` : ''}
-        </div>
-        <div>
-          <strong>SERP cache reuse hits:</strong> ${trace.recency_report.cache_reuse_hits.length}
-          ${trace.recency_report.cache_reuse_hits.length > 0 ? `
-            <div style="background: white; padding: 5px; margin-top: 5px; border-radius: 4px; max-height: 80px; overflow-y: auto;">
-              ${trace.recency_report.cache_reuse_hits.slice(0, 5).map(e => 
-                `<div>${e.keyword} → score ${e.cached_score} (${e.scored_at})</div>`
-              ).join('')}
-            </div>
-          ` : ''}
-        </div>
-      </div>
-      <p style="margin: 10px 0 0 0; font-size: 14px;"><strong>Remaining for scoring: <span style="color: #2e7d32;">${trace.recency_report.remaining_for_scoring.length}</span></strong></p>
-    </div>
-  `;
-  
-  // SECTION 6: TREND METRICS ENRICHMENT
-  const trendOk = trace.trend_metrics_results.filter(t => t.status === 'OK').length;
-  const trendNA = trace.trend_metrics_results.filter(t => t.status === 'UNAVAILABLE').length;
-  const trendErr = trace.trend_metrics_results.filter(t => t.status === 'ERROR').length;
-  
-  html += `
-    <div style="background: #283593; color: white; padding: 15px; border-radius: 8px 8px 0 0;">
-      <h3 style="margin: 0; font-size: 16px;">📈 SECTION 6: TREND METRICS ENRICHMENT</h3>
-    </div>
-    <div style="background: #e8eaf6; padding: 15px; border: 1px solid #283593; margin-bottom: 15px;">
-      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-        <span style="background: #4caf50; color: white; padding: 4px 10px; border-radius: 4px;">OK: ${trendOk}</span>
-        <span style="background: #9e9e9e; color: white; padding: 4px 10px; border-radius: 4px;">N/A: ${trendNA}</span>
-        <span style="background: #f44336; color: white; padding: 4px 10px; border-radius: 4px;">ERR: ${trendErr}</span>
-        <span style="background: #2196f3; color: white; padding: 4px 10px; border-radius: 4px;">pytrends API calls: ${trace.trend_api_calls_count}</span>
-      </div>
-      ${trace.trend_metrics_results.length > 0 ? `
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px; background: white;">
-          <thead>
-            <tr style="background: #c5cae9;">
-              <th style="padding: 4px; text-align: left; border: 1px solid #9fa8da;">Keyword</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #9fa8da;">7d</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #9fa8da;">90d</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #9fa8da;">12m</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #9fa8da;">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${trace.trend_metrics_results.slice(0, 15).map(t => `
-              <tr>
-                <td style="padding: 3px; border: 1px solid #e8eaf6; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${t.keyword_norm}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e8eaf6;">${t.interest_7d !== null ? t.interest_7d : '<span style="color:#999;">N/A</span>'}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e8eaf6;">${t.interest_90d !== null ? t.interest_90d : '<span style="color:#999;">N/A</span>'}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e8eaf6;">${t.interest_12m !== null ? t.interest_12m : '<span style="color:#999;">N/A</span>'}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e8eaf6;">
-                  <span style="background: ${t.status === 'OK' ? '#4caf50' : t.status === 'ERROR' ? '#f44336' : '#9e9e9e'}; color: white; padding: 1px 5px; border-radius: 2px; font-size: 9px;">${t.status}</span>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      ` : '<p style="color: #666;">No trend metrics data</p>'}
-    </div>
-  `;
-  
-  // SECTION 7: SERP SCORING
-  html += `
-    <div style="background: #004d40; color: white; padding: 15px; border-radius: 8px 8px 0 0;">
-      <h3 style="margin: 0; font-size: 16px;">🔍 SECTION 7: SERP SCORING (DataForSEO)</h3>
-    </div>
-    <div style="background: #e0f2f1; padding: 15px; border: 1px solid #004d40; margin-bottom: 15px;">
-      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-        <span style="background: #4caf50; color: white; padding: 4px 10px; border-radius: 4px;">Cache hits: ${trace.serp_cache_hits_list.length}</span>
-        <span style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 4px;">Cache misses: ${trace.serp_cache_misses_list.length}</span>
-        <span style="background: #f44336; color: white; padding: 4px 10px; border-radius: 4px;">DataForSEO API calls: ${trace.dataforseo_api_calls_count}</span>
-      </div>
-      
-      ${trace.serp_scoring_results.length > 0 ? `
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px; background: white;">
-          <thead>
-            <tr style="background: #b2dfdb;">
-              <th style="padding: 4px; text-align: left; border: 1px solid #80cbc4;">Keyword</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #80cbc4;">Total</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #80cbc4;">I</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #80cbc4;">R</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #80cbc4;">G</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #80cbc4;">L</th>
-              <th style="padding: 4px; text-align: center; border: 1px solid #80cbc4;">Cache</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${trace.serp_scoring_results.slice(0, 15).map(s => `
-              <tr>
-                <td style="padding: 3px; border: 1px solid #e0f2f1; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${s.keyword_norm}">${s.keyword_norm}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e0f2f1; font-weight: bold; background: ${s.total_score >= 60 ? '#c8e6c9' : s.total_score >= 40 ? '#fff9c4' : '#ffcdd2'};">${s.total_score}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e0f2f1;" title="${s.intent_explanation}">${s.intent_score}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e0f2f1;" title="${s.rankability_explanation}">${s.rankability_score}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e0f2f1;" title="${s.gap_explanation}">${s.gap_score}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e0f2f1;" title="${s.local_explanation}">${s.local_score}</td>
-                <td style="padding: 3px; text-align: center; border: 1px solid #e0f2f1;">${s.from_cache ? '✓' : '🔄'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <p style="font-size: 9px; color: #666; margin-top: 5px;">I=Intent (0-40) | R=Rankability (0-40) | G=Content Gap (0-10) | L=Local Fit (0-10) | ✓=Cache hit | 🔄=API call</p>
-      ` : '<p style="color: #666;">No SERP scoring performed</p>'}
-    </div>
-  `;
-  
-  // SECTION 8: FINAL SELECTION
-  html += `
-    <div style="background: #1b5e20; color: white; padding: 15px; border-radius: 8px 8px 0 0;">
-      <h3 style="margin: 0; font-size: 16px;">🏆 SECTION 8: FINAL SELECTION</h3>
-    </div>
-    <div style="background: #e8f5e9; padding: 15px; border: 1px solid #1b5e20; margin-bottom: 15px;">
-      
-      <!-- Winner box -->
-      <div style="background: #a5d6a7; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #4caf50;">
-        <div style="font-size: 18px; font-weight: bold; color: #1b5e20;">🏆 WINNER: ${trace.winner_keyword_norm || 'None'}</div>
-        <table style="margin-top: 10px; font-size: 12px;">
-          <tr><td style="padding: 3px;"><strong>SERP Score:</strong></td><td>${trace.winner_score || 'N/A'}/100</td></tr>
-          <tr><td style="padding: 3px;"><strong>Classification:</strong></td><td>${trace.winner_classification}</td></tr>
-          <tr><td style="padding: 3px;"><strong>Source Seed:</strong></td><td>${trace.winner_source_seed || 'N/A'}</td></tr>
-          <tr><td style="padding: 3px;"><strong>Source Bucket:</strong></td><td>${trace.winner_source_bucket || 'N/A'}</td></tr>
-          <tr><td style="padding: 3px;"><strong>Fallback Used:</strong></td><td><span style="background: ${trace.fallback_used === 'none' ? '#4caf50' : '#ff9800'}; color: white; padding: 2px 8px; border-radius: 3px;">${trace.fallback_used}</span></td></tr>
-          ${trace.fallback_reason ? `<tr><td style="padding: 3px;"><strong>Fallback Reason:</strong></td><td>${trace.fallback_reason}</td></tr>` : ''}
-        </table>
-      </div>
-      
-      <!-- Decision Rule -->
-      <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #2196f3;">
-        <strong style="color: #1565c0;">Decision Rule:</strong>
-        <p style="margin: 5px 0 0 0; font-size: 13px; color: #333;">${trace.decision_rule || 'N/A'}</p>
-      </div>
-      
-      <!-- Full candidate table -->
-      ${trace.final_selection_table.length > 0 ? `
-        <details open>
-          <summary style="cursor: pointer; font-weight: bold; margin-bottom: 10px;">All ${trace.final_selection_table.length} Candidates Considered</summary>
-          <table style="width: 100%; border-collapse: collapse; font-size: 10px; background: white;">
-            <thead>
-              <tr style="background: #c8e6c9;">
-                <th style="padding: 4px; text-align: left; border: 1px solid #a5d6a7;">Keyword</th>
-                <th style="padding: 4px; text-align: center; border: 1px solid #a5d6a7;">Trend (7d/90d/12m)</th>
-                <th style="padding: 4px; text-align: center; border: 1px solid #a5d6a7;">Status</th>
-                <th style="padding: 4px; text-align: center; border: 1px solid #a5d6a7;">SERP</th>
-                <th style="padding: 4px; text-align: center; border: 1px solid #a5d6a7;">Cache</th>
-                <th style="padding: 4px; text-align: left; border: 1px solid #a5d6a7;">Why Not Chosen</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${trace.final_selection_table.map(row => {
-                const isWinner = row.keyword_norm === trace.winner_keyword_norm;
-                return `
-                  <tr style="${isWinner ? 'background: #c8e6c9; font-weight: bold;' : ''}">
-                    <td style="padding: 3px; border: 1px solid #e8f5e9;">${row.keyword_norm}${isWinner ? ' 🏆' : ''}</td>
-                    <td style="padding: 3px; text-align: center; border: 1px solid #e8f5e9;">${formatTrendMetrics(row.trend_status, row.trend_7d, row.trend_90d, row.trend_12m)}</td>
-                    <td style="padding: 3px; text-align: center; border: 1px solid #e8f5e9;">
-                      <span style="background: ${row.trend_status === 'OK' ? '#4caf50' : row.trend_status === 'ERROR' ? '#f44336' : '#9e9e9e'}; color: white; padding: 1px 5px; border-radius: 2px; font-size: 9px;">${row.trend_status}</span>
-                    </td>
-                    <td style="padding: 3px; text-align: center; border: 1px solid #e8f5e9; font-weight: bold;">${row.serp_score}</td>
-                    <td style="padding: 3px; text-align: center; border: 1px solid #e8f5e9;">${row.cache_hit ? '✓' : '🔄'}</td>
-                    <td style="padding: 3px; border: 1px solid #e8f5e9; font-size: 9px; color: #666;">${row.why_not_chosen || (isWinner ? 'WINNER' : '-')}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </details>
-      ` : ''}
-    </div>
-  `;
+  html += '</tbody></table>';
+  html += `<p style="font-size: 10px; color: #666; margin-top: 5px;">
+    Source=seed keyword that generated candidate | Bucket=topic category | 
+    Trend Status: OK=metrics available, N/A=not fetched, ERR=fetch failed |
+    I=Intent, R=Rankability, G=Gap, L=Local | ✓=Cache hit, 🔄=DataForSEO API call
+  </p>`;
   
   return html;
 }
@@ -1100,21 +873,30 @@ async function sendAdminEmail(
   adminNotes: string,
   resendKey: string,
   blogUrl: string,
-  forensicTrace: ForensicTrace | null = null
+  runMetadata: RunMetadata | null = null
 ): Promise<void> {
   
-  const forensicHtml = buildForensicTraceHtml(forensicTrace);
+  // Build candidate pool section
+  const candidatePoolHtml = buildCandidatePoolHtml(runMetadata);
   
-  // Summary stats
-  const cacheHits = forensicTrace?.serp_cache_hits_list.length || 0;
-  const cacheMisses = forensicTrace?.serp_cache_misses_list.length || 0;
-  const dataforseoCalls = forensicTrace?.dataforseo_api_calls_count || 0;
-  const fallbackUsed = forensicTrace?.fallback_used || 'unknown';
+  // Summary stats - use new field names
+  const poolCount = runMetadata?.candidate_pool_count_after_dedupe || 0;
+  const cacheHits = runMetadata?.serp_cache_hits || 0;
+  const cacheMisses = runMetadata?.serp_cache_misses || 0;
+  const dataforseoCalls = runMetadata?.dataforseo_calls_today || 0;
+  const fallbackUsed = runMetadata?.fallback_used || 'unknown';
+  const fallbackReason = runMetadata?.fallback_reason || '';
+  const decisionPath = runMetadata?.decision_path || '';
+  
+  // Trend metrics summary
+  const trendOk = runMetadata?.trend_metrics_ok_count || 0;
+  const trendUnavail = runMetadata?.trend_metrics_unavailable_count || 0;
+  const trendErr = runMetadata?.trend_metrics_error_count || 0;
   
   const emailHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto;">
+    <div style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto;">
       <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">Wavealokam ${forensicTrace?.selector === 'seasonal-selector' ? 'Wednesday' : 'Sunday'} Blog Published</h1>
+        <h1 style="color: white; margin: 0;">Wavealokam ${runMetadata?.selector_name === 'seasonal' ? 'Wednesday' : 'Sunday'} Blog Published</h1>
       </div>
       
       <div style="padding: 30px; background: #f9f9f9;">
@@ -1123,57 +905,82 @@ async function sendAdminEmail(
         <!-- Decision Path (NEW) -->
         <div style="background: #e3f2fd; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1976d2;">
           <h3 style="color: #1976d2; margin: 0 0 8px 0; font-size: 14px;">🛤️ Decision Path</h3>
-          <p style="color: #0d47a1; margin: 0; font-size: 12px; font-family: monospace; word-break: break-all;">${forensicTrace?.decision_path || 'N/A'}</p>
+          <p style="color: #0d47a1; margin: 0; font-size: 13px; font-family: monospace; word-break: break-all;">${decisionPath || 'N/A'}</p>
         </div>
         
-        <!-- Quick Stats -->
+        <!-- Topic Selection Reasoning -->
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+          <h3 style="color: #856404; margin-top: 0; margin-bottom: 10px;">📊 Topic Selection Reasoning</h3>
+          <p style="color: #856404; margin: 0 0 10px 0; font-size: 14px;">${post.selectionReasoning}</p>
+          ${runMetadata?.why_winner ? `<p style="color: #856404; margin: 0; font-size: 13px;"><strong>Why winner:</strong> ${runMetadata.why_winner}</p>` : ''}
+        </div>
+        
+        <!-- Stats Summary - Updated with split counters -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-          <div style="background: #e8f5e9; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 80px;">
-            <div style="font-size: 20px; font-weight: bold; color: #388e3c;">${cacheHits}</div>
-            <div style="font-size: 10px; color: #666;">SERP Cache Hits</div>
+          <div style="background: #e3f2fd; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #1976d2;">${poolCount}</div>
+            <div style="font-size: 11px; color: #666;">Candidates (after dedupe)</div>
           </div>
-          <div style="background: #fff3e0; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 80px;">
-            <div style="font-size: 20px; font-weight: bold; color: #f57c00;">${cacheMisses}</div>
-            <div style="font-size: 10px; color: #666;">SERP Cache Misses</div>
+          <div style="background: #e8f5e9; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #388e3c;">${cacheHits}</div>
+            <div style="font-size: 11px; color: #666;">SERP Cache Hits</div>
           </div>
-          <div style="background: #fce4ec; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 80px;">
-            <div style="font-size: 20px; font-weight: bold; color: #c2185b;">${dataforseoCalls}</div>
-            <div style="font-size: 10px; color: #666;">DataForSEO Calls</div>
+          <div style="background: #fff3e0; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #f57c00;">${cacheMisses}</div>
+            <div style="font-size: 11px; color: #666;">SERP Cache Misses</div>
           </div>
-          <div style="background: ${fallbackUsed === 'none' ? '#e8f5e9' : '#ffebee'}; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 80px;">
-            <div style="font-size: 12px; font-weight: bold; color: ${fallbackUsed === 'none' ? '#388e3c' : '#c62828'};">${fallbackUsed === 'none' ? 'Trend-based' : 'Evergreen'}</div>
-            <div style="font-size: 10px; color: #666;">Selection Source</div>
+          <div style="background: #fce4ec; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #c2185b;">${dataforseoCalls}</div>
+            <div style="font-size: 11px; color: #666;">DataForSEO Calls</div>
+          </div>
+          <div style="background: ${fallbackUsed === 'none' ? '#e8f5e9' : '#ffebee'}; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 14px; font-weight: bold; color: ${fallbackUsed === 'none' ? '#388e3c' : '#c62828'};">${fallbackUsed === 'none' ? 'Trend-based' : fallbackUsed.charAt(0).toUpperCase() + fallbackUsed.slice(1)}</div>
+            <div style="font-size: 11px; color: #666;">Selection Source</div>
           </div>
         </div>
         
-        <!-- Post metadata -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
-          <tr><td style="padding: 6px; border-bottom: 1px solid #eee; width: 30%;"><strong>Primary Keyword:</strong></td><td style="padding: 6px; border-bottom: 1px solid #eee;">${post.primary}</td></tr>
-          <tr><td style="padding: 6px; border-bottom: 1px solid #eee;"><strong>Classification:</strong></td><td style="padding: 6px; border-bottom: 1px solid #eee;">${post.classification}</td></tr>
-          <tr><td style="padding: 6px; border-bottom: 1px solid #eee;"><strong>Meta Title:</strong></td><td style="padding: 6px; border-bottom: 1px solid #eee;">${post.metaTitle}</td></tr>
-          <tr><td style="padding: 6px; border-bottom: 1px solid #eee;"><strong>Meta Description:</strong></td><td style="padding: 6px; border-bottom: 1px solid #eee;">${post.metaDescription}</td></tr>
-          <tr><td style="padding: 6px; border-bottom: 1px solid #eee;"><strong>Slug:</strong></td><td style="padding: 6px; border-bottom: 1px solid #eee;">${post.slug}</td></tr>
+        <!-- Trend Metrics Summary (NEW) -->
+        <div style="background: #f5f5f5; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
+          <span style="font-size: 12px; color: #666;">Trend Metrics Status:</span>
+          <span style="font-size: 12px;"><span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px;">OK: ${trendOk}</span></span>
+          <span style="font-size: 12px;"><span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 3px;">N/A: ${trendUnavail}</span></span>
+          <span style="font-size: 12px;"><span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 3px;">ERR: ${trendErr}</span></span>
+          <span style="font-size: 12px; color: #666;">| Cache window: ${runMetadata?.serp_cache_reuse_window_days || 30} days</span>
+        </div>
+        
+        ${fallbackReason ? `
+        <div style="background: #ffebee; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #ef5350;">
+          <p style="color: #c62828; margin: 0; font-size: 13px;"><strong>Fallback reason:</strong> ${fallbackReason}</p>
+        </div>
+        ` : ''}
+        
+        <!-- Candidate Pool Table -->
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; overflow-x: auto;">
+          <h3 style="color: #333; margin-top: 0; margin-bottom: 10px;">📋 All ${poolCount} Candidates Considered</h3>
+          <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Full provenance: source seed, bucket, pytrends type, trend metrics (with status), and SERP scores (0-100)</p>
+          ${candidatePoolHtml}
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Primary Keyword:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.primary}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Classification:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.classification}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Timing Choice:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.timingChoice}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Internal Links:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.internalLinks.join(', ') || 'N/A'}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Meta Title:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.metaTitle}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Meta Description:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.metaDescription}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Slug:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${post.slug}</td></tr>
         </table>
         
         <p><a href="${blogUrl}" style="background: #FF8235; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Published Post</a></p>
         
-        <!-- FULL FORENSIC TRACE -->
-        <div style="margin-top: 30px; border-top: 3px solid #1a237e; padding-top: 20px;">
-          <h2 style="color: #1a237e; margin: 0 0 20px 0;">🔬 FULL PIPELINE FORENSIC TRACE</h2>
-          ${forensicHtml}
+        <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #eee;">
+          <h3 style="color: #FF8235; margin-top: 0;">Full Admin Notes</h3>
+          <pre style="white-space: pre-wrap; font-size: 13px; color: #555; line-height: 1.6;">${adminNotes}</pre>
         </div>
-        
-        <!-- Original Admin Notes (collapsed) -->
-        <details style="margin-top: 20px;">
-          <summary style="cursor: pointer; font-weight: bold; color: #666;">View Raw Admin Notes</summary>
-          <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee;">
-            <pre style="white-space: pre-wrap; font-size: 11px; color: #555; line-height: 1.5;">${adminNotes}</pre>
-          </div>
-        </details>
       </div>
       
-      <div style="padding: 15px; background: #333; color: #999; text-align: center; font-size: 11px;">
-        <p style="margin: 0;">Automated email from Wavealokam Blog System | Triggered by: ${forensicTrace?.triggered_by || 'unknown'} | Run ID: ${forensicTrace?.run_id || 'N/A'}</p>
+      <div style="padding: 15px; background: #333; color: #999; text-align: center; font-size: 12px;">
+        <p style="margin: 0;">Automated email from Wavealokam Blog System | Triggered by: ${runMetadata?.triggered_by || 'unknown'}</p>
       </div>
     </div>
   `;
@@ -1187,7 +994,7 @@ async function sendAdminEmail(
     body: JSON.stringify({
       from: 'Wavealokam Blog <onboarding@resend.dev>',
       to: ['sudevsudev1@gmail.com'],
-      subject: `Wavealokam ${forensicTrace?.selector === 'seasonal-selector' ? 'Wednesday' : 'Sunday'} Blog: ${post.title}`,
+      subject: `Wavealokam ${runMetadata?.selector_name === 'seasonal' ? 'Wednesday' : 'Sunday'} Blog Published: ${post.title}`,
       html: emailHtml,
     }),
   });
@@ -1231,17 +1038,17 @@ Deno.serve(async (req) => {
     } | null = null;
     
     let trigger = 'manual';
-    let forensicTrace: ForensicTrace | null = null;
+    let runMetadata: RunMetadata | null = null;
     
     try {
       const body = await req.json();
       if (body.topic) {
         providedTopic = body.topic;
         trigger = body.trigger || 'selector';
-        forensicTrace = body.forensicTrace || null;
+        runMetadata = body.runMetadata || null;
         console.log(`Received topic payload from ${trigger}: ${providedTopic!.primaryKeyword}`);
-        if (forensicTrace) {
-          console.log(`Forensic trace: ${forensicTrace.recency_report?.remaining_for_scoring?.length || 0} candidates for scoring, ${forensicTrace.serp_cache_hits_list?.length || 0} cache hits, ${forensicTrace.dataforseo_api_calls_count || 0} DataForSEO calls`);
+        if (runMetadata) {
+          console.log(`Run metadata: ${runMetadata.candidate_pool_count_after_dedupe} candidates, ${runMetadata.serp_cache_hits} cache hits, ${runMetadata.dataforseo_calls_today} DataForSEO calls`);
         }
       }
     } catch {
@@ -1481,7 +1288,7 @@ Deno.serve(async (req) => {
           internalLinks,
           selectionReasoning: trendResearch.selectionReasoning,
           priorityExplanation: trendResearch.priorityExplanation,
-        }, result.adminNotes, resendKey, blogUrl, forensicTrace);
+        }, result.adminNotes, resendKey, blogUrl, runMetadata);
         console.log('Admin email sent');
       } catch (emailError) {
         console.error('Email error (non-fatal):', emailError);
