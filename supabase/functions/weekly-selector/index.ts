@@ -38,6 +38,9 @@ const LOCAL_TERMS = [
   'surf lessons', 'boutique', 'beach stay', 'kayaking', 'backwater'
 ];
 
+// Trend metrics status
+type TrendMetricsStatus = 'OK' | 'UNAVAILABLE' | 'ERROR';
+
 interface SerpScore {
   keyword: string;
   keywordNorm: string;
@@ -54,9 +57,14 @@ interface CandidateInfo {
   keyword_norm: string;
   pytrends_type: string;
   seen_count: number;
-  last_seen_at: string;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
   relevance_score: number;
-  has_trend_data: boolean;
+  source_seed: string | null;
+  source_seed_bucket: string | null;
+  source_method: string;
+  trend_metrics_status: TrendMetricsStatus;
+  interest_7d: number | null;
   interest_90d: number | null;
   interest_12m: number | null;
 }
@@ -86,7 +94,9 @@ interface TopicPayload {
   classification: string;
   candidatePoolCount: number;
   serpCacheHits: number;
-  serpApiCalls: number;
+  serpCacheMisses: number;
+  dataforseoCalls: number;
+  decisionPath: string;
 }
 
 interface AutomationRunLog {
@@ -94,10 +104,21 @@ interface AutomationRunLog {
   selector_name: 'weekly' | 'seasonal';
   run_started_at: string;
   run_finished_at?: string;
-  candidate_pool_count: number;
+  // Candidate pool
+  candidate_pool_count_after_dedupe: number;
+  candidate_keywords: string[];
   candidate_list: CandidateInfo[];
-  serp_cache_hits_count: number;
-  serp_api_calls_count: number;
+  // Trend metrics summary
+  trend_metrics_ok_count: number;
+  trend_metrics_unavailable_count: number;
+  trend_metrics_error_count: number;
+  // API call counters (split)
+  pytrends_calls_today: number; // Not applicable in selector, tracked in discovery
+  dataforseo_calls_today: number;
+  serp_cache_hits: number;
+  serp_cache_misses: number;
+  serp_cache_reuse_window_days: number;
+  // SERP scores by candidate
   serp_scores_by_candidate: Array<{
     keyword_norm: string;
     total: number;
@@ -107,9 +128,12 @@ interface AutomationRunLog {
     local: number;
     from_cache: boolean;
   }>;
+  // Winner selection
   winner_keyword_norm: string | null;
   winner_score: number | null;
   why_winner: string;
+  decision_path: string;
+  // Fallback
   fallback_used: 'none' | 'evergreen';
   fallback_reason: string | null;
 }
@@ -173,7 +197,8 @@ async function scoreKeywordWithSerp(
   keywordNorm: string,
   supabase: any,
   dataForSeoLogin: string | undefined,
-  dataForSeoPassword: string | undefined
+  dataForSeoPassword: string | undefined,
+  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number }
 ): Promise<SerpScore> {
   // First check cache (30-day validity)
   const { data: cachedScores } = await supabase
@@ -187,6 +212,7 @@ async function scoreKeywordWithSerp(
   
   if (cachedScores && cachedScores.length > 0 && isCacheValid(cachedScores[0])) {
     console.log(`  Cache HIT for "${keywordNorm}" (scored ${cachedScores[0].created_at})`);
+    counters.cacheHits++;
     const cached = cachedScores[0];
     return {
       keyword,
@@ -202,6 +228,7 @@ async function scoreKeywordWithSerp(
   }
   
   console.log(`  Cache MISS for "${keywordNorm}" - calling SERP API`);
+  counters.cacheMisses++;
   
   const intentScore = calculateIntentScore(keyword);
   const localFitScore = calculateLocalFitScore(keyword);
@@ -214,6 +241,7 @@ async function scoreKeywordWithSerp(
   // Try DataForSEO first
   if (dataForSeoLogin && dataForSeoPassword) {
     try {
+      counters.dataforseoCalls++;
       const response = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/regular', {
         method: 'POST',
         headers: {
@@ -282,6 +310,41 @@ async function scoreKeywordWithSerp(
   };
 }
 
+// Determine seed bucket from keyword
+function inferSeedBucket(keyword: string, seedKeyword: string | null): string {
+  const kw = (keyword + ' ' + (seedKeyword || '')).toLowerCase();
+  if (kw.includes('surf') || kw.includes('wave')) return 'Surfing';
+  if (kw.includes('stay') || kw.includes('resort') || kw.includes('hotel') || kw.includes('homestay')) return 'Stay';
+  if (kw.includes('varkala') || kw.includes('cliff')) return 'Varkala';
+  if (kw.includes('kayak') || kw.includes('yoga') || kw.includes('activity')) return 'Activities';
+  if (kw.includes('food') || kw.includes('restaurant') || kw.includes('cafe')) return 'Food';
+  if (kw.includes('itinerary') || kw.includes('travel') || kw.includes('kerala')) return 'Kerala itinerary';
+  return 'General';
+}
+
+// Determine source method from candidate data
+function inferSourceMethod(candidate: any): string {
+  const sourceType = candidate.source_type || candidate.query_type;
+  if (sourceType === 'rising') return 'pytrends_related_queries';
+  if (sourceType === 'top') return 'pytrends_related_queries';
+  if (sourceType === 'related_topics') return 'pytrends_related_topics';
+  if (sourceType === 'seed_phrase') return 'seasonal_theme_expansion';
+  return 'pytrends_related_queries';
+}
+
+// Determine trend metrics status
+function getTrendMetricsStatus(candidate: any): TrendMetricsStatus {
+  const has90d = candidate.interest_90d !== null && candidate.interest_90d !== undefined;
+  const has12m = candidate.interest_12m !== null && candidate.interest_12m !== undefined;
+  
+  if (has90d || has12m) return 'OK';
+  
+  // Check if there was an error flag
+  if (candidate.last_pytrends_meta?.error) return 'ERROR';
+  
+  return 'UNAVAILABLE';
+}
+
 // Get buckets used in last 28 days
 async function getRecentBuckets(supabase: any): Promise<string[]> {
   const cutoffDate = new Date();
@@ -301,8 +364,9 @@ async function selectEvergreenFallback(
   supabase: any,
   dataForSeoLogin: string | undefined,
   dataForSeoPassword: string | undefined,
-  usedKeywordNorms: Set<string> = new Set()
-): Promise<{ payload: TopicPayload; scores: SerpScore[] } | null> {
+  usedKeywordNorms: Set<string>,
+  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number }
+): Promise<{ payload: TopicPayload; scores: SerpScore[]; candidateList: CandidateInfo[] } | null> {
   const recentBuckets = await getRecentBuckets(supabase);
   
   // Get all active evergreen topics
@@ -332,6 +396,7 @@ async function selectEvergreenFallback(
   let bestTopic = topicsToScore[0];
   let bestScore = 0;
   const scores: SerpScore[] = [];
+  const candidateList: CandidateInfo[] = [];
   
   for (const topic of topicsToScore) {
     const keywordNorm = topic.keyword_norm || normalizeKeyword(topic.primary_keyword);
@@ -340,10 +405,28 @@ async function selectEvergreenFallback(
       keywordNorm,
       supabase,
       dataForSeoLogin,
-      dataForSeoPassword
+      dataForSeoPassword,
+      counters
     );
     
     scores.push(score);
+    
+    // Build candidate info for evergreen
+    candidateList.push({
+      keyword_norm: keywordNorm,
+      pytrends_type: 'evergreen',
+      seen_count: topic.use_count || 0,
+      first_seen_at: topic.created_at,
+      last_seen_at: topic.last_used_at,
+      relevance_score: 100, // Evergreen topics are pre-vetted
+      source_seed: topic.primary_keyword,
+      source_seed_bucket: topic.bucket,
+      source_method: 'evergreen_library',
+      trend_metrics_status: 'UNAVAILABLE', // Evergreen doesn't have trend data
+      interest_7d: null,
+      interest_90d: null,
+      interest_12m: null,
+    });
     
     if (score.totalScore > bestScore) {
       bestScore = score.totalScore;
@@ -366,8 +449,7 @@ async function selectEvergreenFallback(
   const primaryLink = internalLinkMap[bestTopic.internal_link_focus] || internalLinkMap['rooms'];
   const keywordNorm = bestTopic.keyword_norm || normalizeKeyword(bestTopic.primary_keyword);
   
-  const cacheHits = scores.filter(s => s.fromCache).length;
-  const cacheMisses = scores.filter(s => !s.fromCache).length;
+  const decisionPath = `daily_collection(pytrends) -> weekly_selector(dedupe) -> trend_candidates(EMPTY/FILTERED) -> evergreen_fallback(bucket_rotation) -> serp_scoring -> winner(best SERP score)`;
   
   return {
     payload: {
@@ -385,25 +467,26 @@ async function selectEvergreenFallback(
       keywordNorm,
       classification: 'Evergreen Stable',
       candidatePoolCount: topicsToScore.length,
-      serpCacheHits: cacheHits,
-      serpApiCalls: cacheMisses,
+      serpCacheHits: counters.cacheHits,
+      serpCacheMisses: counters.cacheMisses,
+      dataforseoCalls: counters.dataforseoCalls,
+      decisionPath,
     },
     scores,
+    candidateList,
   };
 }
 
 // Classify trend candidate based on pytrends data
-function classifyTrendCandidate(candidate: any): string {
+function classifyTrendCandidate(candidate: any, trendMetricsStatus: TrendMetricsStatus): string {
+  // If no trend data, cannot claim momentum/spike
+  if (trendMetricsStatus !== 'OK') {
+    return 'Trend data unavailable';
+  }
+  
   const interest90d = candidate.interest_90d;
   const interest12m = candidate.interest_12m;
   const queryType = candidate.query_type;
-  
-  // Check if we have actual trend data
-  const hasTrendData = interest90d !== null || interest12m !== null;
-  
-  if (!hasTrendData) {
-    return 'Trend data unavailable';
-  }
   
   // Classification based on pytrends signals
   if (queryType === 'rising' || (interest90d && interest90d > 70)) {
@@ -414,7 +497,7 @@ function classifyTrendCandidate(candidate: any): string {
     return 'Weekly Spike';
   }
   
-  if (interest12m && interest12m > interest90d) {
+  if (interest12m && interest90d && interest12m > interest90d) {
     return 'Seasonal Peak';
   }
   
@@ -427,18 +510,34 @@ Deno.serve(async (req) => {
   }
 
   const runStartedAt = new Date().toISOString();
+  
+  // Initialize counters
+  const counters = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    dataforseoCalls: 0,
+  };
+  
   let runLog: AutomationRunLog = {
     triggered_by: 'cron',
     selector_name: 'weekly',
     run_started_at: runStartedAt,
-    candidate_pool_count: 0,
+    candidate_pool_count_after_dedupe: 0,
+    candidate_keywords: [],
     candidate_list: [],
-    serp_cache_hits_count: 0,
-    serp_api_calls_count: 0,
+    trend_metrics_ok_count: 0,
+    trend_metrics_unavailable_count: 0,
+    trend_metrics_error_count: 0,
+    pytrends_calls_today: 0, // Not tracked here, comes from discovery
+    dataforseo_calls_today: 0,
+    serp_cache_hits: 0,
+    serp_cache_misses: 0,
+    serp_cache_reuse_window_days: 30,
     serp_scores_by_candidate: [],
     winner_keyword_norm: null,
     winner_score: null,
     why_winner: '',
+    decision_path: '',
     fallback_used: 'none',
     fallback_reason: null,
   };
@@ -519,23 +618,42 @@ Deno.serve(async (req) => {
       }
     }
     
-    // Build candidate info list for logging
-    runLog.candidate_list = dedupedCandidates.map((c: any) => ({
-      keyword_norm: c.keywordNorm || normalizeKeyword(c.candidate_keyword),
-      pytrends_type: c.query_type || 'unknown',
-      seen_count: c.seen_count || 1,
-      last_seen_at: c.last_seen_at || c.created_at,
-      relevance_score: c.relevance_score || 0,
-      has_trend_data: c.interest_90d !== null || c.interest_12m !== null,
-      interest_90d: c.interest_90d,
-      interest_12m: c.interest_12m,
-    }));
-    runLog.candidate_pool_count = dedupedCandidates.length;
+    // Build candidate info list for logging with full provenance
+    runLog.candidate_list = dedupedCandidates.map((c: any) => {
+      const trendStatus = getTrendMetricsStatus(c);
+      
+      // Update trend metrics summary counts
+      if (trendStatus === 'OK') runLog.trend_metrics_ok_count++;
+      else if (trendStatus === 'ERROR') runLog.trend_metrics_error_count++;
+      else runLog.trend_metrics_unavailable_count++;
+      
+      return {
+        keyword_norm: c.keywordNorm || normalizeKeyword(c.candidate_keyword),
+        pytrends_type: c.query_type || 'unknown',
+        seen_count: c.seen_count || 1,
+        first_seen_at: c.first_seen_at || null,
+        last_seen_at: c.last_seen_at || c.created_at || null,
+        relevance_score: c.relevance_score || 0,
+        source_seed: c.seed_keyword || null,
+        source_seed_bucket: inferSeedBucket(c.candidate_keyword || '', c.seed_keyword),
+        source_method: inferSourceMethod(c),
+        trend_metrics_status: trendStatus,
+        interest_7d: c.interest_7d ?? null, // Explicit null for unavailable
+        interest_90d: c.interest_90d ?? null,
+        interest_12m: c.interest_12m ?? null,
+      };
+    });
+    
+    runLog.candidate_pool_count_after_dedupe = dedupedCandidates.length;
+    runLog.candidate_keywords = dedupedCandidates.map(c => c.keywordNorm);
     
     let selectedPayload: TopicPayload | null = null;
     let topScores: SerpScore[] = [];
+    let decisionPath = 'daily_collection(pytrends) -> weekly_selector(dedupe+90day_filter)';
     
     if (dedupedCandidates.length > 0) {
+      decisionPath += ` -> ${dedupedCandidates.length}_candidates_found`;
+      
       // Score candidates with SERP API
       for (const candidate of dedupedCandidates.slice(0, 10)) {
         const keywordNorm = candidate.keywordNorm;
@@ -545,14 +663,9 @@ Deno.serve(async (req) => {
           keywordNorm,
           supabase,
           dataForSeoLogin,
-          dataForSeoPassword
+          dataForSeoPassword,
+          counters
         );
-        
-        if (score.fromCache) {
-          runLog.serp_cache_hits_count++;
-        } else {
-          runLog.serp_api_calls_count++;
-        }
         
         topScores.push(score);
         
@@ -568,7 +681,9 @@ Deno.serve(async (req) => {
         });
       }
       
-      console.log(`SERP scoring: ${runLog.serp_cache_hits_count} cache hits, ${runLog.serp_api_calls_count} API calls`);
+      decisionPath += ` -> serp_scoring(${counters.cacheHits}_cached/${counters.cacheMisses}_new)`;
+      
+      console.log(`SERP scoring: ${counters.cacheHits} cache hits, ${counters.cacheMisses} cache misses, ${counters.dataforseoCalls} DataForSEO calls`);
       
       // Select highest scoring candidate
       topScores.sort((a, b) => b.totalScore - a.totalScore);
@@ -579,12 +694,27 @@ Deno.serve(async (req) => {
         
         // Find the original candidate to get classification
         const winnerCandidate = dedupedCandidates.find(c => c.keywordNorm === winnerNorm);
-        const classification = winnerCandidate ? classifyTrendCandidate(winnerCandidate) : 'Trend data unavailable';
+        const winnerCandidateInfo = runLog.candidate_list.find(c => c.keyword_norm === winnerNorm);
+        const trendStatus = winnerCandidateInfo?.trend_metrics_status || 'UNAVAILABLE';
+        const classification = winnerCandidate ? classifyTrendCandidate(winnerCandidate, trendStatus) : 'Trend data unavailable';
+        
+        // Build reasoning based on trend data availability
+        let whyWinner = `Highest SERP score (${winner.totalScore}/100) among ${dedupedCandidates.length} candidates. Intent: ${winner.intentScore}/40, Rankability: ${winner.rankabilityScore}/40, Gap: ${winner.contentGapScore}/10, Local: ${winner.localFitScore}/10.`;
+        
+        if (trendStatus !== 'OK') {
+          whyWinner += ` Note: Trend metrics ${trendStatus.toLowerCase()}, selected purely by SERP score.`;
+          decisionPath += ` -> trend_enrichment(SKIPPED:${trendStatus})`;
+        } else {
+          decisionPath += ` -> trend_enrichment(OK)`;
+        }
+        
+        decisionPath += ` -> winner(${winnerNorm}:${winner.totalScore})`;
         
         runLog.winner_keyword_norm = winnerNorm;
         runLog.winner_score = winner.totalScore;
-        runLog.why_winner = `Highest SERP score (${winner.totalScore}/100) among ${dedupedCandidates.length} candidates. Intent: ${winner.intentScore}/40, Rankability: ${winner.rankabilityScore}/40, Gap: ${winner.contentGapScore}/10, Local: ${winner.localFitScore}/10.`;
+        runLog.why_winner = whyWinner;
         runLog.fallback_used = 'none';
+        runLog.decision_path = decisionPath;
         
         // Map to topic payload
         selectedPayload = {
@@ -600,12 +730,14 @@ Deno.serve(async (req) => {
           bucket: winner.keyword.includes('surf') ? 'TREND_SURF' : 
                   winner.keyword.includes('stay') ? 'TREND_STAY' : 'TREND_GENERAL',
           postType: 'weekly',
-          selectionReasoning: `TREND-BASED SELECTION: Keyword "${winner.keyword}" scored ${winner.totalScore}/100 (Intent: ${winner.intentScore}, Rankability: ${winner.rankabilityScore}, Gap: ${winner.contentGapScore}, Local: ${winner.localFitScore}). Classification: ${classification}. Evaluated ${dedupedCandidates.length} candidates. SERP cache: ${runLog.serp_cache_hits_count} hits, ${runLog.serp_api_calls_count} API calls.`,
+          selectionReasoning: `TREND-BASED SELECTION: Keyword "${winner.keyword}" scored ${winner.totalScore}/100 (Intent: ${winner.intentScore}, Rankability: ${winner.rankabilityScore}, Gap: ${winner.contentGapScore}, Local: ${winner.localFitScore}). Classification: ${classification}. Evaluated ${dedupedCandidates.length} candidates.`,
           keywordNorm: winnerNorm,
           classification,
           candidatePoolCount: dedupedCandidates.length,
-          serpCacheHits: runLog.serp_cache_hits_count,
-          serpApiCalls: runLog.serp_api_calls_count,
+          serpCacheHits: counters.cacheHits,
+          serpCacheMisses: counters.cacheMisses,
+          dataforseoCalls: counters.dataforseoCalls,
+          decisionPath,
         };
       }
     }
@@ -618,14 +750,18 @@ Deno.serve(async (req) => {
         ? 'No trend candidates found in last 7 days (after 90-day keyword filter)'
         : `${dedupedCandidates.length} candidates found but none scored >= 30`;
       
-      const evergreenResult = await selectEvergreenFallback(supabase, dataForSeoLogin, dataForSeoPassword, usedKeywordNorms);
+      decisionPath += ` -> no_valid_winner -> evergreen_fallback`;
+      
+      const evergreenResult = await selectEvergreenFallback(supabase, dataForSeoLogin, dataForSeoPassword, usedKeywordNorms, counters);
       
       if (evergreenResult) {
         selectedPayload = evergreenResult.payload;
         topScores = evergreenResult.scores;
         
-        runLog.serp_cache_hits_count += evergreenResult.scores.filter(s => s.fromCache).length;
-        runLog.serp_api_calls_count += evergreenResult.scores.filter(s => !s.fromCache).length;
+        // Add evergreen candidates to the list
+        runLog.candidate_list.push(...evergreenResult.candidateList);
+        runLog.candidate_pool_count_after_dedupe += evergreenResult.candidateList.length;
+        runLog.trend_metrics_unavailable_count += evergreenResult.candidateList.length;
         
         // Add evergreen scores to log
         for (const score of evergreenResult.scores) {
@@ -643,12 +779,18 @@ Deno.serve(async (req) => {
         runLog.winner_keyword_norm = selectedPayload.keywordNorm;
         runLog.winner_score = topScores.find(s => s.keywordNorm === selectedPayload?.keywordNorm)?.totalScore || 0;
         runLog.why_winner = `Evergreen fallback: ${selectedPayload.bucket}. ${runLog.fallback_reason}`;
+        runLog.decision_path = evergreenResult.payload.decisionPath;
       }
     }
     
     if (!selectedPayload) {
       throw new Error('Failed to select any topic');
     }
+    
+    // Update counters in runLog
+    runLog.serp_cache_hits = counters.cacheHits;
+    runLog.serp_cache_misses = counters.cacheMisses;
+    runLog.dataforseo_calls_today = counters.dataforseoCalls;
     
     console.log(`Selected topic: ${selectedPayload.primaryKeyword}`);
     
@@ -687,6 +829,7 @@ Deno.serve(async (req) => {
       blog_post_id: generateResult.post?.id || null,
       selection_meta: {
         reasoning: selectedPayload.selectionReasoning,
+        decision_path: runLog.decision_path,
         topScores: topScores.slice(0, 5).map(s => ({
           keyword_norm: s.keywordNorm,
           total: s.totalScore,
@@ -695,11 +838,17 @@ Deno.serve(async (req) => {
           gap: s.contentGapScore,
           local: s.localFitScore,
         })),
-        candidatesEvaluated: runLog.candidate_pool_count,
-        cacheHits: runLog.serp_cache_hits_count,
-        cacheMisses: runLog.serp_api_calls_count,
+        candidatesEvaluated: runLog.candidate_pool_count_after_dedupe,
+        cacheHits: runLog.serp_cache_hits,
+        cacheMisses: runLog.serp_cache_misses,
+        dataforseoCalls: runLog.dataforseo_calls_today,
         classification: selectedPayload.classification,
         fallbackUsed: runLog.fallback_used,
+        trend_metrics_summary: {
+          ok: runLog.trend_metrics_ok_count,
+          unavailable: runLog.trend_metrics_unavailable_count,
+          error: runLog.trend_metrics_error_count,
+        },
       },
     });
     
@@ -724,7 +873,7 @@ Deno.serve(async (req) => {
         status: 'success',
         selected_keyword: selectedPayload.primaryKeyword,
         selected_bucket: selectedPayload.bucket,
-        candidates_found: runLog.candidate_pool_count,
+        candidates_found: runLog.candidate_pool_count_after_dedupe,
         completed_at: runLog.run_finished_at,
         log_data: runLog,
       })
@@ -746,6 +895,9 @@ Deno.serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     runLog.run_finished_at = new Date().toISOString();
+    runLog.serp_cache_hits = counters.cacheHits;
+    runLog.serp_cache_misses = counters.cacheMisses;
+    runLog.dataforseo_calls_today = counters.dataforseoCalls;
     
     return new Response(
       JSON.stringify({ error: errorMessage, runLog }),

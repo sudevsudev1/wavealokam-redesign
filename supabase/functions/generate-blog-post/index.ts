@@ -709,27 +709,48 @@ ${adminNotes}
 // EMAIL NOTIFICATION (Admin Notes Only)
 // ============================================================================
 
+// Trend metrics status type
+type TrendMetricsStatus = 'OK' | 'UNAVAILABLE' | 'ERROR';
+
 interface RunMetadata {
   triggered_by: 'cron' | 'manual_test';
   selector_name: 'weekly' | 'seasonal';
   run_started_at: string;
   run_finished_at?: string;
-  candidate_pool_count: number;
+  // Candidate pool
+  candidate_pool_count_after_dedupe: number;
+  candidate_keywords: string[];
   candidate_list: Array<{
     keyword_norm: string;
     pytrends_type: string;
     seen_count: number;
-    last_seen_at: string;
+    first_seen_at: string | null;
+    last_seen_at: string | null;
     relevance_score: number;
-    has_trend_data: boolean;
+    source_seed: string | null;
+    source_seed_bucket: string | null;
+    source_method: string;
+    trend_metrics_status: TrendMetricsStatus;
+    interest_7d: number | null;
     interest_90d: number | null;
     interest_12m: number | null;
+    theme_id?: string;
   }>;
   active_themes?: string[];
-  serp_cache_hits_count: number;
-  serp_api_calls_count: number;
+  // Trend metrics summary
+  trend_metrics_ok_count: number;
+  trend_metrics_unavailable_count: number;
+  trend_metrics_error_count: number;
+  // API call counters (split)
+  pytrends_calls_today: number;
+  dataforseo_calls_today: number;
+  serp_cache_hits: number;
+  serp_cache_misses: number;
+  serp_cache_reuse_window_days: number;
+  // SERP scores by candidate
   serp_scores_by_candidate: Array<{
     keyword_norm: string;
+    theme_id?: string;
     total: number;
     intent: number;
     rankability: number;
@@ -737,28 +758,44 @@ interface RunMetadata {
     local: number;
     from_cache: boolean;
   }>;
+  // Winner selection
   winner_keyword_norm: string | null;
+  winner_theme_id?: string | null;
   winner_score: number | null;
   why_winner: string;
+  decision_path: string;
+  // Fallback
   fallback_used: 'none' | 'evergreen' | 'seed_phrase';
   fallback_reason: string | null;
 }
 
+// Format trend metrics display with tri-state logic
+function formatTrendMetrics(status: TrendMetricsStatus, interest7d: number | null, interest90d: number | null, interest12m: number | null): string {
+  if (status === 'UNAVAILABLE') return '<span style="color: #999;">N/A</span>';
+  if (status === 'ERROR') return '<span style="color: #dc3545;">ERR</span>';
+  
+  const format = (v: number | null) => v !== null ? String(v) : '-';
+  return `${format(interest7d)} / ${format(interest90d)} / ${format(interest12m)}`;
+}
+
 function buildCandidatePoolHtml(runMetadata: RunMetadata | null): string {
-  if (!runMetadata || runMetadata.candidate_pool_count === 0) {
+  if (!runMetadata || runMetadata.candidate_pool_count_after_dedupe === 0) {
     return '<p style="color: #666;">No trend candidates available</p>';
   }
   
-  // Build a table of all candidates with their pytrends data and SERP scores
+  // Build a table of all candidates with their provenance, pytrends data and SERP scores
   let html = `
-    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px;">
       <thead>
         <tr style="background: #f0f0f0;">
           <th style="padding: 6px; text-align: left; border: 1px solid #ddd;">Keyword</th>
-          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Pytrends Type</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Source</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Bucket</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Type</th>
           <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Seen</th>
-          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">90d / 12m</th>
-          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">SERP Score</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Trend (7d/90d/12m)</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Status</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">SERP</th>
           <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">I/R/G/L</th>
           <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Cache</th>
         </tr>
@@ -775,9 +812,26 @@ function buildCandidatePoolHtml(runMetadata: RunMetadata | null): string {
   for (const candidate of candidatesWithScores) {
     const isWinner = candidate.keyword_norm === runMetadata.winner_keyword_norm;
     const rowStyle = isWinner ? 'background: #d4edda; font-weight: bold;' : '';
-    const trendDataDisplay = candidate.has_trend_data 
-      ? `${candidate.interest_90d || '-'} / ${candidate.interest_12m || '-'}`
-      : '<span style="color: #999;">N/A</span>';
+    
+    // Trend metrics display with tri-state
+    const trendDataDisplay = formatTrendMetrics(
+      candidate.trend_metrics_status, 
+      candidate.interest_7d, 
+      candidate.interest_90d, 
+      candidate.interest_12m
+    );
+    
+    // Status badge
+    const statusBadge = candidate.trend_metrics_status === 'OK' 
+      ? '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">OK</span>'
+      : candidate.trend_metrics_status === 'ERROR'
+        ? '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">ERR</span>'
+        : '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">N/A</span>';
+    
+    // Source seed display (truncate if too long)
+    const sourceSeed = candidate.source_seed 
+      ? (candidate.source_seed.length > 15 ? candidate.source_seed.substring(0, 15) + '...' : candidate.source_seed)
+      : '-';
     
     const serpScore = candidate.serpScore;
     const serpDisplay = serpScore ? serpScore.total : '-';
@@ -790,19 +844,26 @@ function buildCandidatePoolHtml(runMetadata: RunMetadata | null): string {
     
     html += `
       <tr style="${rowStyle}">
-        <td style="padding: 6px; border: 1px solid #ddd;">${candidate.keyword_norm}${isWinner ? ' 🏆' : ''}</td>
-        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${candidate.pytrends_type}</td>
-        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${candidate.seen_count}×</td>
-        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${trendDataDisplay}</td>
-        <td style="padding: 6px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${serpDisplay}</td>
-        <td style="padding: 6px; text-align: center; border: 1px solid #ddd; font-size: 11px;">${serpBreakdown}</td>
-        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${cacheDisplay}</td>
+        <td style="padding: 5px; border: 1px solid #ddd; max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${candidate.keyword_norm}${isWinner ? ' 🏆' : ''}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-size: 10px;" title="${candidate.source_seed || ''}">${sourceSeed}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-size: 10px;">${candidate.source_seed_bucket || '-'}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${candidate.pytrends_type}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${candidate.seen_count}×</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${trendDataDisplay}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${statusBadge}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${serpDisplay}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd; font-size: 10px;">${serpBreakdown}</td>
+        <td style="padding: 5px; text-align: center; border: 1px solid #ddd;">${cacheDisplay}</td>
       </tr>
     `;
   }
   
   html += '</tbody></table>';
-  html += `<p style="font-size: 11px; color: #666; margin-top: 5px;">I=Intent, R=Rankability, G=Gap, L=Local | ✓=Cache hit, 🔄=API call</p>`;
+  html += `<p style="font-size: 10px; color: #666; margin-top: 5px;">
+    Source=seed keyword that generated candidate | Bucket=topic category | 
+    Trend Status: OK=metrics available, N/A=not fetched, ERR=fetch failed |
+    I=Intent, R=Rankability, G=Gap, L=Local | ✓=Cache hit, 🔄=DataForSEO API call
+  </p>`;
   
   return html;
 }
@@ -818,21 +879,34 @@ async function sendAdminEmail(
   // Build candidate pool section
   const candidatePoolHtml = buildCandidatePoolHtml(runMetadata);
   
-  // Summary stats
-  const poolCount = runMetadata?.candidate_pool_count || 0;
-  const cacheHits = runMetadata?.serp_cache_hits_count || 0;
-  const apiCalls = runMetadata?.serp_api_calls_count || 0;
+  // Summary stats - use new field names
+  const poolCount = runMetadata?.candidate_pool_count_after_dedupe || 0;
+  const cacheHits = runMetadata?.serp_cache_hits || 0;
+  const cacheMisses = runMetadata?.serp_cache_misses || 0;
+  const dataforseoCalls = runMetadata?.dataforseo_calls_today || 0;
   const fallbackUsed = runMetadata?.fallback_used || 'unknown';
   const fallbackReason = runMetadata?.fallback_reason || '';
+  const decisionPath = runMetadata?.decision_path || '';
+  
+  // Trend metrics summary
+  const trendOk = runMetadata?.trend_metrics_ok_count || 0;
+  const trendUnavail = runMetadata?.trend_metrics_unavailable_count || 0;
+  const trendErr = runMetadata?.trend_metrics_error_count || 0;
   
   const emailHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+    <div style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto;">
       <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 20px; text-align: center;">
         <h1 style="color: white; margin: 0;">Wavealokam ${runMetadata?.selector_name === 'seasonal' ? 'Wednesday' : 'Sunday'} Blog Published</h1>
       </div>
       
       <div style="padding: 30px; background: #f9f9f9;">
         <h2 style="color: #333; margin-top: 0;">${post.title}</h2>
+        
+        <!-- Decision Path (NEW) -->
+        <div style="background: #e3f2fd; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1976d2;">
+          <h3 style="color: #1976d2; margin: 0 0 8px 0; font-size: 14px;">🛤️ Decision Path</h3>
+          <p style="color: #0d47a1; margin: 0; font-size: 13px; font-family: monospace; word-break: break-all;">${decisionPath || 'N/A'}</p>
+        </div>
         
         <!-- Topic Selection Reasoning -->
         <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
@@ -841,24 +915,37 @@ async function sendAdminEmail(
           ${runMetadata?.why_winner ? `<p style="color: #856404; margin: 0; font-size: 13px;"><strong>Why winner:</strong> ${runMetadata.why_winner}</p>` : ''}
         </div>
         
-        <!-- Stats Summary -->
-        <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-          <div style="background: #e3f2fd; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
-            <div style="font-size: 24px; font-weight: bold; color: #1976d2;">${poolCount}</div>
-            <div style="font-size: 12px; color: #666;">Candidates Evaluated</div>
+        <!-- Stats Summary - Updated with split counters -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+          <div style="background: #e3f2fd; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #1976d2;">${poolCount}</div>
+            <div style="font-size: 11px; color: #666;">Candidates (after dedupe)</div>
           </div>
-          <div style="background: #e8f5e9; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
-            <div style="font-size: 24px; font-weight: bold; color: #388e3c;">${cacheHits}</div>
-            <div style="font-size: 12px; color: #666;">SERP Cache Hits</div>
+          <div style="background: #e8f5e9; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #388e3c;">${cacheHits}</div>
+            <div style="font-size: 11px; color: #666;">SERP Cache Hits</div>
           </div>
-          <div style="background: #fff3e0; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
-            <div style="font-size: 24px; font-weight: bold; color: #f57c00;">${apiCalls}</div>
-            <div style="font-size: 12px; color: #666;">SERP API Calls</div>
+          <div style="background: #fff3e0; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #f57c00;">${cacheMisses}</div>
+            <div style="font-size: 11px; color: #666;">SERP Cache Misses</div>
           </div>
-          <div style="background: ${fallbackUsed === 'none' ? '#e8f5e9' : '#ffebee'}; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
+          <div style="background: #fce4ec; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
+            <div style="font-size: 22px; font-weight: bold; color: #c2185b;">${dataforseoCalls}</div>
+            <div style="font-size: 11px; color: #666;">DataForSEO Calls</div>
+          </div>
+          <div style="background: ${fallbackUsed === 'none' ? '#e8f5e9' : '#ffebee'}; padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px;">
             <div style="font-size: 14px; font-weight: bold; color: ${fallbackUsed === 'none' ? '#388e3c' : '#c62828'};">${fallbackUsed === 'none' ? 'Trend-based' : fallbackUsed.charAt(0).toUpperCase() + fallbackUsed.slice(1)}</div>
-            <div style="font-size: 12px; color: #666;">Selection Source</div>
+            <div style="font-size: 11px; color: #666;">Selection Source</div>
           </div>
+        </div>
+        
+        <!-- Trend Metrics Summary (NEW) -->
+        <div style="background: #f5f5f5; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
+          <span style="font-size: 12px; color: #666;">Trend Metrics Status:</span>
+          <span style="font-size: 12px;"><span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px;">OK: ${trendOk}</span></span>
+          <span style="font-size: 12px;"><span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 3px;">N/A: ${trendUnavail}</span></span>
+          <span style="font-size: 12px;"><span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 3px;">ERR: ${trendErr}</span></span>
+          <span style="font-size: 12px; color: #666;">| Cache window: ${runMetadata?.serp_cache_reuse_window_days || 30} days</span>
         </div>
         
         ${fallbackReason ? `
@@ -868,9 +955,9 @@ async function sendAdminEmail(
         ` : ''}
         
         <!-- Candidate Pool Table -->
-        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee;">
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; overflow-x: auto;">
           <h3 style="color: #333; margin-top: 0; margin-bottom: 10px;">📋 All ${poolCount} Candidates Considered</h3>
-          <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Pytrends pool data (type, seen count, interest scores) vs SERP scores (0-100 scale)</p>
+          <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Full provenance: source seed, bucket, pytrends type, trend metrics (with status), and SERP scores (0-100)</p>
           ${candidatePoolHtml}
         </div>
         
@@ -961,7 +1048,7 @@ Deno.serve(async (req) => {
         runMetadata = body.runMetadata || null;
         console.log(`Received topic payload from ${trigger}: ${providedTopic!.primaryKeyword}`);
         if (runMetadata) {
-          console.log(`Run metadata: ${runMetadata.candidate_pool_count} candidates, ${runMetadata.serp_cache_hits_count} cache hits`);
+          console.log(`Run metadata: ${runMetadata.candidate_pool_count_after_dedupe} candidates, ${runMetadata.serp_cache_hits} cache hits, ${runMetadata.dataforseo_calls_today} DataForSEO calls`);
         }
       }
     } catch {
