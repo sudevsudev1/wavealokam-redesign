@@ -112,22 +112,18 @@ interface AutomationRunLog {
   selector_name: 'weekly' | 'seasonal';
   run_started_at: string;
   run_finished_at?: string;
-  // Candidate pool
   candidate_pool_count_after_dedupe: number;
   candidate_keywords: string[];
   candidate_list: CandidateInfo[];
   active_themes: string[];
-  // Trend metrics summary
   trend_metrics_ok_count: number;
   trend_metrics_unavailable_count: number;
   trend_metrics_error_count: number;
-  // API call counters (split)
   pytrends_calls_today: number;
   dataforseo_calls_today: number;
   serp_cache_hits: number;
   serp_cache_misses: number;
   serp_cache_reuse_window_days: number;
-  // SERP scores by candidate
   serp_scores_by_candidate: Array<{
     keyword_norm: string;
     theme_id: string;
@@ -138,15 +134,117 @@ interface AutomationRunLog {
     local: number;
     from_cache: boolean;
   }>;
-  // Winner selection
   winner_keyword_norm: string | null;
   winner_theme_id: string | null;
   winner_score: number | null;
   why_winner: string;
   decision_path: string;
-  // Fallback
   fallback_used: 'none' | 'seed_phrase';
   fallback_reason: string | null;
+}
+
+// ============================================================================
+// FORENSIC TRACE TYPES (v3)
+// ============================================================================
+interface ForensicSeedInfo {
+  seed: string;
+  source: string;
+  raw_rising: string[];
+  raw_top: string[];
+  raw_topics: string[];
+  notes: string;
+}
+
+interface ForensicUnionPoolItem {
+  keyword: string;
+  from_seed: string;
+  pytrends_bucket: string;
+}
+
+interface ForensicEliminatedItem {
+  keyword: string;
+  from_seed: string;
+  stage: string;
+  reason_code: string;
+  reason_text: string;
+}
+
+interface ForensicDedupeCanonical {
+  canonical: string;
+  variants: string[];
+  kept_variant: string;
+}
+
+interface ForensicCooldownExclusion {
+  keyword: string;
+  matched_post_id: string;
+  matched_slug: string;
+  matched_date: string;
+}
+
+interface ForensicSerpCacheHit {
+  keyword: string;
+  cached_at: string;
+  cached_total_score: number;
+}
+
+interface ForensicDataForSEOScore {
+  keyword: string;
+  cache_status: 'HIT' | 'MISS';
+  serp_summary: {
+    top10_domains: string[];
+    ota_count_top10: number;
+    blog_count_top10: number;
+    gov_or_wiki_count_top10: number;
+    local_brand_count_top10: number;
+  };
+  scoring: {
+    total: number;
+    intent: { score: number; why: string };
+    rankability: { score: number; why: string };
+    gap: { score: number; why: string };
+    local: { score: number; why: string };
+  };
+}
+
+interface ForensicTrace {
+  version: string;
+  trigger: string;
+  run_id: string;
+  run_ts_utc: string;
+  run_ts_ist: string;
+  selector_input: {
+    geo: string;
+    timeframe: string;
+    category: string;
+    seeds_config_source: string;
+  };
+  seeds_used: ForensicSeedInfo[];
+  union_pool_before_filters: ForensicUnionPoolItem[];
+  eliminated: ForensicEliminatedItem[];
+  dedupe: {
+    canonical_map: ForensicDedupeCanonical[];
+    pool_after_dedupe: string[];
+  };
+  cooldown: {
+    window_days: number;
+    excluded: ForensicCooldownExclusion[];
+  };
+  serp_cache: {
+    reuse_window_days: number;
+    hits: ForensicSerpCacheHit[];
+    misses: Array<{ keyword: string }>;
+  };
+  dataforseo: {
+    calls_made: number;
+    scored: ForensicDataForSEOScore[];
+  };
+  final: {
+    winner: string;
+    winner_score: number;
+    tie_breakers: string[];
+    decision_path: string;
+  };
 }
 
 // Check if a theme is active for the current date
@@ -157,7 +255,6 @@ function isThemeActive(theme: SeasonalTheme): boolean {
   const fromDate = theme.active_from_mmdd;
   const toDate = theme.active_to_mmdd;
   
-  // Handle year-crossing themes (e.g., 11-01 to 02-15)
   if (fromDate > toDate) {
     return currentMmdd >= fromDate || currentMmdd <= toDate;
   }
@@ -165,48 +262,91 @@ function isThemeActive(theme: SeasonalTheme): boolean {
   return currentMmdd >= fromDate && currentMmdd <= toDate;
 }
 
-// Calculate intent score (0-40)
-function calculateIntentScore(keyword: string): number {
+// Calculate intent score (0-40) with explanation
+function calculateIntentScore(keyword: string): { score: number; why: string } {
   const kw = keyword.toLowerCase();
   let score = 0;
+  const matchedModifiers: string[] = [];
   for (const modifier of INTENT_MODIFIERS) {
     if (kw.includes(modifier)) {
       score += 10;
+      matchedModifiers.push(modifier);
     }
   }
-  return Math.min(score, 40);
+  const finalScore = Math.min(score, 40);
+  const why = matchedModifiers.length > 0 
+    ? `Matched modifiers: ${matchedModifiers.join(', ')} (+10 each, capped at 40)`
+    : 'No intent modifiers found';
+  return { score: finalScore, why };
 }
 
-// Calculate rankability from SERP results (0-40)
-function calculateRankabilityScore(domains: string[]): number {
+// Calculate rankability from SERP results (0-40) with explanation
+function calculateRankabilityScore(domains: string[]): { score: number; why: string; megaCount: number; blogCount: number } {
   const megaCount = domains.filter(d => 
     MEGA_AUTHORITIES.some(auth => d.includes(auth))
   ).length;
   
-  if (megaCount >= 6) return 5;
-  if (megaCount >= 4) return 15;
-  if (megaCount >= 2) return 25;
-  return 40;
+  const blogDomains = ['medium.com', 'wordpress.com', 'blogger.com', 'substack.com', 'quora.com', 'reddit.com'];
+  const blogCount = domains.filter(d => 
+    blogDomains.some(b => d.includes(b)) || d.includes('blog')
+  ).length;
+  
+  let score: number;
+  let why: string;
+  
+  if (megaCount >= 6) {
+    score = 5;
+    why = `${megaCount} mega-authorities in top 10 (heavily dominated)`;
+  } else if (megaCount >= 4) {
+    score = 15;
+    why = `${megaCount} mega-authorities in top 10 (moderately dominated)`;
+  } else if (megaCount >= 2) {
+    score = 25;
+    why = `${megaCount} mega-authorities in top 10 (some competition)`;
+  } else {
+    score = 40;
+    why = `Only ${megaCount} mega-authorities in top 10 (low competition, good opportunity)`;
+  }
+  
+  return { score, why, megaCount, blogCount };
 }
 
-// Calculate content gap score (0-10)
-function calculateContentGapScore(snippets: string[]): number {
+// Calculate content gap score (0-10) with explanation
+function calculateContentGapScore(snippets: string[]): { score: number; why: string } {
   const avgLength = snippets.reduce((sum, s) => sum + (s?.length || 0), 0) / (snippets.length || 1);
-  if (avgLength < 100) return 10;
-  if (avgLength < 150) return 5;
-  return 0;
+  let score: number;
+  let why: string;
+  
+  if (avgLength < 100) {
+    score = 10;
+    why = `Thin content detected (avg snippet ${Math.round(avgLength)} chars) - high opportunity`;
+  } else if (avgLength < 150) {
+    score = 5;
+    why = `Medium content depth (avg snippet ${Math.round(avgLength)} chars)`;
+  } else {
+    score = 0;
+    why = `Dense content exists (avg snippet ${Math.round(avgLength)} chars) - well covered`;
+  }
+  
+  return { score, why };
 }
 
-// Calculate local fit score (0-10)
-function calculateLocalFitScore(keyword: string): number {
+// Calculate local fit score (0-10) with explanation
+function calculateLocalFitScore(keyword: string): { score: number; why: string } {
   const kw = keyword.toLowerCase();
   let score = 0;
+  const matchedTerms: string[] = [];
   for (const term of LOCAL_TERMS) {
     if (kw.includes(term)) {
       score += 3;
+      matchedTerms.push(term);
     }
   }
-  return Math.min(score, 10);
+  const finalScore = Math.min(score, 10);
+  const why = matchedTerms.length > 0 
+    ? `Local terms matched: ${matchedTerms.join(', ')} (+3 each, capped at 10)`
+    : 'No local terms found';
+  return { score: finalScore, why };
 }
 
 // Check if cached score is still valid (within 30 days)
@@ -224,7 +364,9 @@ async function scoreKeywordWithSerp(
   supabase: any,
   dataForSeoLogin: string | undefined,
   dataForSeoPassword: string | undefined,
-  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number }
+  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number },
+  forensicDataforseo: ForensicDataForSEOScore[],
+  forensicSerpCache: { hits: ForensicSerpCacheHit[]; misses: Array<{ keyword: string }> }
 ): Promise<SerpScore> {
   // First check cache (30-day validity)
   const { data: cachedScores } = await supabase
@@ -240,6 +382,34 @@ async function scoreKeywordWithSerp(
     console.log(`  Cache HIT for "${keywordNorm}"`);
     counters.cacheHits++;
     const cached = cachedScores[0];
+    
+    // Record cache hit for forensic trace
+    forensicSerpCache.hits.push({
+      keyword: keywordNorm,
+      cached_at: cached.created_at,
+      cached_total_score: cached.total_score,
+    });
+    
+    // Record in dataforseo trace as HIT
+    forensicDataforseo.push({
+      keyword: keywordNorm,
+      cache_status: 'HIT',
+      serp_summary: {
+        top10_domains: cached.top_10_domains || [],
+        ota_count_top10: (cached.top_10_domains || []).filter((d: string) => MEGA_AUTHORITIES.some(auth => d.includes(auth))).length,
+        blog_count_top10: 0,
+        gov_or_wiki_count_top10: (cached.top_10_domains || []).filter((d: string) => d.includes('gov') || d.includes('wikipedia')).length,
+        local_brand_count_top10: (cached.top_10_domains || []).filter((d: string) => d.includes('wavealokam')).length,
+      },
+      scoring: {
+        total: cached.total_score,
+        intent: { score: cached.intent_score, why: 'From cache' },
+        rankability: { score: cached.rankability_score, why: 'From cache' },
+        gap: { score: cached.content_gap_score, why: 'From cache' },
+        local: { score: cached.local_fit_score, why: 'From cache' },
+      },
+    });
+    
     return {
       keyword,
       keywordNorm,
@@ -255,12 +425,13 @@ async function scoreKeywordWithSerp(
   
   console.log(`  Cache MISS for "${keywordNorm}" - calling SERP API`);
   counters.cacheMisses++;
+  forensicSerpCache.misses.push({ keyword: keywordNorm });
   
-  const intentScore = calculateIntentScore(keyword);
-  const localFitScore = calculateLocalFitScore(keyword);
+  const intentResult = calculateIntentScore(keyword);
+  const localResult = calculateLocalFitScore(keyword);
   
-  let rankabilityScore = 20;
-  let contentGapScore = 5;
+  let rankabilityResult = { score: 20, why: 'Default (no SERP data)', megaCount: 0, blogCount: 0 };
+  let gapResult = { score: 5, why: 'Default (no SERP data)' };
   let topDomains: string[] = [];
   let serpSnapshot: any = null;
   
@@ -288,8 +459,8 @@ async function scoreKeywordWithSerp(
         topDomains = results.slice(0, 10).map((r: any) => r.domain || '');
         const snippets = results.slice(0, 10).map((r: any) => r.description || '');
         
-        rankabilityScore = calculateRankabilityScore(topDomains);
-        contentGapScore = calculateContentGapScore(snippets);
+        rankabilityResult = calculateRankabilityScore(topDomains);
+        gapResult = calculateContentGapScore(snippets);
         
         serpSnapshot = results.slice(0, 10).map((r: any) => ({
           domain: r.domain,
@@ -301,7 +472,27 @@ async function scoreKeywordWithSerp(
     }
   }
   
-  const totalScore = intentScore + rankabilityScore + contentGapScore + localFitScore;
+  const totalScore = intentResult.score + rankabilityResult.score + gapResult.score + localResult.score;
+  
+  // Record in dataforseo trace as MISS
+  forensicDataforseo.push({
+    keyword: keywordNorm,
+    cache_status: 'MISS',
+    serp_summary: {
+      top10_domains: topDomains,
+      ota_count_top10: rankabilityResult.megaCount,
+      blog_count_top10: rankabilityResult.blogCount,
+      gov_or_wiki_count_top10: topDomains.filter(d => d.includes('gov') || d.includes('wikipedia')).length,
+      local_brand_count_top10: topDomains.filter(d => d.includes('wavealokam')).length,
+    },
+    scoring: {
+      total: totalScore,
+      intent: { score: intentResult.score, why: intentResult.why },
+      rankability: { score: rankabilityResult.score, why: rankabilityResult.why },
+      gap: { score: gapResult.score, why: gapResult.why },
+      local: { score: localResult.score, why: localResult.why },
+    },
+  });
   
   // Cache the new score (upsert)
   try {
@@ -309,10 +500,10 @@ async function scoreKeywordWithSerp(
       keyword: keywordNorm,
       provider: 'dataforseo',
       locale: 'IN-en',
-      intent_score: intentScore,
-      rankability_score: rankabilityScore,
-      content_gap_score: contentGapScore,
-      local_fit_score: localFitScore,
+      intent_score: intentResult.score,
+      rankability_score: rankabilityResult.score,
+      content_gap_score: gapResult.score,
+      local_fit_score: localResult.score,
       total_score: totalScore,
       top_10_domains: topDomains,
       raw_serp_data: serpSnapshot,
@@ -325,10 +516,10 @@ async function scoreKeywordWithSerp(
   return {
     keyword,
     keywordNorm,
-    intentScore,
-    rankabilityScore,
-    contentGapScore,
-    localFitScore,
+    intentScore: intentResult.score,
+    rankabilityScore: rankabilityResult.score,
+    contentGapScore: gapResult.score,
+    localFitScore: localResult.score,
     totalScore,
     topDomains,
     fromCache: false,
@@ -369,12 +560,18 @@ function classifySeasonalCandidate(candidateInfo: CandidateInfo): string {
   return 'Seasonal Theme';
 }
 
+// Convert to IST timezone string
+function toISTString(date: Date): string {
+  return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const runStartedAt = new Date().toISOString();
+  const runStartedAt = new Date();
+  const runStartedAtISO = runStartedAt.toISOString();
   
   // Initialize counters
   const counters = {
@@ -383,10 +580,51 @@ Deno.serve(async (req) => {
     dataforseoCalls: 0,
   };
   
+  // Initialize forensic trace
+  const forensicTrace: ForensicTrace = {
+    version: 'forensic-v3',
+    trigger: 'seasonal-selector',
+    run_id: '',
+    run_ts_utc: runStartedAtISO,
+    run_ts_ist: toISTString(runStartedAt),
+    selector_input: {
+      geo: 'IN',
+      timeframe: 'last_7_days',
+      category: 'seasonal',
+      seeds_config_source: 'seasonal_calendar table',
+    },
+    seeds_used: [],
+    union_pool_before_filters: [],
+    eliminated: [],
+    dedupe: {
+      canonical_map: [],
+      pool_after_dedupe: [],
+    },
+    cooldown: {
+      window_days: 90,
+      excluded: [],
+    },
+    serp_cache: {
+      reuse_window_days: 30,
+      hits: [],
+      misses: [],
+    },
+    dataforseo: {
+      calls_made: 0,
+      scored: [],
+    },
+    final: {
+      winner: '',
+      winner_score: 0,
+      tie_breakers: [],
+      decision_path: '',
+    },
+  };
+  
   let runLog: AutomationRunLog = {
     triggered_by: 'cron',
     selector_name: 'seasonal',
-    run_started_at: runStartedAt,
+    run_started_at: runStartedAtISO,
     candidate_pool_count_after_dedupe: 0,
     candidate_keywords: [],
     candidate_list: [],
@@ -432,7 +670,7 @@ Deno.serve(async (req) => {
       .insert({
         run_type: 'seasonal',
         status: 'started',
-        started_at: runStartedAt,
+        started_at: runStartedAtISO,
       })
       .select()
       .single();
@@ -441,11 +679,9 @@ Deno.serve(async (req) => {
       console.error('Failed to create automation_runs record:', runInsertError);
     }
     
-    const runId = runRecord?.id;
-    console.log(`Automation run created with ID: ${runId || 'FAILED'}`);
-    if (!runId) {
-      console.warn('WARNING: automation_runs insert failed, telemetry will not be persisted');
-    }
+    const runId = runRecord?.id || crypto.randomUUID();
+    forensicTrace.run_id = runId;
+    console.log(`Automation run created with ID: ${runId}`);
     
     let decisionPath = 'seasonal_selector(start)';
     
@@ -461,18 +697,32 @@ Deno.serve(async (req) => {
     console.log(`Found ${activeThemes.length} active seasonal themes: ${runLog.active_themes.join(', ')}`);
     decisionPath += ` -> ${activeThemes.length}_active_themes`;
     
+    // Build seeds_used from active themes
+    for (const theme of activeThemes) {
+      const seedPhrases = theme.seed_phrases as string[];
+      forensicTrace.seeds_used.push({
+        seed: theme.theme_id,
+        source: 'seasonal_calendar_table',
+        raw_rising: [],
+        raw_top: [],
+        raw_topics: seedPhrases,
+        notes: `Theme: ${theme.theme_id}, Bucket: ${theme.bucket}, Window: ${theme.active_from_mmdd} to ${theme.active_to_mmdd}, Seeds: ${seedPhrases.length}`,
+      });
+    }
+    
     if (activeThemes.length === 0) {
       // No active themes - skip this Wednesday
       runLog.run_finished_at = new Date().toISOString();
       runLog.why_winner = 'Skipped: No active seasonal themes for current date';
       runLog.decision_path = decisionPath + ' -> SKIP(no_themes)';
+      forensicTrace.final.decision_path = runLog.decision_path;
       
       await supabase
         .from('automation_runs')
         .update({
           status: 'skipped',
           completed_at: runLog.run_finished_at,
-          log_data: runLog,
+          log_data: { ...runLog, forensicTrace },
         })
         .eq('id', runId);
       
@@ -482,6 +732,7 @@ Deno.serve(async (req) => {
           skipped: true,
           reason: 'No active seasonal themes',
           runLog,
+          forensicTrace,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -491,6 +742,7 @@ Deno.serve(async (req) => {
     type CandidateWithScore = { theme: SeasonalTheme; keyword: string; keywordNorm: string; score: SerpScore; candidateInfo: CandidateInfo };
     let allCandidates: CandidateWithScore[] = [];
     const scoredNorms = new Set<string>();
+    const dedupeMap = new Map<string, { variants: string[], kept: string }>();
     
     for (const theme of activeThemes) {
       const seedPhrases = theme.seed_phrases as string[];
@@ -506,13 +758,37 @@ Deno.serve(async (req) => {
         .gte('relevance_score', 20)
         .gte('last_seen_at', sevenDaysAgo.toISOString())
         .order('relevance_score', { ascending: false })
-        .limit(10);
+        .limit(20);
+      
+      // Add all trend candidates to union pool
+      for (const c of trendCandidates || []) {
+        forensicTrace.union_pool_before_filters.push({
+          keyword: c.candidate_keyword,
+          from_seed: c.seed_keyword || theme.theme_id,
+          pytrends_bucket: c.query_type || 'unknown',
+        });
+      }
       
       // Filter trend candidates to those matching theme seed phrases
       const matchingCandidates = (trendCandidates || []).filter(c => {
         const candidateKw = (c.candidate_keyword || '').toLowerCase();
         return seedPhrases.some(seed => candidateKw.includes(seed.toLowerCase()) || seed.toLowerCase().includes(candidateKw));
       });
+      
+      // Record non-matching as eliminated
+      for (const c of trendCandidates || []) {
+        const candidateKw = (c.candidate_keyword || '').toLowerCase();
+        const matches = seedPhrases.some(seed => candidateKw.includes(seed.toLowerCase()) || seed.toLowerCase().includes(candidateKw));
+        if (!matches) {
+          forensicTrace.eliminated.push({
+            keyword: c.candidate_keyword,
+            from_seed: c.seed_keyword || 'unknown',
+            stage: 'relevance_filter',
+            reason_code: 'NOT_WAVEALOKAM_RELEVANT',
+            reason_text: `Does not match any seed phrase for theme "${theme.theme_id}"`,
+          });
+        }
+      }
       
       // Use matching candidates or fall back to seed phrases directly
       const keywordsToScore = matchingCandidates.length > 0
@@ -530,9 +806,23 @@ Deno.serve(async (req) => {
           }));
       
       for (const { raw: keyword, norm: keywordNorm, fromTrend, trendData } of keywordsToScore) {
-        // Skip if already scored this norm
-        if (scoredNorms.has(keywordNorm)) continue;
+        // Skip if already scored this norm (dedupe)
+        if (scoredNorms.has(keywordNorm)) {
+          if (dedupeMap.has(keywordNorm)) {
+            dedupeMap.get(keywordNorm)!.variants.push(keyword);
+          }
+          forensicTrace.eliminated.push({
+            keyword,
+            from_seed: trendData?.seed_keyword || theme.theme_id,
+            stage: 'dedupe_drop',
+            reason_code: 'DUPLICATE',
+            reason_text: `Duplicate of canonical "${keywordNorm}"`,
+          });
+          continue;
+        }
+        
         scoredNorms.add(keywordNorm);
+        dedupeMap.set(keywordNorm, { variants: [keyword], kept: keyword });
         
         const score = await scoreKeywordWithSerp(
           keyword,
@@ -540,7 +830,9 @@ Deno.serve(async (req) => {
           supabase,
           dataForSeoLogin,
           dataForSeoPassword,
-          counters
+          counters,
+          forensicTrace.dataforseo.scored,
+          forensicTrace.serp_cache
         );
         
         const trendStatus = getTrendMetricsStatus(trendData);
@@ -583,6 +875,17 @@ Deno.serve(async (req) => {
       }
     }
     
+    // Build dedupe canonical map
+    for (const [canonical, info] of dedupeMap) {
+      forensicTrace.dedupe.canonical_map.push({
+        canonical,
+        variants: info.variants,
+        kept_variant: info.kept,
+      });
+    }
+    forensicTrace.dedupe.pool_after_dedupe = allCandidates.map(c => c.keywordNorm);
+    forensicTrace.dataforseo.calls_made = counters.dataforseoCalls;
+    
     runLog.candidate_pool_count_after_dedupe = allCandidates.length;
     runLog.candidate_keywords = allCandidates.map(c => c.keywordNorm);
     
@@ -624,6 +927,9 @@ Deno.serve(async (req) => {
       
       runLog.trend_metrics_unavailable_count++;
       
+      const intentResult = calculateIntentScore(fallbackKeyword);
+      const localResult = calculateLocalFitScore(fallbackKeyword);
+      
       allCandidates.push({
         theme: fallbackTheme,
         keyword: fallbackKeyword,
@@ -631,11 +937,11 @@ Deno.serve(async (req) => {
         score: {
           keyword: fallbackKeyword,
           keywordNorm: fallbackNorm,
-          intentScore: calculateIntentScore(fallbackKeyword),
+          intentScore: intentResult.score,
           rankabilityScore: 20,
           contentGapScore: 5,
-          localFitScore: calculateLocalFitScore(fallbackKeyword),
-          totalScore: 35,
+          localFitScore: localResult.score,
+          totalScore: intentResult.score + 20 + 5 + localResult.score,
           topDomains: [],
           fromCache: false,
         },
@@ -649,6 +955,16 @@ Deno.serve(async (req) => {
     
     // Determine classification based on trend data availability
     const classification = classifySeasonalCandidate(winner.candidateInfo);
+    
+    // Build tie-breakers list
+    const tieBreakers: string[] = [];
+    if (allCandidates.length > 1 && allCandidates[0].score.totalScore === allCandidates[1].score.totalScore) {
+      tieBreakers.push('Same total score as runner-up, selected by position');
+    } else if (allCandidates.length > 1) {
+      tieBreakers.push(`Beat runner-up by ${allCandidates[0].score.totalScore - allCandidates[1].score.totalScore} points`);
+    }
+    if (winner.score.intentScore >= 30) tieBreakers.push('High intent score');
+    if (winner.score.localFitScore >= 6) tieBreakers.push('Good local fit');
     
     // Build why_winner with trend status awareness
     let whyWinner = `Highest SERP score (${winner.score.totalScore}/100) among ${allCandidates.length} candidates for theme "${winner.theme.theme_id}". Intent: ${winner.score.intentScore}/40, Rankability: ${winner.score.rankabilityScore}/40, Gap: ${winner.score.contentGapScore}/10, Local: ${winner.score.localFitScore}/10.`;
@@ -667,6 +983,14 @@ Deno.serve(async (req) => {
     runLog.winner_score = winner.score.totalScore;
     runLog.why_winner = whyWinner;
     runLog.decision_path = decisionPath;
+    
+    // Update forensic trace final
+    forensicTrace.final = {
+      winner: winner.keywordNorm,
+      winner_score: winner.score.totalScore,
+      tie_breakers: tieBreakers,
+      decision_path: decisionPath,
+    };
     
     // Update counters in runLog
     runLog.serp_cache_hits = counters.cacheHits;
@@ -698,7 +1022,7 @@ Deno.serve(async (req) => {
     
     console.log(`Selected seasonal topic: ${selectedPayload.primaryKeyword}`);
     
-    // Step 5: Call the existing blog generator
+    // Step 5: Call the existing blog generator with forensicTrace
     const blogGeneratorUrl = `${supabaseUrl}/functions/v1/generate-blog-post`;
     
     const generateResponse = await fetch(blogGeneratorUrl, {
@@ -711,6 +1035,7 @@ Deno.serve(async (req) => {
         topic: selectedPayload,
         trigger: 'seasonal_selector',
         runMetadata: runLog,
+        forensicTrace, // NEW: Pass full forensic trace
       }),
     });
     
@@ -761,8 +1086,8 @@ Deno.serve(async (req) => {
     // Finalize run log
     runLog.run_finished_at = new Date().toISOString();
     
-    // Update automation run with full log data
-    if (runId) {
+    // Update automation run with full log data including forensic trace
+    if (runRecord?.id) {
       const { error: updateError } = await supabase
         .from('automation_runs')
         .update({
@@ -771,14 +1096,14 @@ Deno.serve(async (req) => {
           selected_bucket: selectedPayload.bucket,
           candidates_found: allCandidates.length,
           completed_at: runLog.run_finished_at,
-          log_data: runLog,
+          log_data: { ...runLog, forensicTrace },
         })
-        .eq('id', runId);
+        .eq('id', runRecord.id);
       
       if (updateError) {
         console.error('Failed to update automation_runs:', updateError);
       } else {
-        console.log(`Automation run ${runId} updated with success status`);
+        console.log(`Automation run ${runRecord.id} updated with success status`);
       }
     }
     
@@ -790,6 +1115,7 @@ Deno.serve(async (req) => {
         themeId: winner.theme.theme_id,
         post: generateResult.post,
         runLog,
+        forensicTrace,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -804,7 +1130,7 @@ Deno.serve(async (req) => {
     runLog.dataforseo_calls_today = counters.dataforseoCalls;
     
     return new Response(
-      JSON.stringify({ error: errorMessage, runLog }),
+      JSON.stringify({ error: errorMessage, runLog, forensicTrace }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

@@ -51,6 +51,10 @@ interface SerpScore {
   totalScore: number;
   topDomains: string[];
   fromCache: boolean;
+  intentWhy?: string;
+  rankabilityWhy?: string;
+  gapWhy?: string;
+  localWhy?: string;
 }
 
 interface CandidateInfo {
@@ -138,49 +142,199 @@ interface AutomationRunLog {
   fallback_reason: string | null;
 }
 
-// Calculate intent score (0-40)
-function calculateIntentScore(keyword: string): number {
+// ============================================================================
+// FORENSIC TRACE TYPES (v3)
+// ============================================================================
+interface ForensicSeedInfo {
+  seed: string;
+  source: string;
+  raw_rising: string[];
+  raw_top: string[];
+  raw_topics: string[];
+  notes: string;
+}
+
+interface ForensicUnionPoolItem {
+  keyword: string;
+  from_seed: string;
+  pytrends_bucket: string;
+}
+
+interface ForensicEliminatedItem {
+  keyword: string;
+  from_seed: string;
+  stage: string;
+  reason_code: string;
+  reason_text: string;
+}
+
+interface ForensicDedupeCanonical {
+  canonical: string;
+  variants: string[];
+  kept_variant: string;
+}
+
+interface ForensicCooldownExclusion {
+  keyword: string;
+  matched_post_id: string;
+  matched_slug: string;
+  matched_date: string;
+}
+
+interface ForensicSerpCacheHit {
+  keyword: string;
+  cached_at: string;
+  cached_total_score: number;
+}
+
+interface ForensicDataForSEOScore {
+  keyword: string;
+  cache_status: 'HIT' | 'MISS';
+  serp_summary: {
+    top10_domains: string[];
+    ota_count_top10: number;
+    blog_count_top10: number;
+    gov_or_wiki_count_top10: number;
+    local_brand_count_top10: number;
+  };
+  scoring: {
+    total: number;
+    intent: { score: number; why: string };
+    rankability: { score: number; why: string };
+    gap: { score: number; why: string };
+    local: { score: number; why: string };
+  };
+}
+
+interface ForensicTrace {
+  version: string;
+  trigger: string;
+  run_id: string;
+  run_ts_utc: string;
+  run_ts_ist: string;
+  selector_input: {
+    geo: string;
+    timeframe: string;
+    category: string;
+    seeds_config_source: string;
+  };
+  seeds_used: ForensicSeedInfo[];
+  union_pool_before_filters: ForensicUnionPoolItem[];
+  eliminated: ForensicEliminatedItem[];
+  dedupe: {
+    canonical_map: ForensicDedupeCanonical[];
+    pool_after_dedupe: string[];
+  };
+  cooldown: {
+    window_days: number;
+    excluded: ForensicCooldownExclusion[];
+  };
+  serp_cache: {
+    reuse_window_days: number;
+    hits: ForensicSerpCacheHit[];
+    misses: Array<{ keyword: string }>;
+  };
+  dataforseo: {
+    calls_made: number;
+    scored: ForensicDataForSEOScore[];
+  };
+  final: {
+    winner: string;
+    winner_score: number;
+    tie_breakers: string[];
+    decision_path: string;
+  };
+}
+
+// ============================================================================
+// SCORING FUNCTIONS
+// ============================================================================
+
+// Calculate intent score (0-40) with explanation
+function calculateIntentScore(keyword: string): { score: number; why: string } {
   const kw = keyword.toLowerCase();
   let score = 0;
+  const matchedModifiers: string[] = [];
   for (const modifier of INTENT_MODIFIERS) {
     if (kw.includes(modifier)) {
       score += 10;
+      matchedModifiers.push(modifier);
     }
   }
-  return Math.min(score, 40);
+  const finalScore = Math.min(score, 40);
+  const why = matchedModifiers.length > 0 
+    ? `Matched modifiers: ${matchedModifiers.join(', ')} (+10 each, capped at 40)`
+    : 'No intent modifiers found';
+  return { score: finalScore, why };
 }
 
-// Calculate rankability from SERP results (0-40)
-function calculateRankabilityScore(domains: string[]): number {
+// Calculate rankability from SERP results (0-40) with explanation
+function calculateRankabilityScore(domains: string[]): { score: number; why: string; megaCount: number; blogCount: number } {
   const megaCount = domains.filter(d => 
     MEGA_AUTHORITIES.some(auth => d.includes(auth))
   ).length;
   
-  if (megaCount >= 6) return 5;
-  if (megaCount >= 4) return 15;
-  if (megaCount >= 2) return 25;
-  return 40; // Mostly weak sites
+  const blogDomains = ['medium.com', 'wordpress.com', 'blogger.com', 'substack.com', 'quora.com', 'reddit.com'];
+  const blogCount = domains.filter(d => 
+    blogDomains.some(b => d.includes(b)) || d.includes('blog')
+  ).length;
+  
+  let score: number;
+  let why: string;
+  
+  if (megaCount >= 6) {
+    score = 5;
+    why = `${megaCount} mega-authorities in top 10 (heavily dominated)`;
+  } else if (megaCount >= 4) {
+    score = 15;
+    why = `${megaCount} mega-authorities in top 10 (moderately dominated)`;
+  } else if (megaCount >= 2) {
+    score = 25;
+    why = `${megaCount} mega-authorities in top 10 (some competition)`;
+  } else {
+    score = 40;
+    why = `Only ${megaCount} mega-authorities in top 10 (low competition, good opportunity)`;
+  }
+  
+  return { score, why, megaCount, blogCount };
 }
 
-// Calculate content gap score (0-10)
-function calculateContentGapScore(snippets: string[]): number {
-  // Heuristic: if snippets are short or don't directly answer the query
+// Calculate content gap score (0-10) with explanation
+function calculateContentGapScore(snippets: string[]): { score: number; why: string } {
   const avgLength = snippets.reduce((sum, s) => sum + (s?.length || 0), 0) / (snippets.length || 1);
-  if (avgLength < 100) return 10; // Thin content
-  if (avgLength < 150) return 5;
-  return 0;
+  let score: number;
+  let why: string;
+  
+  if (avgLength < 100) {
+    score = 10;
+    why = `Thin content detected (avg snippet ${Math.round(avgLength)} chars) - high opportunity`;
+  } else if (avgLength < 150) {
+    score = 5;
+    why = `Medium content depth (avg snippet ${Math.round(avgLength)} chars)`;
+  } else {
+    score = 0;
+    why = `Dense content exists (avg snippet ${Math.round(avgLength)} chars) - well covered`;
+  }
+  
+  return { score, why };
 }
 
-// Calculate local fit score (0-10)
-function calculateLocalFitScore(keyword: string): number {
+// Calculate local fit score (0-10) with explanation
+function calculateLocalFitScore(keyword: string): { score: number; why: string } {
   const kw = keyword.toLowerCase();
   let score = 0;
+  const matchedTerms: string[] = [];
   for (const term of LOCAL_TERMS) {
     if (kw.includes(term)) {
       score += 3;
+      matchedTerms.push(term);
     }
   }
-  return Math.min(score, 10);
+  const finalScore = Math.min(score, 10);
+  const why = matchedTerms.length > 0 
+    ? `Local terms matched: ${matchedTerms.join(', ')} (+3 each, capped at 10)`
+    : 'No local terms found';
+  return { score: finalScore, why };
 }
 
 // Check if cached score is still valid (within 30 days)
@@ -198,7 +352,9 @@ async function scoreKeywordWithSerp(
   supabase: any,
   dataForSeoLogin: string | undefined,
   dataForSeoPassword: string | undefined,
-  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number }
+  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number },
+  forensicDataforseo: ForensicDataForSEOScore[],
+  forensicSerpCache: { hits: ForensicSerpCacheHit[]; misses: Array<{ keyword: string }> }
 ): Promise<SerpScore> {
   // First check cache (30-day validity)
   const { data: cachedScores } = await supabase
@@ -214,6 +370,34 @@ async function scoreKeywordWithSerp(
     console.log(`  Cache HIT for "${keywordNorm}" (scored ${cachedScores[0].created_at})`);
     counters.cacheHits++;
     const cached = cachedScores[0];
+    
+    // Record cache hit for forensic trace
+    forensicSerpCache.hits.push({
+      keyword: keywordNorm,
+      cached_at: cached.created_at,
+      cached_total_score: cached.total_score,
+    });
+    
+    // Record in dataforseo trace as HIT
+    forensicDataforseo.push({
+      keyword: keywordNorm,
+      cache_status: 'HIT',
+      serp_summary: {
+        top10_domains: cached.top_10_domains || [],
+        ota_count_top10: (cached.top_10_domains || []).filter((d: string) => MEGA_AUTHORITIES.some(auth => d.includes(auth))).length,
+        blog_count_top10: 0,
+        gov_or_wiki_count_top10: (cached.top_10_domains || []).filter((d: string) => d.includes('gov') || d.includes('wikipedia')).length,
+        local_brand_count_top10: (cached.top_10_domains || []).filter((d: string) => d.includes('wavealokam')).length,
+      },
+      scoring: {
+        total: cached.total_score,
+        intent: { score: cached.intent_score, why: 'From cache' },
+        rankability: { score: cached.rankability_score, why: 'From cache' },
+        gap: { score: cached.content_gap_score, why: 'From cache' },
+        local: { score: cached.local_fit_score, why: 'From cache' },
+      },
+    });
+    
     return {
       keyword,
       keywordNorm,
@@ -229,12 +413,13 @@ async function scoreKeywordWithSerp(
   
   console.log(`  Cache MISS for "${keywordNorm}" - calling SERP API`);
   counters.cacheMisses++;
+  forensicSerpCache.misses.push({ keyword: keywordNorm });
   
-  const intentScore = calculateIntentScore(keyword);
-  const localFitScore = calculateLocalFitScore(keyword);
+  const intentResult = calculateIntentScore(keyword);
+  const localResult = calculateLocalFitScore(keyword);
   
-  let rankabilityScore = 20; // Default
-  let contentGapScore = 5;   // Default
+  let rankabilityResult = { score: 20, why: 'Default (no SERP data)', megaCount: 0, blogCount: 0 };
+  let gapResult = { score: 5, why: 'Default (no SERP data)' };
   let topDomains: string[] = [];
   let serpSnapshot: any = null;
   
@@ -262,8 +447,8 @@ async function scoreKeywordWithSerp(
         topDomains = results.slice(0, 10).map((r: any) => r.domain || '');
         const snippets = results.slice(0, 10).map((r: any) => r.description || '');
         
-        rankabilityScore = calculateRankabilityScore(topDomains);
-        contentGapScore = calculateContentGapScore(snippets);
+        rankabilityResult = calculateRankabilityScore(topDomains);
+        gapResult = calculateContentGapScore(snippets);
         
         // Store lightweight snapshot for debugging
         serpSnapshot = results.slice(0, 10).map((r: any) => ({
@@ -276,7 +461,27 @@ async function scoreKeywordWithSerp(
     }
   }
   
-  const totalScore = intentScore + rankabilityScore + contentGapScore + localFitScore;
+  const totalScore = intentResult.score + rankabilityResult.score + gapResult.score + localResult.score;
+  
+  // Record in dataforseo trace as MISS
+  forensicDataforseo.push({
+    keyword: keywordNorm,
+    cache_status: 'MISS',
+    serp_summary: {
+      top10_domains: topDomains,
+      ota_count_top10: rankabilityResult.megaCount,
+      blog_count_top10: rankabilityResult.blogCount,
+      gov_or_wiki_count_top10: topDomains.filter(d => d.includes('gov') || d.includes('wikipedia')).length,
+      local_brand_count_top10: topDomains.filter(d => d.includes('wavealokam')).length,
+    },
+    scoring: {
+      total: totalScore,
+      intent: { score: intentResult.score, why: intentResult.why },
+      rankability: { score: rankabilityResult.score, why: rankabilityResult.why },
+      gap: { score: gapResult.score, why: gapResult.why },
+      local: { score: localResult.score, why: localResult.why },
+    },
+  });
   
   // Cache the new score (upsert)
   try {
@@ -284,10 +489,10 @@ async function scoreKeywordWithSerp(
       keyword: keywordNorm,
       provider: 'dataforseo',
       locale: 'IN-en',
-      intent_score: intentScore,
-      rankability_score: rankabilityScore,
-      content_gap_score: contentGapScore,
-      local_fit_score: localFitScore,
+      intent_score: intentResult.score,
+      rankability_score: rankabilityResult.score,
+      content_gap_score: gapResult.score,
+      local_fit_score: localResult.score,
       total_score: totalScore,
       top_10_domains: topDomains,
       raw_serp_data: serpSnapshot,
@@ -300,13 +505,17 @@ async function scoreKeywordWithSerp(
   return {
     keyword,
     keywordNorm,
-    intentScore,
-    rankabilityScore,
-    contentGapScore,
-    localFitScore,
+    intentScore: intentResult.score,
+    rankabilityScore: rankabilityResult.score,
+    contentGapScore: gapResult.score,
+    localFitScore: localResult.score,
     totalScore,
     topDomains,
     fromCache: false,
+    intentWhy: intentResult.why,
+    rankabilityWhy: rankabilityResult.why,
+    gapWhy: gapResult.why,
+    localWhy: localResult.why,
   };
 }
 
@@ -365,7 +574,9 @@ async function selectEvergreenFallback(
   dataForSeoLogin: string | undefined,
   dataForSeoPassword: string | undefined,
   usedKeywordNorms: Set<string>,
-  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number }
+  counters: { cacheHits: number; cacheMisses: number; dataforseoCalls: number },
+  forensicDataforseo: ForensicDataForSEOScore[],
+  forensicSerpCache: { hits: ForensicSerpCacheHit[]; misses: Array<{ keyword: string }> }
 ): Promise<{ payload: TopicPayload; scores: SerpScore[]; candidateList: CandidateInfo[] } | null> {
   const recentBuckets = await getRecentBuckets(supabase);
   
@@ -406,7 +617,9 @@ async function selectEvergreenFallback(
       supabase,
       dataForSeoLogin,
       dataForSeoPassword,
-      counters
+      counters,
+      forensicDataforseo,
+      forensicSerpCache
     );
     
     scores.push(score);
@@ -504,12 +717,18 @@ function classifyTrendCandidate(candidate: any, trendMetricsStatus: TrendMetrics
   return 'Evergreen Stable';
 }
 
+// Convert to IST timezone string
+function toISTString(date: Date): string {
+  return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const runStartedAt = new Date().toISOString();
+  const runStartedAt = new Date();
+  const runStartedAtISO = runStartedAt.toISOString();
   
   // Initialize counters
   const counters = {
@@ -518,10 +737,51 @@ Deno.serve(async (req) => {
     dataforseoCalls: 0,
   };
   
+  // Initialize forensic trace
+  const forensicTrace: ForensicTrace = {
+    version: 'forensic-v3',
+    trigger: 'weekly-selector',
+    run_id: '', // Will be set after DB insert
+    run_ts_utc: runStartedAtISO,
+    run_ts_ist: toISTString(runStartedAt),
+    selector_input: {
+      geo: 'IN',
+      timeframe: 'last_7_days',
+      category: 'all',
+      seeds_config_source: 'trend_candidates table',
+    },
+    seeds_used: [],
+    union_pool_before_filters: [],
+    eliminated: [],
+    dedupe: {
+      canonical_map: [],
+      pool_after_dedupe: [],
+    },
+    cooldown: {
+      window_days: 90,
+      excluded: [],
+    },
+    serp_cache: {
+      reuse_window_days: 30,
+      hits: [],
+      misses: [],
+    },
+    dataforseo: {
+      calls_made: 0,
+      scored: [],
+    },
+    final: {
+      winner: '',
+      winner_score: 0,
+      tie_breakers: [],
+      decision_path: '',
+    },
+  };
+  
   let runLog: AutomationRunLog = {
     triggered_by: 'cron',
     selector_name: 'weekly',
-    run_started_at: runStartedAt,
+    run_started_at: runStartedAtISO,
     candidate_pool_count_after_dedupe: 0,
     candidate_keywords: [],
     candidate_list: [],
@@ -565,7 +825,7 @@ Deno.serve(async (req) => {
       .insert({
         run_type: 'weekly',
         status: 'started',
-        started_at: runStartedAt,
+        started_at: runStartedAtISO,
       })
       .select()
       .single();
@@ -574,11 +834,10 @@ Deno.serve(async (req) => {
       console.error('Failed to create automation_runs record:', runInsertError);
     }
     
-    const runId = runRecord?.id;
-    console.log(`Automation run created with ID: ${runId || 'FAILED'}`);
-    if (!runId) {
-      console.warn('WARNING: automation_runs insert failed, telemetry will not be persisted');
-    }
+    const runId = runRecord?.id || crypto.randomUUID();
+    forensicTrace.run_id = runId;
+    
+    console.log(`Automation run created with ID: ${runId}`);
     
     // Step 0: Check keywords used in last 90 days to avoid duplicates
     const ninetyDaysAgo = new Date();
@@ -586,10 +845,11 @@ Deno.serve(async (req) => {
     
     const { data: recentKeywords } = await supabase
       .from('post_history')
-      .select('keyword_norm')
+      .select('keyword_norm, blog_post_id, url, publish_date')
       .gte('publish_date', ninetyDaysAgo.toISOString().split('T')[0]);
     
     const usedKeywordNorms = new Set((recentKeywords || []).map((r: any) => r.keyword_norm).filter(Boolean));
+    const recentPostsByKeyword = new Map((recentKeywords || []).map((r: any) => [r.keyword_norm, r]));
     console.log(`Keywords used in last 90 days: ${usedKeywordNorms.size}`);
     
     // Step 1: Get trend candidates from last 7 days (regardless of is_processed)
@@ -603,28 +863,104 @@ Deno.serve(async (req) => {
       .gte('relevance_score', 30)
       .gte('last_seen_at', sevenDaysAgo.toISOString())
       .order('relevance_score', { ascending: false })
-      .limit(20);
+      .limit(50); // Get more for forensic trace
     
     console.log(`Found ${candidates?.length || 0} trend candidates`);
     
+    // Build seeds_used from unique seed_keywords
+    const seedGroups = new Map<string, { rising: string[], top: string[], topics: string[] }>();
+    for (const c of candidates || []) {
+      const seed = c.seed_keyword || 'unknown';
+      if (!seedGroups.has(seed)) {
+        seedGroups.set(seed, { rising: [], top: [], topics: [] });
+      }
+      const group = seedGroups.get(seed)!;
+      const queryType = c.query_type || 'unknown';
+      if (queryType === 'rising') group.rising.push(c.candidate_keyword);
+      else if (queryType === 'top') group.top.push(c.candidate_keyword);
+      else group.topics.push(c.candidate_keyword);
+    }
+    
+    for (const [seed, group] of seedGroups) {
+      forensicTrace.seeds_used.push({
+        seed,
+        source: 'trend_candidates_table',
+        raw_rising: group.rising,
+        raw_top: group.top,
+        raw_topics: group.topics,
+        notes: `rising: ${group.rising.length}, top: ${group.top.length}, topics: ${group.topics.length}`,
+      });
+    }
+    
+    // Build union pool before filters
+    for (const c of candidates || []) {
+      forensicTrace.union_pool_before_filters.push({
+        keyword: c.candidate_keyword,
+        from_seed: c.seed_keyword || 'unknown',
+        pytrends_bucket: c.query_type || 'unknown',
+      });
+    }
+    
     // Filter out candidates whose keyword_norm was used in last 90 days
-    const eligibleCandidates = (candidates || []).filter((c: any) => {
+    const eligibleCandidates: any[] = [];
+    for (const c of candidates || []) {
       const norm = c.keyword_norm || normalizeKeyword(c.candidate_keyword);
-      return !usedKeywordNorms.has(norm);
-    });
+      if (usedKeywordNorms.has(norm)) {
+        // Record cooldown exclusion
+        const recentPost = recentPostsByKeyword.get(norm);
+        forensicTrace.cooldown.excluded.push({
+          keyword: norm,
+          matched_post_id: recentPost?.blog_post_id || 'unknown',
+          matched_slug: recentPost?.url || 'unknown',
+          matched_date: recentPost?.publish_date || 'unknown',
+        });
+        forensicTrace.eliminated.push({
+          keyword: c.candidate_keyword,
+          from_seed: c.seed_keyword || 'unknown',
+          stage: 'recent_cooldown',
+          reason_code: 'RECENTLY_USED',
+          reason_text: `Used within last 90 days (${recentPost?.publish_date || 'unknown'})`,
+        });
+      } else {
+        eligibleCandidates.push(c);
+      }
+    }
     
     console.log(`Eligible candidates after 90-day filter: ${eligibleCandidates.length}`);
     
     // Dedupe by keyword_norm
-    const seenNorms = new Set<string>();
+    const seenNorms = new Map<string, { variants: string[], kept: string }>();
     const dedupedCandidates: any[] = [];
+    
     for (const candidate of eligibleCandidates.slice(0, 15)) {
       const keywordNorm = candidate.keyword_norm || normalizeKeyword(candidate.candidate_keyword);
-      if (!seenNorms.has(keywordNorm)) {
-        seenNorms.add(keywordNorm);
+      
+      if (seenNorms.has(keywordNorm)) {
+        // Record as dedupe drop
+        const existing = seenNorms.get(keywordNorm)!;
+        existing.variants.push(candidate.candidate_keyword);
+        forensicTrace.eliminated.push({
+          keyword: candidate.candidate_keyword,
+          from_seed: candidate.seed_keyword || 'unknown',
+          stage: 'dedupe_drop',
+          reason_code: 'DUPLICATE',
+          reason_text: `Duplicate of canonical "${keywordNorm}", keeping "${existing.kept}"`,
+        });
+      } else {
+        seenNorms.set(keywordNorm, { variants: [candidate.candidate_keyword], kept: candidate.candidate_keyword });
         dedupedCandidates.push({ ...candidate, keywordNorm });
       }
     }
+    
+    // Build dedupe canonical map for forensic trace
+    for (const [canonical, info] of seenNorms) {
+      forensicTrace.dedupe.canonical_map.push({
+        canonical,
+        variants: info.variants,
+        kept_variant: info.kept,
+      });
+    }
+    forensicTrace.dedupe.pool_after_dedupe = dedupedCandidates.map(c => c.keywordNorm);
     
     // Build candidate info list for logging with full provenance
     runLog.candidate_list = dedupedCandidates.map((c: any) => {
@@ -672,7 +1008,9 @@ Deno.serve(async (req) => {
           supabase,
           dataForSeoLogin,
           dataForSeoPassword,
-          counters
+          counters,
+          forensicTrace.dataforseo.scored,
+          forensicTrace.serp_cache
         );
         
         topScores.push(score);
@@ -689,6 +1027,7 @@ Deno.serve(async (req) => {
         });
       }
       
+      forensicTrace.dataforseo.calls_made = counters.dataforseoCalls;
       decisionPath += ` -> serp_scoring(${counters.cacheHits}_cached/${counters.cacheMisses}_new)`;
       
       console.log(`SERP scoring: ${counters.cacheHits} cache hits, ${counters.cacheMisses} cache misses, ${counters.dataforseoCalls} DataForSEO calls`);
@@ -709,6 +1048,16 @@ Deno.serve(async (req) => {
         // Build reasoning based on trend data availability
         let whyWinner = `Highest SERP score (${winner.totalScore}/100) among ${dedupedCandidates.length} candidates. Intent: ${winner.intentScore}/40, Rankability: ${winner.rankabilityScore}/40, Gap: ${winner.contentGapScore}/10, Local: ${winner.localFitScore}/10.`;
         
+        // Build tie-breakers list
+        const tieBreakers: string[] = [];
+        if (topScores.length > 1 && topScores[0].totalScore === topScores[1].totalScore) {
+          tieBreakers.push('Same total score as runner-up, selected by position in candidate list');
+        } else if (topScores.length > 1) {
+          tieBreakers.push(`Beat runner-up by ${topScores[0].totalScore - topScores[1].totalScore} points`);
+        }
+        if (winner.intentScore >= 30) tieBreakers.push('High intent score');
+        if (winner.localFitScore >= 6) tieBreakers.push('Good local fit');
+        
         if (trendStatus !== 'OK') {
           whyWinner += ` Note: Trend metrics ${trendStatus.toLowerCase()}, selected purely by SERP score.`;
           decisionPath += ` -> trend_enrichment(SKIPPED:${trendStatus})`;
@@ -723,6 +1072,14 @@ Deno.serve(async (req) => {
         runLog.why_winner = whyWinner;
         runLog.fallback_used = 'none';
         runLog.decision_path = decisionPath;
+        
+        // Update forensic trace final
+        forensicTrace.final = {
+          winner: winnerNorm,
+          winner_score: winner.totalScore,
+          tie_breakers: tieBreakers,
+          decision_path: decisionPath,
+        };
         
         // Map to topic payload
         selectedPayload = {
@@ -760,7 +1117,15 @@ Deno.serve(async (req) => {
       
       decisionPath += ` -> no_valid_winner -> evergreen_fallback`;
       
-      const evergreenResult = await selectEvergreenFallback(supabase, dataForSeoLogin, dataForSeoPassword, usedKeywordNorms, counters);
+      const evergreenResult = await selectEvergreenFallback(
+        supabase, 
+        dataForSeoLogin, 
+        dataForSeoPassword, 
+        usedKeywordNorms, 
+        counters,
+        forensicTrace.dataforseo.scored,
+        forensicTrace.serp_cache
+      );
       
       if (evergreenResult) {
         selectedPayload = evergreenResult.payload;
@@ -788,6 +1153,15 @@ Deno.serve(async (req) => {
         runLog.winner_score = topScores.find(s => s.keywordNorm === selectedPayload?.keywordNorm)?.totalScore || 0;
         runLog.why_winner = `Evergreen fallback: ${selectedPayload.bucket}. ${runLog.fallback_reason}`;
         runLog.decision_path = evergreenResult.payload.decisionPath;
+        
+        // Update forensic trace final
+        forensicTrace.final = {
+          winner: selectedPayload.keywordNorm,
+          winner_score: runLog.winner_score,
+          tie_breakers: ['Evergreen fallback - no valid trend candidates'],
+          decision_path: evergreenResult.payload.decisionPath,
+        };
+        forensicTrace.dataforseo.calls_made = counters.dataforseoCalls;
       }
     }
     
@@ -802,7 +1176,7 @@ Deno.serve(async (req) => {
     
     console.log(`Selected topic: ${selectedPayload.primaryKeyword}`);
     
-    // Step 5: Call the existing blog generator
+    // Step 5: Call the existing blog generator with forensicTrace
     const blogGeneratorUrl = `${supabaseUrl}/functions/v1/generate-blog-post`;
     
     const generateResponse = await fetch(blogGeneratorUrl, {
@@ -815,6 +1189,7 @@ Deno.serve(async (req) => {
         topic: selectedPayload,
         trigger: 'weekly_selector',
         runMetadata: runLog,
+        forensicTrace, // NEW: Pass full forensic trace
       }),
     });
     
@@ -874,8 +1249,8 @@ Deno.serve(async (req) => {
     // Finalize run log
     runLog.run_finished_at = new Date().toISOString();
     
-    // Update automation run with full log data
-    if (runId) {
+    // Update automation run with full log data including forensic trace
+    if (runRecord?.id) {
       const { error: updateError } = await supabase
         .from('automation_runs')
         .update({
@@ -884,14 +1259,14 @@ Deno.serve(async (req) => {
           selected_bucket: selectedPayload.bucket,
           candidates_found: runLog.candidate_pool_count_after_dedupe,
           completed_at: runLog.run_finished_at,
-          log_data: runLog,
+          log_data: { ...runLog, forensicTrace },
         })
-        .eq('id', runId);
+        .eq('id', runRecord.id);
       
       if (updateError) {
         console.error('Failed to update automation_runs:', updateError);
       } else {
-        console.log(`Automation run ${runId} updated with success status`);
+        console.log(`Automation run ${runRecord.id} updated with success status`);
       }
     }
     
@@ -902,6 +1277,7 @@ Deno.serve(async (req) => {
         bucket: selectedPayload.bucket,
         post: generateResult.post,
         runLog,
+        forensicTrace,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -916,7 +1292,7 @@ Deno.serve(async (req) => {
     runLog.dataforseo_calls_today = counters.dataforseoCalls;
     
     return new Response(
-      JSON.stringify({ error: errorMessage, runLog }),
+      JSON.stringify({ error: errorMessage, runLog, forensicTrace }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
