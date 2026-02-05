@@ -41,7 +41,7 @@ def normalize_keyword(keyword: str) -> str:
     result = keyword.lower().strip()
     
     # Normalize quotes and apostrophes
-    result = result.replace("'", "'").replace("'", "'").replace('"', '"').replace('"', '"')
+     result = result.replace("'", "'").replace("'", "'").replace('"', '"').replace('"', '"')
     
     # Collapse multiple spaces
     result = re.sub(r'\s+', ' ', result)
@@ -238,8 +238,8 @@ def main():
          print("ERROR: Missing SUPABASE_URL or BLOG_CRON_SECRET environment variables")
         sys.exit(1)
     
-     # Construct Edge Function URL
-     ingest_url = f"{supabase_url}/functions/v1/pytrends-ingest?token={blog_cron_secret}"
+     # Construct Edge Function URL (token sent via header, not query param)
+     ingest_url = f"{supabase_url}/functions/v1/pytrends-ingest"
      
      # Initialize pytrends
     pytrends = TrendReq(hl='en-IN', tz=330)  # IST timezone
@@ -289,12 +289,15 @@ def main():
      print(f"\nSending {len(all_candidates)} candidates to Edge Function...")
      
      try:
-         # Send to Edge Function
+         # Send to Edge Function with auth token in header
          data = json.dumps(payload).encode('utf-8')
          req = urllib.request.Request(
              ingest_url,
              data=data,
-             headers={'Content-Type': 'application/json'},
+             headers={
+                 'Content-Type': 'application/json',
+                 'X-Cron-Secret': blog_cron_secret
+             },
              method='POST'
          )
          
