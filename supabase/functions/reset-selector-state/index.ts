@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 /**
- * Reset Selector State
+ * Reset Selector State (v1.0.1)
  * 
  * Clears all caches and test data for clean testing of the blog automation pipeline.
  * Protected by BLOG_CRON_SECRET (reusing existing secret).
