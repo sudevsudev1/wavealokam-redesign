@@ -254,7 +254,8 @@ async function getRecentBuckets(supabase: any): Promise<string[]> {
 async function selectEvergreenFallback(
   supabase: any,
   dataForSeoLogin: string | undefined,
-  dataForSeoPassword: string | undefined
+  dataForSeoPassword: string | undefined,
+  usedKeywordNorms: Set<string> = new Set()
 ): Promise<TopicPayload | null> {
   const recentBuckets = await getRecentBuckets(supabase);
   
@@ -270,8 +271,13 @@ async function selectEvergreenFallback(
     return null;
   }
   
-  // Filter to topics from buckets not used in last 28 days
-  const eligibleTopics = topics.filter((t: any) => !recentBuckets.includes(t.bucket));
+  // Filter to topics from buckets not used in last 28 days AND keywords not used in last 90 days
+  const eligibleTopics = topics.filter((t: any) => {
+    const keywordNorm = t.keyword_norm || normalizeKeyword(t.primary_keyword);
+    return !recentBuckets.includes(t.bucket) && !usedKeywordNorms.has(keywordNorm);
+  });
+  
+  console.log(`Evergreen fallback: ${eligibleTopics.length} topics eligible (after 28-day bucket + 90-day keyword filter)`);
   
   // If no eligible topics, use least recently used
   const topicsToScore = eligibleTopics.length > 0 ? eligibleTopics.slice(0, 5) : topics.slice(0, 5);
@@ -354,6 +360,18 @@ Deno.serve(async (req) => {
     
     const runId = runLog?.id;
     
+    // Step 0: Check keywords used in last 90 days to avoid duplicates
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    
+    const { data: recentKeywords } = await supabase
+      .from('post_history')
+      .select('keyword_norm')
+      .gte('publish_date', ninetyDaysAgo.toISOString().split('T')[0]);
+    
+    const usedKeywordNorms = new Set((recentKeywords || []).map((r: any) => r.keyword_norm).filter(Boolean));
+    console.log(`Keywords used in last 90 days: ${usedKeywordNorms.size}`);
+    
     // Step 1: Get trend candidates from last 7 days (regardless of is_processed)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -369,15 +387,23 @@ Deno.serve(async (req) => {
     
     console.log(`Found ${candidates?.length || 0} trend candidates`);
     
+    // Filter out candidates whose keyword_norm was used in last 90 days
+    const eligibleCandidates = (candidates || []).filter((c: any) => {
+      const norm = c.keyword_norm || normalizeKeyword(c.candidate_keyword);
+      return !usedKeywordNorms.has(norm);
+    });
+    
+    console.log(`Eligible candidates after 90-day filter: ${eligibleCandidates.length}`);
+    
     let selectedPayload: TopicPayload | null = null;
     let topScores: SerpScore[] = [];
     let cacheHits = 0;
     let cacheMisses = 0;
     
-    if (candidates && candidates.length > 0) {
+    if (eligibleCandidates && eligibleCandidates.length > 0) {
       // Dedupe by keyword_norm (should already be unique but belt-and-suspenders)
       const seenNorms = new Set<string>();
-      const candidatesToScore = candidates.slice(0, 10);
+      const candidatesToScore = eligibleCandidates.slice(0, 10);
       
       for (const candidate of candidatesToScore) {
         const keywordNorm = candidate.keyword_norm || normalizeKeyword(candidate.candidate_keyword);
@@ -445,7 +471,7 @@ Deno.serve(async (req) => {
     // Step 4: Fallback to evergreen if no valid trend candidate
     if (!selectedPayload) {
       console.log('No valid trend candidates, falling back to evergreen...');
-      selectedPayload = await selectEvergreenFallback(supabase, dataForSeoLogin, dataForSeoPassword);
+      selectedPayload = await selectEvergreenFallback(supabase, dataForSeoLogin, dataForSeoPassword, usedKeywordNorms);
     }
     
     if (!selectedPayload) {

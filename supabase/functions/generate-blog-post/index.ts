@@ -32,9 +32,17 @@ CRITICAL RULES:
 3. The post must stand alone as a quality guide: informative, educational, practical, with wit.
 4. Wavealokam appears SUBLIMINALLY: mention the name only ONCE in the entire body, and LINK IT to the homepage (/).
 5. Include exactly 2 to 4 internal links embedded naturally in the body (not dumped at the end). Use non-salesy anchors.
-6. Avoid unverifiable claims (exact prices, exact festival dates, guarantees). Use "typically", "often", "varies", "check locally".
-7. DO NOT invent statistics or numbers from the internet.
+6. USE CONCRETE FIGURES from Wavealokam's verified data (see PRICING_DATA below). Do NOT default to "typically" or "varies" when specific numbers exist.
+7. DO NOT invent statistics or numbers. Use the verified pricing below or omit.
 8. ABSOLUTELY NO EM DASHES (—) or en dashes (–). Use commas, periods, semicolons, or restructure sentences.
+
+TOPIC FOCUS RULE (CRITICAL):
+- If the topic is NOT specifically about surfing (e.g., "things to do in Varkala", "Varkala Cliff guide", "weekend getaway"), 
+  DO NOT make surfing the main focus. Address the actual topic first, then mention surfing as ONE of the activities.
+- For Varkala Cliff topics, mention popular cliff establishments like Cafe del Mar, Abba Restaurant, God's Own Country Kitchen.
+- After mentioning cliff options, add a subtle nudge: "...or if you prefer a quieter stay away from the cliff buzz but still 
+  close enough to reach in 10 minutes, try peaceful spots in Edava known for home-like hospitality, like [Wavealokam](/)."
+- NEVER mention competing surf schools by name. Use "local surf schools" or "instructors along the cliff" instead.
 
 PERSPECTIVE:
 - Write from a general surf enthusiast/travel writer perspective who has researched the place
@@ -43,6 +51,27 @@ PERSPECTIVE:
 - For Varkala surfing, write about surf culture from a traveler's perspective, not a business owner's
 - Use phrases like "one popular spot", "a well-known surf stay", "places like Wavealokam"
 - Avoid naming competing Varkala surf schools directly, use "local surf schools" or "instructors along the cliff"
+
+VERIFIED PRICING DATA (Use these exact figures when relevant):
+- Surf lessons: Rs. 1,500 per person per 1.5-hour session (includes board, leash, transport, theory)
+- Surf lesson bulk discount: 10% off when booking 5+ sessions upfront
+- Beginner surfing timeline: 10-12 sessions to surf independently
+- Auto fare (Edava to Varkala Cliff Helipad): Rs. 500 round trip
+- Auto fare (Edava to Mangrove Forest for kayaking): Rs. 1,200-1,500 (includes waiting)
+- Mangrove kayaking: Rs. 1,000 for 2+ hours
+- Country boat ride: Rs. 1,800 for 1 hour
+- Stand Up Paddle: Rs. 1,350 for 2 hours
+- Speed boat: Rs. 1,500 for 35 minutes
+- AC car to Mangrove Village: Rs. 1,300 for up to 4 people
+- Pro tip: Places like Wavealokam have regular auto/cab contacts with fixed, non-inflated prices
+
+VARKALA CLIFF ESTABLISHMENTS (mention when relevant, NOT competing):
+- Cafe del Mar (popular sunset spot)
+- Abba Restaurant (cliff dining)
+- God's Own Country Kitchen (local favorite)
+- Little Tibet (Tibetan food)
+- Clafouti (French bakery)
+Note: After mentioning cliff options, suggest Edava as quieter alternative with Wavealokam as example.
 
 INTERNAL LINK RULES (MANDATORY - THESE MUST APPEAR AS MARKDOWN LINKS):
 1. When you mention "Wavealokam" (your ONE mention), link it to the homepage: [Wavealokam](/)
@@ -434,13 +463,24 @@ function selectEvergreenTopic(category: string, usedSlugs: string[]): { title: s
 // IMAGE FETCHING
 // ============================================================================
 
-async function fetchUnsplashImages(queries: string[], unsplashKey: string, count: number = 5): Promise<Array<{ url: string; attribution: string; query: string }>> {
+async function fetchUnsplashImages(
+  queries: string[], 
+  unsplashKey: string, 
+  count: number = 5,
+  usedImageUrls: Set<string> = new Set()
+): Promise<Array<{ url: string; attribution: string; query: string }>> {
   const images: Array<{ url: string; attribution: string; query: string }> = [];
   
-  for (const query of queries.slice(0, count)) {
+  // We'll try more queries to account for skipping duplicates
+  const queriesToTry = queries.slice(0, count * 2);
+  
+  for (const query of queriesToTry) {
+    if (images.length >= count) break;
+    
     try {
+      // Request multiple results so we can pick one that's not used
       const response = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`,
         { headers: { 'Authorization': `Client-ID ${unsplashKey}` } }
       );
       
@@ -448,12 +488,19 @@ async function fetchUnsplashImages(queries: string[], unsplashKey: string, count
       
       const data = await response.json();
       if (data.results && data.results.length > 0) {
-        const photo = data.results[0];
-        images.push({
-          url: photo.urls.regular,
-          attribution: `Photo by ${photo.user.name} on Unsplash`,
-          query,
-        });
+        // Find first photo that hasn't been used
+        for (const photo of data.results) {
+          const photoUrl = photo.urls.regular;
+          // Check if this exact URL or photo ID has been used
+          if (!usedImageUrls.has(photoUrl) && !usedImageUrls.has(photo.id)) {
+            images.push({
+              url: photoUrl,
+              attribution: `Photo by ${photo.user.name} on Unsplash`,
+              query,
+            });
+            break; // Found a unique image for this query
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching Unsplash image:', error);
@@ -462,6 +509,7 @@ async function fetchUnsplashImages(queries: string[], unsplashKey: string, count
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   
+  console.log(`Found ${images.length} unique images (excluded ${usedImageUrls.size} previously used)`);
   return images;
 }
 
@@ -791,6 +839,26 @@ Deno.serve(async (req) => {
     
     const usedSlugs = recentPosts?.map(p => p.slug) || [];
     
+    // Get previously used image URLs to avoid duplicates
+    const { data: postsWithImages } = await supabase
+      .from('blog_posts')
+      .select('images, featured_image')
+      .order('published_at', { ascending: false })
+      .limit(20);
+    
+    const usedImageUrls = new Set<string>();
+    for (const post of postsWithImages || []) {
+      if (post.featured_image) {
+        usedImageUrls.add(post.featured_image);
+      }
+      if (post.images && Array.isArray(post.images)) {
+        for (const img of post.images as Array<{ url: string }>) {
+          if (img.url) usedImageUrls.add(img.url);
+        }
+      }
+    }
+    console.log(`Found ${usedImageUrls.size} previously used image URLs`);
+    
     // Topic selection
     let selectedTopic: { title: string; primary: string; target: string };
     let trendResearch: TrendResearchResult;
@@ -895,9 +963,13 @@ Deno.serve(async (req) => {
       'kerala beach',
       'varkala cliff',
       'surfing india',
-      'kerala travel'
+      'kerala travel',
+      'indian ocean surf',
+      'coconut trees beach',
+      'backwater kerala',
+      'sunset beach india'
     ];
-    const images = await fetchUnsplashImages(imageQueries, unsplashKey, 5);
+    const images = await fetchUnsplashImages(imageQueries, unsplashKey, 5, usedImageUrls);
     console.log(`Fetched ${images.length} images`);
     
     // Use secondaryKeywords from topic selection (already set above)
