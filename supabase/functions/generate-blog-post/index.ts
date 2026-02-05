@@ -709,17 +709,126 @@ ${adminNotes}
 // EMAIL NOTIFICATION (Admin Notes Only)
 // ============================================================================
 
+interface RunMetadata {
+  triggered_by: 'cron' | 'manual_test';
+  selector_name: 'weekly' | 'seasonal';
+  run_started_at: string;
+  run_finished_at?: string;
+  candidate_pool_count: number;
+  candidate_list: Array<{
+    keyword_norm: string;
+    pytrends_type: string;
+    seen_count: number;
+    last_seen_at: string;
+    relevance_score: number;
+    has_trend_data: boolean;
+    interest_90d: number | null;
+    interest_12m: number | null;
+  }>;
+  active_themes?: string[];
+  serp_cache_hits_count: number;
+  serp_api_calls_count: number;
+  serp_scores_by_candidate: Array<{
+    keyword_norm: string;
+    total: number;
+    intent: number;
+    rankability: number;
+    gap: number;
+    local: number;
+    from_cache: boolean;
+  }>;
+  winner_keyword_norm: string | null;
+  winner_score: number | null;
+  why_winner: string;
+  fallback_used: 'none' | 'evergreen' | 'seed_phrase';
+  fallback_reason: string | null;
+}
+
+function buildCandidatePoolHtml(runMetadata: RunMetadata | null): string {
+  if (!runMetadata || runMetadata.candidate_pool_count === 0) {
+    return '<p style="color: #666;">No trend candidates available</p>';
+  }
+  
+  // Build a table of all candidates with their pytrends data and SERP scores
+  let html = `
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px;">
+      <thead>
+        <tr style="background: #f0f0f0;">
+          <th style="padding: 6px; text-align: left; border: 1px solid #ddd;">Keyword</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Pytrends Type</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Seen</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">90d / 12m</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">SERP Score</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">I/R/G/L</th>
+          <th style="padding: 6px; text-align: center; border: 1px solid #ddd;">Cache</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  
+  // Sort by SERP score descending
+  const candidatesWithScores = runMetadata.candidate_list.map(c => {
+    const serpScore = runMetadata.serp_scores_by_candidate.find(s => s.keyword_norm === c.keyword_norm);
+    return { ...c, serpScore };
+  }).sort((a, b) => (b.serpScore?.total || 0) - (a.serpScore?.total || 0));
+  
+  for (const candidate of candidatesWithScores) {
+    const isWinner = candidate.keyword_norm === runMetadata.winner_keyword_norm;
+    const rowStyle = isWinner ? 'background: #d4edda; font-weight: bold;' : '';
+    const trendDataDisplay = candidate.has_trend_data 
+      ? `${candidate.interest_90d || '-'} / ${candidate.interest_12m || '-'}`
+      : '<span style="color: #999;">N/A</span>';
+    
+    const serpScore = candidate.serpScore;
+    const serpDisplay = serpScore ? serpScore.total : '-';
+    const serpBreakdown = serpScore 
+      ? `${serpScore.intent}/${serpScore.rankability}/${serpScore.gap}/${serpScore.local}`
+      : '-';
+    const cacheDisplay = serpScore 
+      ? (serpScore.from_cache ? '✓' : '🔄')
+      : '-';
+    
+    html += `
+      <tr style="${rowStyle}">
+        <td style="padding: 6px; border: 1px solid #ddd;">${candidate.keyword_norm}${isWinner ? ' 🏆' : ''}</td>
+        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${candidate.pytrends_type}</td>
+        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${candidate.seen_count}×</td>
+        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${trendDataDisplay}</td>
+        <td style="padding: 6px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${serpDisplay}</td>
+        <td style="padding: 6px; text-align: center; border: 1px solid #ddd; font-size: 11px;">${serpBreakdown}</td>
+        <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${cacheDisplay}</td>
+      </tr>
+    `;
+  }
+  
+  html += '</tbody></table>';
+  html += `<p style="font-size: 11px; color: #666; margin-top: 5px;">I=Intent, R=Rankability, G=Gap, L=Local | ✓=Cache hit, 🔄=API call</p>`;
+  
+  return html;
+}
+
 async function sendAdminEmail(
   post: { title: string; slug: string; primary: string; classification: string; timingChoice: string; metaTitle: string; metaDescription: string; internalLinks: string[]; selectionReasoning: string; priorityExplanation: string },
   adminNotes: string,
   resendKey: string,
-  blogUrl: string
+  blogUrl: string,
+  runMetadata: RunMetadata | null = null
 ): Promise<void> {
   
+  // Build candidate pool section
+  const candidatePoolHtml = buildCandidatePoolHtml(runMetadata);
+  
+  // Summary stats
+  const poolCount = runMetadata?.candidate_pool_count || 0;
+  const cacheHits = runMetadata?.serp_cache_hits_count || 0;
+  const apiCalls = runMetadata?.serp_api_calls_count || 0;
+  const fallbackUsed = runMetadata?.fallback_used || 'unknown';
+  const fallbackReason = runMetadata?.fallback_reason || '';
+  
   const emailHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
       <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">Wavealokam Sunday Blog Published</h1>
+        <h1 style="color: white; margin: 0;">Wavealokam ${runMetadata?.selector_name === 'seasonal' ? 'Wednesday' : 'Sunday'} Blog Published</h1>
       </div>
       
       <div style="padding: 30px; background: #f9f9f9;">
@@ -729,7 +838,40 @@ async function sendAdminEmail(
         <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
           <h3 style="color: #856404; margin-top: 0; margin-bottom: 10px;">📊 Topic Selection Reasoning</h3>
           <p style="color: #856404; margin: 0 0 10px 0; font-size: 14px;">${post.selectionReasoning}</p>
-          <p style="color: #856404; margin: 0; font-size: 13px; font-style: italic;">${post.priorityExplanation}</p>
+          ${runMetadata?.why_winner ? `<p style="color: #856404; margin: 0; font-size: 13px;"><strong>Why winner:</strong> ${runMetadata.why_winner}</p>` : ''}
+        </div>
+        
+        <!-- Stats Summary -->
+        <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+          <div style="background: #e3f2fd; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
+            <div style="font-size: 24px; font-weight: bold; color: #1976d2;">${poolCount}</div>
+            <div style="font-size: 12px; color: #666;">Candidates Evaluated</div>
+          </div>
+          <div style="background: #e8f5e9; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
+            <div style="font-size: 24px; font-weight: bold; color: #388e3c;">${cacheHits}</div>
+            <div style="font-size: 12px; color: #666;">SERP Cache Hits</div>
+          </div>
+          <div style="background: #fff3e0; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
+            <div style="font-size: 24px; font-weight: bold; color: #f57c00;">${apiCalls}</div>
+            <div style="font-size: 12px; color: #666;">SERP API Calls</div>
+          </div>
+          <div style="background: ${fallbackUsed === 'none' ? '#e8f5e9' : '#ffebee'}; padding: 12px 16px; border-radius: 6px; flex: 1; min-width: 120px;">
+            <div style="font-size: 14px; font-weight: bold; color: ${fallbackUsed === 'none' ? '#388e3c' : '#c62828'};">${fallbackUsed === 'none' ? 'Trend-based' : fallbackUsed.charAt(0).toUpperCase() + fallbackUsed.slice(1)}</div>
+            <div style="font-size: 12px; color: #666;">Selection Source</div>
+          </div>
+        </div>
+        
+        ${fallbackReason ? `
+        <div style="background: #ffebee; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #ef5350;">
+          <p style="color: #c62828; margin: 0; font-size: 13px;"><strong>Fallback reason:</strong> ${fallbackReason}</p>
+        </div>
+        ` : ''}
+        
+        <!-- Candidate Pool Table -->
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee;">
+          <h3 style="color: #333; margin-top: 0; margin-bottom: 10px;">📋 All ${poolCount} Candidates Considered</h3>
+          <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Pytrends pool data (type, seen count, interest scores) vs SERP scores (0-100 scale)</p>
+          ${candidatePoolHtml}
         </div>
         
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
@@ -751,7 +893,7 @@ async function sendAdminEmail(
       </div>
       
       <div style="padding: 15px; background: #333; color: #999; text-align: center; font-size: 12px;">
-        <p style="margin: 0;">Automated email from Wavealokam Blog System</p>
+        <p style="margin: 0;">Automated email from Wavealokam Blog System | Triggered by: ${runMetadata?.triggered_by || 'unknown'}</p>
       </div>
     </div>
   `;
@@ -765,7 +907,7 @@ async function sendAdminEmail(
     body: JSON.stringify({
       from: 'Wavealokam Blog <onboarding@resend.dev>',
       to: ['sudevsudev1@gmail.com'],
-      subject: `Wavealokam Sunday Blog Published: ${post.title}`,
+      subject: `Wavealokam ${runMetadata?.selector_name === 'seasonal' ? 'Wednesday' : 'Sunday'} Blog Published: ${post.title}`,
       html: emailHtml,
     }),
   });
@@ -802,16 +944,25 @@ Deno.serve(async (req) => {
       postType: 'weekly' | 'seasonal';
       themeId?: string;
       selectionReasoning: string;
+      classification?: string;
+      candidatePoolCount?: number;
+      serpCacheHits?: number;
+      serpApiCalls?: number;
     } | null = null;
     
     let trigger = 'manual';
+    let runMetadata: RunMetadata | null = null;
     
     try {
       const body = await req.json();
       if (body.topic) {
         providedTopic = body.topic;
         trigger = body.trigger || 'selector';
+        runMetadata = body.runMetadata || null;
         console.log(`Received topic payload from ${trigger}: ${providedTopic!.primaryKeyword}`);
+        if (runMetadata) {
+          console.log(`Run metadata: ${runMetadata.candidate_pool_count} candidates, ${runMetadata.serp_cache_hits_count} cache hits`);
+        }
       }
     } catch {
       // No body or invalid JSON - use default topic selection
@@ -1030,18 +1181,27 @@ Deno.serve(async (req) => {
     if (resendKey) {
       try {
         const blogUrl = `https://wavealokam.com/blog/${result.slug}`;
+        
+        // Determine classification - prefer the one from providedTopic, fall back to trendResearch
+        let classification = 'Evergreen';
+        if (providedTopic?.classification) {
+          classification = providedTopic.classification;
+        } else if (trendResearch.chosenTopic) {
+          classification = CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification];
+        }
+        
         await sendAdminEmail({
           title: result.title,
           slug: result.slug,
           primary: selectedTopic.primary,
-          classification: trendResearch.chosenTopic ? CLASSIFICATION_LABELS[trendResearch.chosenTopic.classification] : 'Evergreen',
+          classification,
           timingChoice: trendResearch.timingChoice,
           metaTitle: result.metaTitle,
           metaDescription: result.metaDescription,
           internalLinks,
           selectionReasoning: trendResearch.selectionReasoning,
           priorityExplanation: trendResearch.priorityExplanation,
-        }, result.adminNotes, resendKey, blogUrl);
+        }, result.adminNotes, resendKey, blogUrl, runMetadata);
         console.log('Admin email sent');
       } catch (emailError) {
         console.error('Email error (non-fatal):', emailError);
