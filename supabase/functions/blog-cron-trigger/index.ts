@@ -1,21 +1,30 @@
- import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
- 
- const corsHeaders = {
-   'Access-Control-Allow-Origin': '*',
-   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
- };
- 
- serve(async (req: Request) => {
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const url = new URL(req.url);
+
+  // Health check endpoint (no auth required)
+  if (req.method === 'GET' && !url.searchParams.has('token')) {
+    return new Response(
+      JSON.stringify({ ok: true, function: 'blog-cron-trigger', version: 'v2' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
+  }
+
   try {
-    // Validate secret token
-    const url = new URL(req.url);
+    // Validate secret token (V2)
     const token = url.searchParams.get('token');
-    const expectedToken = Deno.env.get('BLOG_CRON_SECRET');
+    const expectedToken = Deno.env.get('WAVEALOKAM_BLOG_CRON_SECRET_V2');
     
     if (!token || token !== expectedToken) {
       console.error('Invalid or missing token');
@@ -27,6 +36,9 @@
         }
       );
     }
+    
+    // Check for test mode
+    const isTestMode = url.searchParams.get('test') === 'true';
     
     // Determine which selector to call based on current day (Asia/Kolkata timezone)
     // Sunday = 0, Wednesday = 3
@@ -69,7 +81,7 @@
       );
     }
     
-    console.log(`Cron trigger: Starting ${selectorName} blog generation...`);
+    console.log(`Cron trigger (v2): Starting ${selectorName} blog generation...${isTestMode ? ' [TEST MODE]' : ''}`);
     
     // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -84,7 +96,10 @@
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseServiceKey}`,
       },
-      body: JSON.stringify({ trigger: 'cron' }),
+      body: JSON.stringify({ 
+        trigger: 'cron',
+        test: isTestMode 
+      }),
     });
     
     const result = await response.json();
@@ -100,6 +115,8 @@
       JSON.stringify({
         success: true,
         selector: selectorName,
+        version: 'v2',
+        test_mode: isTestMode,
         message: result.skipped 
           ? `${selectorName} selector skipped: ${result.reason}` 
           : `${selectorName} blog post generated and published`,
