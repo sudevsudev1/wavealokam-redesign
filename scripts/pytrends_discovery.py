@@ -6,22 +6,22 @@ Runs daily via GitHub Actions. NO SERP scoring - just candidate collection.
 Uses strict keyword normalization and deduplication.
 """
 
- import os
- import sys
- import time
- import re
- import json
- import urllib.request
- import urllib.error
- from datetime import datetime
- from typing import List, Dict, Any
- 
- try:
-     from pytrends.request import TrendReq
- except ImportError as e:
-     print(f"Missing dependency: {e}")
-     print("Install with: pip install pytrends")
-     sys.exit(1)
+import os
+import sys
+import time
+import re
+import json
+import urllib.request
+import urllib.error
+from datetime import datetime
+from typing import List, Dict, Any
+
+try:
+    from pytrends.request import TrendReq
+except ImportError as e:
+    print(f"Missing dependency: {e}")
+    print("Install with: pip install pytrends")
+    sys.exit(1)
 
 
 def normalize_keyword(keyword: str) -> str:
@@ -41,7 +41,7 @@ def normalize_keyword(keyword: str) -> str:
     result = keyword.lower().strip()
     
     # Normalize quotes and apostrophes
-     result = result.replace("'", "'").replace("'", "'").replace('"', '"').replace('"', '"')
+    result = result.replace("'", "'").replace("'", "'").replace('"', '"').replace('"', '"')
     
     # Collapse multiple spaces
     result = re.sub(r'\s+', ' ', result)
@@ -230,18 +230,18 @@ def main():
     print(f"Started at: {datetime.utcnow().isoformat()}")
     print("=" * 60)
     
-     # Get Edge Function endpoint and auth token
-     supabase_url = os.environ.get('SUPABASE_URL')
-     blog_cron_secret = os.environ.get('BLOG_CRON_SECRET')
+    # Get Edge Function endpoint and auth token
+    supabase_url = os.environ.get('SUPABASE_URL')
+    blog_cron_secret = os.environ.get('BLOG_CRON_SECRET')
     
-     if not supabase_url or not blog_cron_secret:
-         print("ERROR: Missing SUPABASE_URL or BLOG_CRON_SECRET environment variables")
+    if not supabase_url or not blog_cron_secret:
+        print("ERROR: Missing SUPABASE_URL or BLOG_CRON_SECRET environment variables")
         sys.exit(1)
     
-     # Construct Edge Function URL (token sent via header, not query param)
-     ingest_url = f"{supabase_url}/functions/v1/pytrends-ingest"
-     
-     # Initialize pytrends
+    # Construct Edge Function URL (token sent via header, not query param)
+    ingest_url = f"{supabase_url}/functions/v1/pytrends-ingest"
+    
+    # Initialize pytrends
     pytrends = TrendReq(hl='en-IN', tz=330)  # IST timezone
     
     # Track candidates by keyword_norm for deduplication within this run
@@ -280,37 +280,37 @@ def main():
         print("No candidates found. Exiting.")
         return
     
-     # Prepare payload for Edge Function
-     payload = {
-         'candidates': all_candidates,
-         'prune_before_days': 60
-     }
-     
-     print(f"\nSending {len(all_candidates)} candidates to Edge Function...")
-     
-     try:
-         # Send to Edge Function with auth token in header
-         data = json.dumps(payload).encode('utf-8')
-         req = urllib.request.Request(
-             ingest_url,
-             data=data,
-             headers={
-                 'Content-Type': 'application/json',
-                 'X-Cron-Secret': blog_cron_secret
-             },
-             method='POST'
-         )
-         
-         with urllib.request.urlopen(req, timeout=120) as response:
-             result = json.loads(response.read().decode('utf-8'))
-             print(f"Edge Function response: {result}")
-             
-     except urllib.error.HTTPError as e:
-         print(f"HTTP Error {e.code}: {e.read().decode('utf-8')}")
-         sys.exit(1)
-     except Exception as e:
-         print(f"Error calling Edge Function: {e}")
-         sys.exit(1)
+    # Prepare payload for Edge Function
+    payload = {
+        'candidates': all_candidates,
+        'prune_before_days': 60
+    }
+    
+    print(f"\nSending {len(all_candidates)} candidates to Edge Function...")
+    
+    try:
+        # Send to Edge Function with auth token in header
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            ingest_url,
+            data=data,
+            headers={
+                'Content-Type': 'application/json',
+                'X-Cron-Secret': blog_cron_secret
+            },
+            method='POST'
+        )
+        
+        with urllib.request.urlopen(req, timeout=120) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            print(f"Edge Function response: {result}")
+            
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error {e.code}: {e.read().decode('utf-8')}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error calling Edge Function: {e}")
+        sys.exit(1)
     
     print(f"\n{'=' * 60}")
     print(f"Discovery complete at: {datetime.utcnow().isoformat()}")
