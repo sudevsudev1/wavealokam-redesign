@@ -10,7 +10,7 @@ on:
 
 env:
    SUPABASE_URL: https://elnybcgxfjzabmrmhcrr.supabase.co
-   BLOG_CRON_SECRET: ${{ secrets.WAVEALOKAM_BLOG_CRON_SECRET_V2 }}
+   WAVEALOKAM_BLOG_CRON_SECRET_V2: ${{ secrets.WAVEALOKAM_BLOG_CRON_SECRET_V2 }}
 
 jobs:
   discover-trends:

@@ -36,7 +36,7 @@ serve(async (req) => {
   }
 
    try {
-     // Authenticate with BLOG_CRON_SECRET from header
+     // Authenticate with WAVEALOKAM_BLOG_CRON_SECRET_V2 from header
      const token = req.headers.get('x-cron-secret');
      const expectedToken = Deno.env.get('WAVEALOKAM_BLOG_CRON_SECRET_V2');
      
