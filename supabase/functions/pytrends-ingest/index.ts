@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
  
- const corsHeaders = {
-   'Access-Control-Allow-Origin': '*',
-   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
- };
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+};
  
  interface TrendCandidate {
    keyword_raw: string;
@@ -19,11 +19,22 @@ import { createClient } from "npm:@supabase/supabase-js@2";
    last_pytrends_meta?: Record<string, unknown>;
  }
  
- serve(async (req) => {
-   if (req.method === 'OPTIONS') {
-     return new Response(null, { headers: corsHeaders });
-   }
- 
+serve(async (req) => {
+  // Health check for GET requests
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({
+      ok: true,
+      function: 'pytrends-ingest',
+      version: 'v1.0.1',
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
    try {
      // Authenticate with BLOG_CRON_SECRET from header
      const token = req.headers.get('x-cron-secret');
