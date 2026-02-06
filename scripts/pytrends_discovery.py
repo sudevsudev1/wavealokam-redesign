@@ -232,10 +232,10 @@ def main():
     
     # Get Edge Function endpoint and auth token
     supabase_url = os.environ.get('SUPABASE_URL')
-    blog_cron_secret = os.environ.get('BLOG_CRON_SECRET')
+    blog_cron_secret = os.environ.get('WAVEALOKAM_BLOG_CRON_SECRET_V2')
     
     if not supabase_url or not blog_cron_secret:
-        print("ERROR: Missing SUPABASE_URL or BLOG_CRON_SECRET environment variables")
+        print("ERROR: Missing SUPABASE_URL or WAVEALOKAM_BLOG_CRON_SECRET_V2 environment variables")
         sys.exit(1)
     
     # Construct Edge Function URL (token sent via header, not query param)
