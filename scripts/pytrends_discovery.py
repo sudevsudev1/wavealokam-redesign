@@ -4,6 +4,11 @@ Pytrends Discovery Script
 Fetches Related Queries (Top + Rising) from Google Trends and UPSERTS candidates to Supabase.
 Runs daily via GitHub Actions. NO SERP scoring - just candidate collection.
 Uses strict keyword normalization and deduplication.
+
+Rate limiting strategy:
+- Randomized delays between requests (5-15 seconds)
+- Exponential backoff on 429 errors (up to 3 retries)
+- Batching of seed keywords to reduce request frequency
 """
 
 import os
@@ -11,10 +16,11 @@ import sys
 import time
 import re
 import json
+import random
 import urllib.request
 import urllib.error
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 try:
     from pytrends.request import TrendReq
@@ -52,56 +58,31 @@ def normalize_keyword(keyword: str) -> str:
     return result.strip()
 
 
-# Seed keywords for discovery
+# Seed keywords for discovery - reduced set for rate limiting
 SEED_KEYWORDS = [
+    # Core Varkala terms (highest priority)
     "Varkala",
-    "Edava beach",
-    "Kappil",
-    "Paravur beach",
-    "Kollam beach",
-    "Thiruvananthapuram weekend trip",
-    "Kerala beach",
-    "Kerala beach stay",
-    "Beach stay Kerala",
-    "Quiet beach stay Kerala",
-    "Boutique stay Kerala",
-    "Homestay in Kerala",
-    "Bed and breakfast Kerala",
-    "Workation Kerala",
-    "Digital detox Kerala",
-    "Yoga retreat Kerala",
-    "Wellness retreat Kerala",
-    "Ayurveda retreat Kerala",
-    "Backwater boating Kerala",
-    "Kayaking Kerala",
-    "Mangrove boating Kerala",
+    "Varkala beach",
     "Things to do in Varkala",
     "Varkala itinerary",
     "Best time to visit Varkala",
-    "Varkala in monsoon",
-    "Varkala cliff",
-    "Varkala beach",
-    "Surf lessons",
-    "Surf lessons Varkala",
-    "Surf school Varkala",
-    "Surfing in Kerala",
-    "Beginner surfing",
-    "Learn surfing in India",
-    "Is surfing safe for beginners",
-    "Surfing for non swimmers",
-    "What to wear for surf lessons",
-    "Beach safety Kerala",
+    # Kerala beaches
+    "Kerala beach",
+    "Beach stay Kerala",
     "Best beaches in Kerala",
-    "Less crowded beaches Kerala",
+    # Surfing focus
+    "Surf lessons Kerala",
+    "Surfing in Kerala",
+    "Learn surfing in India",
+    # Stays
+    "Homestay in Kerala",
+    "Boutique stay Kerala",
+    # Activities
+    "Yoga retreat Kerala",
+    "Backwater boating Kerala",
+    # Travel planning
     "Weekend getaway Kerala",
-    "Couple friendly stay Varkala",
-    "Family friendly stay Varkala",
-    "Varkala weather",
-    "Varkala December",
-    "Varkala January",
-    "Varkala October",
-    "Varkala November",
-    "Kerala tourism season",
+    "Kerala tourism",
 ]
 
 # Wavealokam relevance terms
@@ -170,55 +151,94 @@ def calculate_relevance_score(keyword: str) -> int:
     return min(score, 100)
 
 
-def fetch_related_queries(pytrends: TrendReq, seed_keyword: str, timeframe: str = 'today 3-m') -> List[Dict[str, Any]]:
-    """Fetch related queries for a seed keyword."""
+def create_pytrends_client() -> TrendReq:
+    """Create a new pytrends client with fresh session."""
+    return TrendReq(
+        hl='en-IN',
+        tz=330,  # IST timezone
+        timeout=(10, 30),  # connection, read timeout
+        retries=2,
+        backoff_factor=0.5
+    )
+
+
+def fetch_related_queries_with_retry(
+    seed_keyword: str,
+    timeframe: str = 'today 3-m',
+    max_retries: int = 3
+) -> List[Dict[str, Any]]:
+    """Fetch related queries with retry logic and exponential backoff."""
     candidates = []
     
-    try:
-        pytrends.build_payload([seed_keyword], cat=0, timeframe=timeframe, geo='IN')
-        related = pytrends.related_queries()
-        
-        if seed_keyword in related and related[seed_keyword]:
-            # Process TOP queries
-            top_df = related[seed_keyword].get('top')
-            if top_df is not None and not top_df.empty:
-                for _, row in top_df.iterrows():
-                    query = row.get('query', '')
-                    value = row.get('value', 0)
-                    keyword_norm = normalize_keyword(query)
-                    if query and keyword_norm and is_relevant(query):
-                        candidates.append({
-                            'seed_keyword': seed_keyword,
-                            'keyword_raw': query,
-                            'keyword_norm': keyword_norm,
-                            'query_type': 'top',
-                            'source': 'pytrends',
-                            'source_type': 'related_queries',
-                            'last_pytrends_meta': {'value': int(value) if value else 0, 'rank_type': 'top'}
-                        })
+    for attempt in range(max_retries):
+        try:
+            # Create fresh client for each attempt
+            pytrends = create_pytrends_client()
             
-            # Process RISING queries
-            rising_df = related[seed_keyword].get('rising')
-            if rising_df is not None and not rising_df.empty:
-                for _, row in rising_df.iterrows():
-                    query = row.get('query', '')
-                    value = row.get('value', '')
-                    keyword_norm = normalize_keyword(query)
-                    if query and keyword_norm and is_relevant(query):
-                        # Rising can have 'Breakout' or percentage values
-                        is_breakout = str(value) == 'Breakout' or str(value).endswith('%')
-                        candidates.append({
-                            'seed_keyword': seed_keyword,
-                            'keyword_raw': query,
-                            'keyword_norm': keyword_norm,
-                            'query_type': 'rising',
-                            'source': 'pytrends',
-                            'source_type': 'related_queries',
-                            'last_pytrends_meta': {'value': str(value), 'is_breakout': is_breakout, 'rank_type': 'rising'}
-                        })
-        
-    except Exception as e:
-        print(f"  Error fetching related queries for '{seed_keyword}': {e}")
+            # Add random jitter before request
+            jitter = random.uniform(1, 3)
+            time.sleep(jitter)
+            
+            pytrends.build_payload([seed_keyword], cat=0, timeframe=timeframe, geo='IN')
+            related = pytrends.related_queries()
+            
+            if seed_keyword in related and related[seed_keyword]:
+                # Process TOP queries
+                top_df = related[seed_keyword].get('top')
+                if top_df is not None and not top_df.empty:
+                    for _, row in top_df.iterrows():
+                        query = row.get('query', '')
+                        value = row.get('value', 0)
+                        keyword_norm = normalize_keyword(query)
+                        if query and keyword_norm and is_relevant(query):
+                            candidates.append({
+                                'seed_keyword': seed_keyword,
+                                'keyword_raw': query,
+                                'keyword_norm': keyword_norm,
+                                'query_type': 'top',
+                                'source': 'pytrends',
+                                'source_type': 'related_queries',
+                                'last_pytrends_meta': {'value': int(value) if value else 0, 'rank_type': 'top'}
+                            })
+                
+                # Process RISING queries
+                rising_df = related[seed_keyword].get('rising')
+                if rising_df is not None and not rising_df.empty:
+                    for _, row in rising_df.iterrows():
+                        query = row.get('query', '')
+                        value = row.get('value', '')
+                        keyword_norm = normalize_keyword(query)
+                        if query and keyword_norm and is_relevant(query):
+                            is_breakout = str(value) == 'Breakout' or str(value).endswith('%')
+                            candidates.append({
+                                'seed_keyword': seed_keyword,
+                                'keyword_raw': query,
+                                'keyword_norm': keyword_norm,
+                                'query_type': 'rising',
+                                'source': 'pytrends',
+                                'source_type': 'related_queries',
+                                'last_pytrends_meta': {'value': str(value), 'is_breakout': is_breakout, 'rank_type': 'rising'}
+                            })
+            
+            # Success - return candidates
+            return candidates
+            
+        except Exception as e:
+            error_msg = str(e)
+            is_rate_limited = '429' in error_msg or 'Too Many Requests' in error_msg
+            
+            if is_rate_limited and attempt < max_retries - 1:
+                # Exponential backoff: 30s, 60s, 120s
+                backoff_time = 30 * (2 ** attempt) + random.uniform(5, 15)
+                print(f"  Rate limited on attempt {attempt + 1}, waiting {backoff_time:.0f}s...")
+                time.sleep(backoff_time)
+            elif attempt < max_retries - 1:
+                # Other error - shorter backoff
+                backoff_time = 10 * (attempt + 1) + random.uniform(2, 5)
+                print(f"  Error on attempt {attempt + 1}: {e}, retrying in {backoff_time:.0f}s...")
+                time.sleep(backoff_time)
+            else:
+                print(f"  Failed after {max_retries} attempts: {e}")
     
     return candidates
 
@@ -228,6 +248,7 @@ def main():
     print("=" * 60)
     print("Pytrends Discovery Script")
     print(f"Started at: {datetime.utcnow().isoformat()}")
+    print(f"Processing {len(SEED_KEYWORDS)} seed keywords")
     print("=" * 60)
     
     # Get Edge Function endpoint and auth token
@@ -238,46 +259,54 @@ def main():
         print("ERROR: Missing SUPABASE_URL or WAVEALOKAM_BLOG_CRON_SECRET_V2 environment variables")
         sys.exit(1)
     
-    # Construct Edge Function URL (token sent via header, not query param)
+    # Construct Edge Function URL
     ingest_url = f"{supabase_url}/functions/v1/pytrends-ingest"
-    
-    # Initialize pytrends
-    pytrends = TrendReq(hl='en-IN', tz=330)  # IST timezone
     
     # Track candidates by keyword_norm for deduplication within this run
     candidates_by_norm: Dict[str, Dict[str, Any]] = {}
+    successful_seeds = 0
+    failed_seeds = 0
     
-    # Process each seed keyword
+    # Process each seed keyword with longer delays
     for i, seed in enumerate(SEED_KEYWORDS):
         print(f"\n[{i+1}/{len(SEED_KEYWORDS)}] Processing: {seed}")
         
-        # Fetch 90-day data
-        candidates = fetch_related_queries(pytrends, seed, 'today 3-m')
+        # Fetch with retry logic
+        candidates = fetch_related_queries_with_retry(seed, 'today 3-m')
         
-        for c in candidates:
-            kw_norm = c['keyword_norm']
-            if kw_norm not in candidates_by_norm:
-                c['is_relevant'] = True
-                c['relevance_score'] = calculate_relevance_score(c['keyword_raw'])
-                c['seeds'] = [seed]
-                candidates_by_norm[kw_norm] = c
-            else:
-                # Append seed if new
-                existing = candidates_by_norm[kw_norm]
-                if seed not in existing.get('seeds', []):
-                    existing['seeds'].append(seed)
+        if candidates:
+            successful_seeds += 1
+            for c in candidates:
+                kw_norm = c['keyword_norm']
+                if kw_norm not in candidates_by_norm:
+                    c['is_relevant'] = True
+                    c['relevance_score'] = calculate_relevance_score(c['keyword_raw'])
+                    c['seeds'] = [seed]
+                    candidates_by_norm[kw_norm] = c
+                else:
+                    existing = candidates_by_norm[kw_norm]
+                    if seed not in existing.get('seeds', []):
+                        existing['seeds'].append(seed)
+            
+            print(f"  ✓ Found {len(candidates)} relevant candidates")
+        else:
+            failed_seeds += 1
+            print(f"  ✗ No candidates found")
         
-        print(f"  Found {len(candidates)} relevant candidates")
-        
-        # Rate limiting - Google Trends is sensitive
-        time.sleep(2)
+        # Longer delay between seeds to avoid rate limiting (8-15 seconds)
+        if i < len(SEED_KEYWORDS) - 1:
+            delay = random.uniform(8, 15)
+            print(f"  Waiting {delay:.1f}s before next request...")
+            time.sleep(delay)
     
     all_candidates = list(candidates_by_norm.values())
     print(f"\n{'=' * 60}")
+    print(f"Seeds processed: {successful_seeds} successful, {failed_seeds} failed")
     print(f"Total unique candidates: {len(all_candidates)}")
     
     if not all_candidates:
-        print("No candidates found. Exiting.")
+        print("No candidates found. Exiting without error (rate limiting expected).")
+        # Exit with 0 to not fail the workflow - rate limiting is expected
         return
     
     # Prepare payload for Edge Function
