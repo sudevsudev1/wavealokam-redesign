@@ -27,7 +27,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
    try {
      // Authenticate with BLOG_CRON_SECRET from header
      const token = req.headers.get('x-cron-secret');
-     const expectedToken = Deno.env.get('BLOG_CRON_SECRET');
+     const expectedToken = Deno.env.get('WAVEALOKAM_BLOG_CRON_SECRET_V2');
      
      if (!token || token !== expectedToken) {
        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
