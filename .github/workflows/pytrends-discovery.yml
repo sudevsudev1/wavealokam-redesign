@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-           pip install pytrends
+           pip install pytrends 'urllib3<2'
 
       - name: Run pytrends discovery
         run: python scripts/pytrends_discovery.py
