@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Pytrends Discovery Script
-Fetches Related Queries (Top + Rising) from Google Trends and UPSERTS candidates to Supabase.
-Runs daily via GitHub Actions. NO SERP scoring - just candidate collection.
-Uses strict keyword normalization and deduplication.
+Pytrends Discovery Script - Forensic Edition v2
+Fetches Related Queries AND Related Topics from Google Trends.
+Uses seed MID (topic entity) when available for better results.
+Logs EVERYTHING with zero truncation. Produces full JSON forensic dump.
 
 Rate limiting strategy:
-- Randomized delays between requests (5-15 seconds)
+- Randomized delays between requests (8-15 seconds)
 - Exponential backoff on 429 errors (up to 3 retries)
-- Batching of seed keywords to reduce request frequency
+- Fresh session per attempt
 """
 
 import os
@@ -30,6 +30,10 @@ except ImportError as e:
     sys.exit(1)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
+
 def normalize_keyword(keyword: str) -> str:
     """
     Normalize keyword for deduplication.
@@ -43,44 +47,30 @@ def normalize_keyword(keyword: str) -> str:
     if not keyword:
         return ""
     
-    # Lowercase and strip
     result = keyword.lower().strip()
-    
-    # Normalize quotes and apostrophes
     result = result.replace("'", "'").replace("'", "'").replace('"', '"').replace('"', '"')
-    
-    # Collapse multiple spaces
     result = re.sub(r'\s+', ' ', result)
-    
-    # Strip leading/trailing punctuation (but keep internal)
     result = re.sub(r'^[^\w\s]+|[^\w\s]+$', '', result)
-    
     return result.strip()
 
 
-# Seed keywords for discovery - reduced set for rate limiting
+# Seed keywords for discovery
 SEED_KEYWORDS = [
-    # Core Varkala terms (highest priority)
     "Varkala",
     "Varkala beach",
     "Things to do in Varkala",
     "Varkala itinerary",
     "Best time to visit Varkala",
-    # Kerala beaches
     "Kerala beach",
     "Beach stay Kerala",
     "Best beaches in Kerala",
-    # Surfing focus
     "Surf lessons Kerala",
     "Surfing in Kerala",
     "Learn surfing in India",
-    # Stays
     "Homestay in Kerala",
     "Boutique stay Kerala",
-    # Activities
     "Yoga retreat Kerala",
     "Backwater boating Kerala",
-    # Travel planning
     "Weekend getaway Kerala",
     "Kerala tourism",
 ]
@@ -102,21 +92,26 @@ IRRELEVANT_TERMS = [
     'booking.com', 'airbnb', 'makemytrip', 'goibibo'
 ]
 
+# Default timeframe - can be overridden by env var
+DEFAULT_TIMEFRAME = 'today 3-m'
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════
 
 def get_rejection_reason(keyword: str) -> Optional[str]:
     """Get the reason why a keyword was rejected, or None if relevant."""
     kw_lower = keyword.lower()
     
-    # Check for irrelevant terms first
     for term in IRRELEVANT_TERMS:
         if term in kw_lower:
             return f"IRRELEVANT_TERM_MATCH: \"{term}\""
     
-    # Check if it has any relevance term
     if not any(term in kw_lower for term in RELEVANCE_TERMS):
         return "NO_RELEVANCE_TERM_MATCH"
     
-    return None  # Keyword is relevant
+    return None
 
 
 def is_relevant(keyword: str) -> bool:
@@ -129,27 +124,22 @@ def calculate_relevance_score(keyword: str) -> int:
     kw_lower = keyword.lower()
     score = 0
     
-    # Core location terms (+30 each, max 60)
     core_terms = ['varkala', 'edava', 'kappil', 'kerala']
     for term in core_terms:
         if term in kw_lower:
             score += 30
             break
     
-    # Secondary location terms (+15)
     if any(t in kw_lower for t in ['kovalam', 'trivandrum', 'thiruvananthapuram', 'kollam']):
         score += 15
     
-    # Activity terms (+20 each, max 40)
     activity_terms = ['surf', 'kayak', 'yoga', 'wellness', 'ayurveda']
     activity_count = sum(1 for t in activity_terms if t in kw_lower)
     score += min(activity_count * 20, 40)
     
-    # Stay-related terms (+15)
     if any(t in kw_lower for t in ['stay', 'homestay', 'boutique', 'b&b', 'resort', 'hotel']):
         score += 15
     
-    # Intent modifiers (+10)
     if any(t in kw_lower for t in ['beginner', 'learn', 'how to', 'best', 'guide', 'itinerary']):
         score += 10
     
@@ -160,119 +150,319 @@ def create_pytrends_client() -> TrendReq:
     """Create a new pytrends client with fresh session."""
     return TrendReq(
         hl='en-IN',
-        tz=330,  # IST timezone
-        timeout=(10, 30),  # connection, read timeout
+        tz=330,
+        timeout=(10, 30),
         retries=2,
         backoff_factor=0.5
     )
 
 
-def fetch_related_queries_with_retry(
-    seed_keyword: str,
-    timeframe: str = 'today 3-m',
-    max_retries: int = 3
-) -> Tuple[List[Dict[str, Any]], str]:
-    """
-    Fetch related queries with retry logic and exponential backoff.
-    Returns (candidates, failure_reason) where failure_reason is empty string on success.
-    """
-    candidates = []
-    failure_reason = ""
+def parse_pytrends_value(value: Any) -> Tuple[str, Optional[int]]:
+    """Parse a pytrends value into raw string and numeric representation."""
+    value_raw = str(value) if value is not None else ""
+    value_num = None
     
+    if value_raw == "Breakout":
+        value_num = None  # Breakout is not numeric
+    elif value_raw.endswith('%'):
+        try:
+            value_num = int(value_raw.replace('%', '').replace(',', ''))
+        except ValueError:
+            pass
+    else:
+        try:
+            value_num = int(value) if value is not None else None
+        except (ValueError, TypeError):
+            pass
+    
+    return value_raw, value_num
+
+
+def get_suggestions_for_seed(pytrends: TrendReq, seed: str) -> List[Dict[str, Any]]:
+    """Get suggestions from pytrends and return the full list (no truncation)."""
+    try:
+        suggestions = pytrends.suggestions(seed)
+        return suggestions if suggestions else []
+    except Exception as e:
+        print(f"    Suggestions API error: {e}")
+        return []
+
+
+def choose_best_mid(suggestions: List[Dict[str, Any]], seed_text: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """
+    Choose the best MID from suggestions.
+    Prefers place/travel topics, then exact/partial text matches.
+    Returns (mid, full_suggestion_obj) or (None, None).
+    """
+    if not suggestions:
+        return None, None
+    
+    seed_lower = seed_text.lower()
+    
+    # Priority types for travel/place topics
+    priority_types = ['Tourist destination', 'City', 'Town', 'Beach', 'Place', 'Resort', 'Region', 'Neighborhood', 'Tourist attraction']
+    
+    # First pass: look for priority types with good text match
+    for sug in suggestions:
+        sug_type = sug.get('type', '')
+        sug_title = sug.get('title', '').lower()
+        sug_mid = sug.get('mid')
+        
+        if not sug_mid:
+            continue
+        
+        # Check if type is priority and title matches seed
+        is_priority_type = any(pt.lower() in sug_type.lower() for pt in priority_types)
+        title_matches = seed_lower in sug_title or sug_title in seed_lower
+        
+        if is_priority_type and title_matches:
+            return sug_mid, sug
+    
+    # Second pass: any with a mid that has good text match
+    for sug in suggestions:
+        sug_title = sug.get('title', '').lower()
+        sug_mid = sug.get('mid')
+        
+        if not sug_mid:
+            continue
+        
+        if seed_lower in sug_title or sug_title in seed_lower:
+            return sug_mid, sug
+    
+    # Third pass: first one with a mid
+    for sug in suggestions:
+        if sug.get('mid'):
+            return sug['mid'], sug
+    
+    return None, None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DATA COLLECTION
+# ═══════════════════════════════════════════════════════════════════════════
+
+def fetch_related_data_for_seed(
+    seed_original: str,
+    seed_mid: Optional[str],
+    seed_mode: str,
+    timeframe: str,
+    geo: str,
+    max_retries: int = 3
+) -> Dict[str, Any]:
+    """
+    Fetch both related_queries and related_topics for a seed.
+    Returns a dict with all raw data and failure reasons.
+    """
+    result = {
+        'seed_original': seed_original,
+        'seed_mid': seed_mid,
+        'seed_mode': seed_mode,
+        'timeframe': timeframe,
+        'geo': geo,
+        'queries_top': [],
+        'queries_rising': [],
+        'topics_top': [],
+        'topics_rising': [],
+        'queries_failure': None,
+        'topics_failure': None,
+        'raw_queries_response_keys': [],
+        'raw_topics_response_keys': [],
+    }
+    
+    # Determine what to use for payload
+    payload_kw = seed_mid if seed_mode == 'mid' and seed_mid else seed_original
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # RELATED QUERIES
+    # ─────────────────────────────────────────────────────────────────────
     for attempt in range(max_retries):
         try:
-            # Create fresh client for each attempt
             pytrends = create_pytrends_client()
+            time.sleep(random.uniform(1, 3))
             
-            # Add random jitter before request
-            jitter = random.uniform(1, 3)
-            time.sleep(jitter)
-            
-            pytrends.build_payload([seed_keyword], cat=0, timeframe=timeframe, geo='IN')
+            pytrends.build_payload([payload_kw], cat=0, timeframe=timeframe, geo=geo)
             related = pytrends.related_queries()
             
-            if seed_keyword in related and related[seed_keyword]:
-                # Process TOP queries
-                top_df = related[seed_keyword].get('top')
+            result['raw_queries_response_keys'] = list(related.keys()) if related else []
+            
+            if payload_kw in related and related[payload_kw]:
+                # TOP queries
+                top_df = related[payload_kw].get('top')
                 if top_df is not None and not top_df.empty:
-                    for _, row in top_df.iterrows():
+                    for idx, row in top_df.iterrows():
                         query = row.get('query', '')
                         value = row.get('value', 0)
+                        value_raw, value_num = parse_pytrends_value(value)
                         keyword_norm = normalize_keyword(query)
                         if query and keyword_norm:
-                            candidates.append({
-                                'seed_keyword': seed_keyword,
+                            result['queries_top'].append({
                                 'keyword_raw': query,
                                 'keyword_norm': keyword_norm,
-                                'query_type': 'top',
-                                'source': 'related_queries',
-                                'source_type': 'related_queries',
-                                'last_pytrends_meta': {'value': int(value) if value else 0, 'rank_type': 'top'}
+                                'pytrends_value_raw': value_raw,
+                                'pytrends_value_num': value_num,
+                                'rank_type': 'top',
+                                'item_kind': 'query',
+                                'topic_mid': None,
                             })
                 
-                # Process RISING queries
-                rising_df = related[seed_keyword].get('rising')
+                # RISING queries
+                rising_df = related[payload_kw].get('rising')
                 if rising_df is not None and not rising_df.empty:
-                    for _, row in rising_df.iterrows():
+                    for idx, row in rising_df.iterrows():
                         query = row.get('query', '')
                         value = row.get('value', '')
+                        value_raw, value_num = parse_pytrends_value(value)
                         keyword_norm = normalize_keyword(query)
                         if query and keyword_norm:
-                            is_breakout = str(value) == 'Breakout' or str(value).endswith('%')
-                            candidates.append({
-                                'seed_keyword': seed_keyword,
+                            result['queries_rising'].append({
                                 'keyword_raw': query,
                                 'keyword_norm': keyword_norm,
-                                'query_type': 'rising',
-                                'source': 'related_queries',
-                                'source_type': 'related_queries',
-                                'last_pytrends_meta': {'value': str(value), 'is_breakout': is_breakout, 'rank_type': 'rising'}
+                                'pytrends_value_raw': value_raw,
+                                'pytrends_value_num': value_num,
+                                'rank_type': 'rising',
+                                'item_kind': 'query',
+                                'topic_mid': None,
                             })
                 
-                # Success - return candidates (may be empty if both dataframes were empty)
-                if not candidates:
-                    failure_reason = "related_queries empty"
-                return candidates, failure_reason
+                break  # Success
             else:
-                # related_queries returned but no data for this seed
-                failure_reason = "related_queries empty"
-                return candidates, failure_reason
-            
+                result['queries_failure'] = 'related_queries empty'
+                break
+                
         except Exception as e:
             error_msg = str(e)
             is_rate_limited = '429' in error_msg or 'Too Many Requests' in error_msg
             
             if is_rate_limited:
-                failure_reason = "rate-limited"
+                result['queries_failure'] = 'rate-limited'
                 if attempt < max_retries - 1:
-                    # Exponential backoff: 30s, 60s, 120s
-                    backoff_time = 30 * (2 ** attempt) + random.uniform(5, 15)
-                    print(f"  Rate limited on attempt {attempt + 1}, waiting {backoff_time:.0f}s...")
-                    time.sleep(backoff_time)
+                    backoff = 30 * (2 ** attempt) + random.uniform(5, 15)
+                    print(f"      Queries rate-limited, waiting {backoff:.0f}s...")
+                    time.sleep(backoff)
                 else:
-                    print(f"  Failed after {max_retries} attempts: rate-limited")
+                    print(f"      Queries failed after {max_retries} attempts: rate-limited")
+                    break
             else:
-                failure_reason = f"exception: {error_msg[:100]}"
+                result['queries_failure'] = f'exception: {error_msg[:200]}'
                 if attempt < max_retries - 1:
-                    # Other error - shorter backoff
-                    backoff_time = 10 * (attempt + 1) + random.uniform(2, 5)
-                    print(f"  Error on attempt {attempt + 1}: {e}, retrying in {backoff_time:.0f}s...")
-                    time.sleep(backoff_time)
+                    backoff = 10 * (attempt + 1) + random.uniform(2, 5)
+                    print(f"      Queries error: {e}, retrying in {backoff:.0f}s...")
+                    time.sleep(backoff)
                 else:
-                    print(f"  Failed after {max_retries} attempts: {e}")
+                    print(f"      Queries failed after {max_retries} attempts: {e}")
+                    break
     
-    return candidates, failure_reason
+    # Delay before topics request
+    time.sleep(random.uniform(3, 6))
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # RELATED TOPICS
+    # ─────────────────────────────────────────────────────────────────────
+    for attempt in range(max_retries):
+        try:
+            pytrends = create_pytrends_client()
+            time.sleep(random.uniform(1, 3))
+            
+            pytrends.build_payload([payload_kw], cat=0, timeframe=timeframe, geo=geo)
+            topics = pytrends.related_topics()
+            
+            result['raw_topics_response_keys'] = list(topics.keys()) if topics else []
+            
+            if payload_kw in topics and topics[payload_kw]:
+                # TOP topics
+                top_df = topics[payload_kw].get('top')
+                if top_df is not None and not top_df.empty:
+                    for idx, row in top_df.iterrows():
+                        # Topics have 'topic_title', 'topic_mid', 'topic_type', 'value'
+                        topic_title = row.get('topic_title', '')
+                        topic_mid = row.get('topic_mid', '')
+                        topic_type = row.get('topic_type', '')
+                        value = row.get('value', 0)
+                        value_raw, value_num = parse_pytrends_value(value)
+                        keyword_norm = normalize_keyword(topic_title)
+                        if topic_title and keyword_norm:
+                            result['topics_top'].append({
+                                'keyword_raw': topic_title,
+                                'keyword_norm': keyword_norm,
+                                'pytrends_value_raw': value_raw,
+                                'pytrends_value_num': value_num,
+                                'rank_type': 'top',
+                                'item_kind': 'topic',
+                                'topic_mid': topic_mid or None,
+                                'topic_type': topic_type,
+                            })
+                
+                # RISING topics
+                rising_df = topics[payload_kw].get('rising')
+                if rising_df is not None and not rising_df.empty:
+                    for idx, row in rising_df.iterrows():
+                        topic_title = row.get('topic_title', '')
+                        topic_mid = row.get('topic_mid', '')
+                        topic_type = row.get('topic_type', '')
+                        value = row.get('value', '')
+                        value_raw, value_num = parse_pytrends_value(value)
+                        keyword_norm = normalize_keyword(topic_title)
+                        if topic_title and keyword_norm:
+                            result['topics_rising'].append({
+                                'keyword_raw': topic_title,
+                                'keyword_norm': keyword_norm,
+                                'pytrends_value_raw': value_raw,
+                                'pytrends_value_num': value_num,
+                                'rank_type': 'rising',
+                                'item_kind': 'topic',
+                                'topic_mid': topic_mid or None,
+                                'topic_type': topic_type,
+                            })
+                
+                break  # Success
+            else:
+                result['topics_failure'] = 'related_topics empty'
+                break
+                
+        except Exception as e:
+            error_msg = str(e)
+            is_rate_limited = '429' in error_msg or 'Too Many Requests' in error_msg
+            
+            if is_rate_limited:
+                result['topics_failure'] = 'rate-limited'
+                if attempt < max_retries - 1:
+                    backoff = 30 * (2 ** attempt) + random.uniform(5, 15)
+                    print(f"      Topics rate-limited, waiting {backoff:.0f}s...")
+                    time.sleep(backoff)
+                else:
+                    print(f"      Topics failed after {max_retries} attempts: rate-limited")
+                    break
+            else:
+                result['topics_failure'] = f'exception: {error_msg[:200]}'
+                if attempt < max_retries - 1:
+                    backoff = 10 * (attempt + 1) + random.uniform(2, 5)
+                    print(f"      Topics error: {e}, retrying in {backoff:.0f}s...")
+                    time.sleep(backoff)
+                else:
+                    print(f"      Topics failed after {max_retries} attempts: {e}")
+                    break
+    
+    return result
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════
 
 def main():
-    """Main discovery function."""
-    print("=" * 70)
-    print("Pytrends Discovery Script")
-    print(f"Started at: {datetime.utcnow().isoformat()}")
-    print(f"Processing {len(SEED_KEYWORDS)} seed keywords")
-    print("=" * 70)
+    """Main discovery function with full forensic logging."""
+    run_start = datetime.utcnow()
+    run_timestamp = run_start.strftime('%Y%m%d_%H%M%S')
     
-    # Get Edge Function endpoint and auth token
+    print("=" * 80)
+    print("PYTRENDS DISCOVERY SCRIPT - FORENSIC EDITION v2")
+    print(f"Started at: {run_start.isoformat()}")
+    print(f"Processing {len(SEED_KEYWORDS)} seed keywords")
+    print("=" * 80)
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # ENVIRONMENT & CONFIG
+    # ─────────────────────────────────────────────────────────────────────
     supabase_url = os.environ.get('SUPABASE_URL')
     blog_cron_secret = os.environ.get('WAVEALOKAM_BLOG_CRON_SECRET_V2')
     
@@ -280,181 +470,429 @@ def main():
         print("ERROR: Missing SUPABASE_URL or WAVEALOKAM_BLOG_CRON_SECRET_V2 environment variables")
         sys.exit(1)
     
-    # Construct Edge Function URL
     ingest_url = f"{supabase_url}/functions/v1/pytrends-ingest"
     
-    # Track candidates by keyword_norm for deduplication within this run
-    candidates_by_norm: Dict[str, Dict[str, Any]] = {}
-    successful_seeds = 0
-    failed_seeds = 0
+    # Timeframes - can be overridden by env var
+    timeframes_env = os.environ.get('PYTRENDS_TIMEFRAMES', DEFAULT_TIMEFRAME)
+    timeframes = [tf.strip() for tf in timeframes_env.split(',') if tf.strip()]
     
-    # Track all kept candidates before global dedupe
-    all_kept_before_dedupe = 0
+    geo = 'IN'
     
-    # Track per-seed stats for summary
-    seed_stats: List[Dict[str, Any]] = []
+    print(f"\nConfiguration:")
+    print(f"  Timeframes: {timeframes}")
+    print(f"  Geo: {geo}")
+    print(f"  Ingest URL: {ingest_url}")
     
-    # Process each seed keyword with longer delays
-    for i, seed in enumerate(SEED_KEYWORDS):
-        print(f"\n{'─' * 70}")
-        print(f"[{i+1}/{len(SEED_KEYWORDS)}] Processing: {seed}")
-        print("─" * 70)
+    # ─────────────────────────────────────────────────────────────────────
+    # FORENSIC DUMP STRUCTURE
+    # ─────────────────────────────────────────────────────────────────────
+    forensic_dump = {
+        'run_metadata': {
+            'start_time': run_start.isoformat(),
+            'timeframes': timeframes,
+            'geo': geo,
+            'seed_count': len(SEED_KEYWORDS),
+            'seeds': SEED_KEYWORDS,
+        },
+        'per_seed': [],
+        'global': {
+            'canonical_mapping': {},
+            'all_raw_items': [],
+            'total_raw_items': 0,
+            'total_unique_after_dedupe': 0,
+            'final_upsert_count': 0,
+        }
+    }
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # PROCESSING LOOP
+    # ─────────────────────────────────────────────────────────────────────
+    all_raw_items: List[Dict[str, Any]] = []
+    canonical_map: Dict[str, List[Dict[str, Any]]] = {}  # keyword_norm -> list of source items
+    
+    for seed_idx, seed in enumerate(SEED_KEYWORDS):
+        print(f"\n{'═' * 80}")
+        print(f"[{seed_idx+1}/{len(SEED_KEYWORDS)}] SEED: {seed}")
+        print("═" * 80)
         
-        # Fetch with retry logic - now returns all candidates (not pre-filtered)
-        raw_candidates, failure_reason = fetch_related_queries_with_retry(seed, 'today 3-m')
+        seed_forensic = {
+            'seed_original': seed,
+            'suggestions': [],
+            'chosen_mid': None,
+            'chosen_suggestion': None,
+            'timeframes_data': [],
+            'relevance_decisions': [],
+            'rejection_reasons': [],
+            'local_dedupe': {},
+        }
         
-        # Count raw by type
-        raw_top_count = sum(1 for c in raw_candidates if c['query_type'] == 'top')
-        raw_rising_count = sum(1 for c in raw_candidates if c['query_type'] == 'rising')
+        # ─────────────────────────────────────────────────────────────────
+        # STEP 1: GET SUGGESTIONS & CHOOSE MID
+        # ─────────────────────────────────────────────────────────────────
+        print(f"\n  [1] SUGGESTIONS FOR: {seed}")
+        print("  " + "-" * 70)
         
-        print(f"  Raw counts: top={raw_top_count}, rising={raw_rising_count}")
+        pytrends = create_pytrends_client()
+        suggestions = get_suggestions_for_seed(pytrends, seed)
+        seed_forensic['suggestions'] = suggestions
         
-        if not raw_candidates:
-            failed_seeds += 1
-            print(f"  ✗ No candidates: {failure_reason}")
-            seed_stats.append({
-                'seed': seed,
-                'raw_top': 0,
-                'raw_rising': 0,
-                'kept': 0,
-                'rejected': 0,
-                'failure_reason': failure_reason
-            })
+        print(f"  Total suggestions returned: {len(suggestions)}")
+        for i, sug in enumerate(suggestions):
+            print(f"    [{i+1}] mid={sug.get('mid')}, type=\"{sug.get('type')}\", title=\"{sug.get('title')}\"")
+        
+        chosen_mid, chosen_sug = choose_best_mid(suggestions, seed)
+        seed_forensic['chosen_mid'] = chosen_mid
+        seed_forensic['chosen_suggestion'] = chosen_sug
+        
+        seed_mode = 'mid' if chosen_mid else 'text'
+        
+        print(f"\n  Chosen MID: {chosen_mid or 'NONE (using text)'}")
+        if chosen_sug:
+            print(f"  Chosen suggestion: {json.dumps(chosen_sug)}")
+        
+        # ─────────────────────────────────────────────────────────────────
+        # STEP 2: FETCH DATA FOR EACH TIMEFRAME
+        # ─────────────────────────────────────────────────────────────────
+        seed_raw_items: List[Dict[str, Any]] = []
+        
+        for tf in timeframes:
+            print(f"\n  [2] FETCHING TIMEFRAME: {tf}")
+            print("  " + "-" * 70)
             
-            # Longer delay between seeds to avoid rate limiting (8-15 seconds)
-            if i < len(SEED_KEYWORDS) - 1:
+            # Delay between timeframes
+            if timeframes.index(tf) > 0:
                 delay = random.uniform(8, 15)
-                print(f"  Waiting {delay:.1f}s before next request...")
+                print(f"    Waiting {delay:.1f}s before timeframe {tf}...")
                 time.sleep(delay)
-            continue
+            
+            data = fetch_related_data_for_seed(
+                seed_original=seed,
+                seed_mid=chosen_mid,
+                seed_mode=seed_mode,
+                timeframe=tf,
+                geo=geo
+            )
+            
+            tf_data = {
+                'timeframe': tf,
+                'queries_top_count': len(data['queries_top']),
+                'queries_rising_count': len(data['queries_rising']),
+                'topics_top_count': len(data['topics_top']),
+                'topics_rising_count': len(data['topics_rising']),
+                'queries_failure': data['queries_failure'],
+                'topics_failure': data['topics_failure'],
+                'raw_queries_response_keys': data['raw_queries_response_keys'],
+                'raw_topics_response_keys': data['raw_topics_response_keys'],
+                'queries_top': data['queries_top'],
+                'queries_rising': data['queries_rising'],
+                'topics_top': data['topics_top'],
+                'topics_rising': data['topics_rising'],
+            }
+            seed_forensic['timeframes_data'].append(tf_data)
+            
+            # ─────────────────────────────────────────────────────────────
+            # PRINT RELATED_QUERIES.TOP (ALL ROWS)
+            # ─────────────────────────────────────────────────────────────
+            print(f"\n    RELATED_QUERIES.TOP (N={len(data['queries_top'])}):")
+            if data['queries_failure'] and not data['queries_top']:
+                print(f"      [FAILURE: {data['queries_failure']}]")
+            for item in data['queries_top']:
+                print(f"      - \"{item['keyword_raw']}\" | value={item['pytrends_value_raw']} | norm=\"{item['keyword_norm']}\"")
+            
+            # ─────────────────────────────────────────────────────────────
+            # PRINT RELATED_QUERIES.RISING (ALL ROWS)
+            # ─────────────────────────────────────────────────────────────
+            print(f"\n    RELATED_QUERIES.RISING (N={len(data['queries_rising'])}):")
+            for item in data['queries_rising']:
+                print(f"      - \"{item['keyword_raw']}\" | value={item['pytrends_value_raw']} | norm=\"{item['keyword_norm']}\"")
+            
+            # ─────────────────────────────────────────────────────────────
+            # PRINT RELATED_TOPICS.TOP (ALL ROWS)
+            # ─────────────────────────────────────────────────────────────
+            print(f"\n    RELATED_TOPICS.TOP (N={len(data['topics_top'])}):")
+            if data['topics_failure'] and not data['topics_top']:
+                print(f"      [FAILURE: {data['topics_failure']}]")
+            for item in data['topics_top']:
+                print(f"      - \"{item['keyword_raw']}\" | mid={item.get('topic_mid')} | type=\"{item.get('topic_type', '')}\" | value={item['pytrends_value_raw']}")
+            
+            # ─────────────────────────────────────────────────────────────
+            # PRINT RELATED_TOPICS.RISING (ALL ROWS)
+            # ─────────────────────────────────────────────────────────────
+            print(f"\n    RELATED_TOPICS.RISING (N={len(data['topics_rising'])}):")
+            for item in data['topics_rising']:
+                print(f"      - \"{item['keyword_raw']}\" | mid={item.get('topic_mid')} | type=\"{item.get('topic_type', '')}\" | value={item['pytrends_value_raw']}")
+            
+            # ─────────────────────────────────────────────────────────────
+            # ALL ZEROS ANOMALY CHECK
+            # ─────────────────────────────────────────────────────────────
+            total_items = len(data['queries_top']) + len(data['queries_rising']) + len(data['topics_top']) + len(data['topics_rising'])
+            if total_items == 0:
+                print(f"\n    ⚠️  ALL ZEROS ANOMALY DETECTED")
+                print(f"       seed_original: {seed}")
+                print(f"       seed_mid: {chosen_mid}")
+                print(f"       seed_mode: {seed_mode}")
+                print(f"       timeframe: {tf}")
+                print(f"       geo: {geo}")
+                print(f"       queries_failure: {data['queries_failure']}")
+                print(f"       topics_failure: {data['topics_failure']}")
+                print(f"       raw_queries_response_keys: {data['raw_queries_response_keys']}")
+                print(f"       raw_topics_response_keys: {data['raw_topics_response_keys']}")
+            
+            # ─────────────────────────────────────────────────────────────
+            # BUILD RAW ITEMS FOR THIS TIMEFRAME
+            # ─────────────────────────────────────────────────────────────
+            all_groups = [
+                ('related_queries', data['queries_top']),
+                ('related_queries', data['queries_rising']),
+                ('related_topics', data['topics_top']),
+                ('related_topics', data['topics_rising']),
+            ]
+            
+            for source_type, items in all_groups:
+                for item in items:
+                    raw_item = {
+                        'seed_original': seed,
+                        'seed_mode': seed_mode,
+                        'seed_mid': chosen_mid,
+                        'item_kind': item['item_kind'],
+                        'rank_type': item['rank_type'],
+                        'keyword_raw': item['keyword_raw'],
+                        'keyword_norm': item['keyword_norm'],
+                        'pytrends_value_raw': item['pytrends_value_raw'],
+                        'pytrends_value_num': item['pytrends_value_num'],
+                        'topic_mid': item.get('topic_mid'),
+                        'source': 'pytrends',
+                        'source_type': source_type,
+                        'timeframe_used': tf,
+                        'geo_used': geo,
+                        # Relevance will be computed next
+                        'is_relevant': None,
+                        'rejection_reason': None,
+                    }
+                    seed_raw_items.append(raw_item)
         
-        # Apply relevance filter
-        kept_candidates = []
-        rejected_candidates = []
+        # ─────────────────────────────────────────────────────────────────
+        # STEP 3: RELEVANCE FILTERING (NON-DESTRUCTIVE)
+        # ─────────────────────────────────────────────────────────────────
+        print(f"\n  [3] RELEVANCE FILTERING")
+        print("  " + "-" * 70)
         
-        for c in raw_candidates:
-            reason = get_rejection_reason(c['keyword_raw'])
+        relevant_count = 0
+        rejected_list = []
+        
+        for item in seed_raw_items:
+            reason = get_rejection_reason(item['keyword_raw'])
             if reason is None:
-                kept_candidates.append(c)
+                item['is_relevant'] = True
+                item['rejection_reason'] = None
+                relevant_count += 1
             else:
-                rejected_candidates.append({
-                    'keyword': c['keyword_raw'],
-                    'reason': reason
+                item['is_relevant'] = False
+                item['rejection_reason'] = reason
+                rejected_list.append({
+                    'keyword_raw': item['keyword_raw'],
+                    'reason': reason,
                 })
         
-        print(f"  After relevance filter: kept={len(kept_candidates)}, rejected={len(rejected_candidates)}")
+        seed_forensic['relevance_decisions'] = {
+            'total_items': len(seed_raw_items),
+            'relevant': relevant_count,
+            'rejected': len(rejected_list),
+        }
+        seed_forensic['rejection_reasons'] = rejected_list
         
-        # Print first 10 rejected with reasons
-        if rejected_candidates:
-            print(f"  First {min(10, len(rejected_candidates))} rejected:")
-            for rej in rejected_candidates[:10]:
-                print(f"    - \"{rej['keyword'][:40]}\" → {rej['reason']}")
+        print(f"  Total items: {len(seed_raw_items)}")
+        print(f"  Relevant: {relevant_count}")
+        print(f"  Rejected: {len(rejected_list)}")
         
-        # Dedupe within this seed
-        before_dedupe = len(kept_candidates)
-        local_seen = set()
-        deduped_kept = []
-        for c in kept_candidates:
-            if c['keyword_norm'] not in local_seen:
-                local_seen.add(c['keyword_norm'])
-                deduped_kept.append(c)
-        after_dedupe = len(deduped_kept)
+        # Print ALL rejected (no truncation)
+        if rejected_list:
+            print(f"\n  ALL REJECTED ITEMS ({len(rejected_list)}):")
+            for rej in rejected_list:
+                print(f"    - \"{rej['keyword_raw']}\" → {rej['reason']}")
         
-        print(f"  Dedupe within seed: {before_dedupe} → {after_dedupe}")
+        # ─────────────────────────────────────────────────────────────────
+        # STEP 4: LOCAL DEDUPE WITHIN SEED
+        # ─────────────────────────────────────────────────────────────────
+        print(f"\n  [4] LOCAL DEDUPE WITHIN SEED")
+        print("  " + "-" * 70)
         
-        # Track stats
-        seed_stats.append({
-            'seed': seed,
-            'raw_top': raw_top_count,
-            'raw_rising': raw_rising_count,
-            'kept': len(deduped_kept),
-            'rejected': len(rejected_candidates),
-            'failure_reason': None
-        })
+        local_dedupe_map: Dict[str, List[Dict[str, Any]]] = {}
+        for item in seed_raw_items:
+            kn = item['keyword_norm']
+            if kn not in local_dedupe_map:
+                local_dedupe_map[kn] = []
+            local_dedupe_map[kn].append({
+                'keyword_raw': item['keyword_raw'],
+                'item_kind': item['item_kind'],
+                'rank_type': item['rank_type'],
+                'source_type': item['source_type'],
+                'timeframe': item['timeframe_used'],
+                'is_relevant': item['is_relevant'],
+            })
         
-        # Add to global pool
-        if deduped_kept:
-            successful_seeds += 1
-            all_kept_before_dedupe += len(deduped_kept)
-            
-            for c in deduped_kept:
-                kw_norm = c['keyword_norm']
-                if kw_norm not in candidates_by_norm:
-                    c['is_relevant'] = True
-                    c['relevance_score'] = calculate_relevance_score(c['keyword_raw'])
-                    c['seeds'] = [seed]
-                    candidates_by_norm[kw_norm] = c
-                else:
-                    existing = candidates_by_norm[kw_norm]
-                    if seed not in existing.get('seeds', []):
-                        existing['seeds'].append(seed)
-            
-            print(f"  ✓ Added {len(deduped_kept)} relevant candidates to global pool")
-        else:
-            failed_seeds += 1
-            print(f"  ✗ No candidates after relevance filter")
+        seed_forensic['local_dedupe'] = local_dedupe_map
         
-        # Longer delay between seeds to avoid rate limiting (8-15 seconds)
-        if i < len(SEED_KEYWORDS) - 1:
+        dupes_found = sum(1 for v in local_dedupe_map.values() if len(v) > 1)
+        print(f"  Unique keyword_norms: {len(local_dedupe_map)}")
+        print(f"  Keywords with duplicates: {dupes_found}")
+        
+        # Print full local dedupe mapping (no truncation)
+        print(f"\n  FULL LOCAL DEDUPE MAPPING:")
+        for kn, sources in local_dedupe_map.items():
+            print(f"    \"{kn}\" ({len(sources)} sources):")
+            for src in sources:
+                print(f"      - raw=\"{src['keyword_raw']}\" | {src['item_kind']}/{src['rank_type']} | {src['source_type']} | tf={src['timeframe']} | relevant={src['is_relevant']}")
+        
+        # ─────────────────────────────────────────────────────────────────
+        # ADD TO GLOBAL POOL
+        # ─────────────────────────────────────────────────────────────────
+        all_raw_items.extend(seed_raw_items)
+        
+        for item in seed_raw_items:
+            kn = item['keyword_norm']
+            if kn not in canonical_map:
+                canonical_map[kn] = []
+            canonical_map[kn].append({
+                'keyword_raw': item['keyword_raw'],
+                'seed_original': item['seed_original'],
+                'seed_mid': item['seed_mid'],
+                'item_kind': item['item_kind'],
+                'rank_type': item['rank_type'],
+                'source_type': item['source_type'],
+                'timeframe': item['timeframe_used'],
+                'is_relevant': item['is_relevant'],
+                'rejection_reason': item['rejection_reason'],
+            })
+        
+        forensic_dump['per_seed'].append(seed_forensic)
+        
+        print(f"\n  Added {len(seed_raw_items)} items to global pool")
+        
+        # Delay between seeds
+        if seed_idx < len(SEED_KEYWORDS) - 1:
             delay = random.uniform(8, 15)
-            print(f"  Waiting {delay:.1f}s before next request...")
+            print(f"\n  Waiting {delay:.1f}s before next seed...")
             time.sleep(delay)
     
     # ═══════════════════════════════════════════════════════════════════════
     # GLOBAL SUMMARY
     # ═══════════════════════════════════════════════════════════════════════
-    all_candidates = list(candidates_by_norm.values())
-    
-    print(f"\n{'═' * 70}")
+    print(f"\n{'═' * 80}")
     print("GLOBAL SUMMARY")
-    print("═" * 70)
+    print("═" * 80)
     
-    print(f"\nSeeds processed: {successful_seeds} successful, {failed_seeds} failed")
-    print(f"Total kept before global dedupe: {all_kept_before_dedupe}")
-    print(f"Total unique after global dedupe: {len(all_candidates)}")
+    forensic_dump['global']['all_raw_items'] = all_raw_items
+    forensic_dump['global']['total_raw_items'] = len(all_raw_items)
+    forensic_dump['global']['canonical_mapping'] = canonical_map
+    forensic_dump['global']['total_unique_after_dedupe'] = len(canonical_map)
     
-    # Print top 20 canonical keywords with their seeds
-    if all_candidates:
-        # Sort by relevance score descending
-        sorted_candidates = sorted(all_candidates, key=lambda x: x.get('relevance_score', 0), reverse=True)
+    print(f"\nTotal raw items (all seeds, all timeframes): {len(all_raw_items)}")
+    print(f"Total unique keyword_norms: {len(canonical_map)}")
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # FULL CANONICAL MAPPING (NO TRUNCATION)
+    # ─────────────────────────────────────────────────────────────────────
+    print(f"\n{'─' * 80}")
+    print("FULL CANONICAL MAPPING:")
+    print("─" * 80)
+    
+    for kn, sources in canonical_map.items():
+        relevant_sources = [s for s in sources if s['is_relevant']]
+        rejected_sources = [s for s in sources if not s['is_relevant']]
+        print(f"\n\"{kn}\" ({len(sources)} total, {len(relevant_sources)} relevant, {len(rejected_sources)} rejected):")
+        for src in sources:
+            status = "✓" if src['is_relevant'] else f"✗ {src['rejection_reason']}"
+            print(f"    - raw=\"{src['keyword_raw']}\" | seed=\"{src['seed_original']}\" | mid={src['seed_mid']} | {src['item_kind']}/{src['rank_type']} | {src['source_type']} | {status}")
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # PREPARE CANDIDATES FOR UPSERT (only relevant ones, deduped)
+    # ─────────────────────────────────────────────────────────────────────
+    candidates_for_upsert: List[Dict[str, Any]] = []
+    
+    for kn, sources in canonical_map.items():
+        # Take the first relevant source for this keyword_norm
+        relevant_sources = [s for s in sources if s['is_relevant']]
+        if not relevant_sources:
+            continue
         
-        print(f"\n{'─' * 70}")
-        print("Top 20 canonical keywords (by relevance score):")
-        print("─" * 70)
-        for i, c in enumerate(sorted_candidates[:20], 1):
-            seeds_str = ", ".join(c.get('seeds', [])[:3])
-            if len(c.get('seeds', [])) > 3:
-                seeds_str += f" (+{len(c['seeds']) - 3} more)"
-            print(f"  {i:2}. [{c.get('relevance_score', 0):3}] \"{c['keyword_norm'][:45]}\"")
-            print(f"       Seeds: {seeds_str}")
+        # Use the first relevant source as the canonical representation
+        first = relevant_sources[0]
+        all_seeds = list(set(s['seed_original'] for s in relevant_sources))
+        
+        # Find the full item to get all fields
+        full_item = None
+        for item in all_raw_items:
+            if item['keyword_norm'] == kn and item['is_relevant']:
+                full_item = item
+                break
+        
+        if not full_item:
+            continue
+        
+        candidate = {
+            'keyword_raw': full_item['keyword_raw'],
+            'keyword_norm': kn,
+            'seed_keyword': first['seed_original'],
+            'source': full_item['source_type'],  # 'related_queries' or 'related_topics' for DB constraint
+            'source_type': full_item['source_type'],
+            'query_type': full_item['rank_type'],
+            'is_relevant': True,
+            'relevance_score': calculate_relevance_score(full_item['keyword_raw']),
+            'seeds': all_seeds,
+            'last_pytrends_meta': {
+                'value_raw': full_item['pytrends_value_raw'],
+                'value_num': full_item['pytrends_value_num'],
+                'rank_type': full_item['rank_type'],
+                'item_kind': full_item['item_kind'],
+                'topic_mid': full_item.get('topic_mid'),
+                'seed_mid': full_item['seed_mid'],
+                'seed_mode': full_item['seed_mode'],
+                'timeframe': full_item['timeframe_used'],
+                'geo': full_item['geo_used'],
+            },
+        }
+        candidates_for_upsert.append(candidate)
     
-    # Print seed-by-seed summary table
-    print(f"\n{'─' * 70}")
-    print("Per-seed summary:")
-    print("─" * 70)
-    print(f"{'Seed':<35} {'Top':>5} {'Rise':>5} {'Kept':>5} {'Rej':>5} {'Status':<20}")
-    print("─" * 70)
-    for stat in seed_stats:
-        status = stat.get('failure_reason') or 'OK'
-        print(f"{stat['seed'][:35]:<35} {stat['raw_top']:>5} {stat['raw_rising']:>5} {stat['kept']:>5} {stat['rejected']:>5} {status:<20}")
+    forensic_dump['global']['final_upsert_count'] = len(candidates_for_upsert)
     
-    print("─" * 70)
+    print(f"\n{'─' * 80}")
+    print(f"CANDIDATES FOR UPSERT: {len(candidates_for_upsert)}")
+    print("─" * 80)
     
-    if not all_candidates:
-        print("\nNo candidates found. Exiting without error (rate limiting expected).")
-        # Exit with 0 to not fail the workflow - rate limiting is expected
+    for c in candidates_for_upsert:
+        seeds_str = ", ".join(c['seeds'])
+        print(f"  [{c.get('relevance_score', 0):3}] \"{c['keyword_norm']}\" | seeds: {seeds_str}")
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # WRITE FORENSIC JSON DUMP
+    # ─────────────────────────────────────────────────────────────────────
+    forensic_dump['run_metadata']['end_time'] = datetime.utcnow().isoformat()
+    
+    dump_filename = f"pytrends_full_dump_{run_timestamp}.json"
+    
+    try:
+        with open(dump_filename, 'w', encoding='utf-8') as f:
+            json.dump(forensic_dump, f, indent=2, ensure_ascii=False, default=str)
+        print(f"\nWROTE_FORENSIC_DUMP: {dump_filename}")
+    except Exception as e:
+        print(f"\nFailed to write forensic dump: {e}")
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # SEND TO EDGE FUNCTION
+    # ─────────────────────────────────────────────────────────────────────
+    if not candidates_for_upsert:
+        print("\nNo relevant candidates found. Exiting without error (rate limiting expected).")
         return
     
-    # Prepare payload for Edge Function
     payload = {
-        'candidates': all_candidates,
+        'candidates': candidates_for_upsert,
         'prune_before_days': 60
     }
     
-    print(f"\nSending {len(all_candidates)} candidates to Edge Function...")
+    print(f"\nSending {len(candidates_for_upsert)} candidates to Edge Function...")
     
     try:
-        # Send to Edge Function with auth token in header
         data = json.dumps(payload).encode('utf-8')
         req = urllib.request.Request(
             ingest_url,
@@ -477,9 +915,9 @@ def main():
         print(f"Error calling Edge Function: {e}")
         sys.exit(1)
     
-    print(f"\n{'═' * 70}")
+    print(f"\n{'═' * 80}")
     print(f"Discovery complete at: {datetime.utcnow().isoformat()}")
-    print("═" * 70)
+    print("═" * 80)
 
 
 if __name__ == '__main__':
