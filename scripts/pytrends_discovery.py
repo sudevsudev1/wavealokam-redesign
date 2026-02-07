@@ -196,7 +196,7 @@ def fetch_related_queries_with_retry(
                                 'keyword_raw': query,
                                 'keyword_norm': keyword_norm,
                                 'query_type': 'top',
-                                'source': 'pytrends',
+                                'source': 'related_queries',
                                 'source_type': 'related_queries',
                                 'last_pytrends_meta': {'value': int(value) if value else 0, 'rank_type': 'top'}
                             })
@@ -215,7 +215,7 @@ def fetch_related_queries_with_retry(
                                 'keyword_raw': query,
                                 'keyword_norm': keyword_norm,
                                 'query_type': 'rising',
-                                'source': 'pytrends',
+                                'source': 'related_queries',
                                 'source_type': 'related_queries',
                                 'last_pytrends_meta': {'value': str(value), 'is_breakout': is_breakout, 'rank_type': 'rising'}
                             })
