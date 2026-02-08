@@ -51,7 +51,7 @@ const HowToReach = () => {
     {
       from: 'Kochi (Cochin)',
       distance: '~180 km',
-      time: '3.5-4 hours',
+      time: '5-6 hours',
       notes: 'Take NH66. Consider breaking journey if traveling overnight.',
     },
     {
