@@ -19,7 +19,7 @@ const menuItems: MenuItem[] = [
   { label: 'Origin Story', href: HOME_SECTIONS.originStory, isRoute: false },
   { label: 'FAQ', href: HOME_SECTIONS.faq, isRoute: false },
   { label: 'Book Now', href: HOME_SECTIONS.itinerary, isRoute: false },
-  { label: 'How to Kerala', href: ROUTES.blog, isRoute: true },
+  { label: 'How to Kerala (Blog)', href: ROUTES.blog, isRoute: true },
 ];
 
 const HamburgerMenu = () => {
