@@ -54,7 +54,7 @@ const VarkalaGuide = () => {
   const faqs = [
     {
       question: 'Is Varkala safe for solo travelers?',
-      answer: 'Yes. Varkala is well-touristed and generally safe. Standard precautions apply: don\'t flash valuables, swim where lifeguards recommend, and trust your instincts. Solo women travelers are common and comfortable here.',
+      answer: 'Yes. Varkala is well-touristed, very safe and the cops are always around and very friendly. Unless YOU are the miscreant. Then watch out. Not from the cops. From us. Standard precautions apply: don\'t trust overconfident drunk vacationers, swim where lifeguards recommend, and trust your instincts. Solo women travelers are common and comfortable here. Our owner Amardeep, a former Miss India beauty queen, was once hit by a bat in the face while on a two wheeler at night. How the bat learnt to drive a two wheeler we will never know.',
     },
     {
       question: 'How do I get around Varkala?',
