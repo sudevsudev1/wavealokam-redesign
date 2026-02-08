@@ -80,7 +80,7 @@ const HowToReach = () => {
     },
     {
       question: 'Should I rent a scooter or car?',
-      answer: 'Scooter is perfect for Varkala exploration. Easy to park, cheap to rent (₹300-400/day). Car only needed if you\'re planning longer trips. We can help arrange both.',
+      answer: 'Scooter is perfect for Varkala exploration. Easy to park, cheap to rent (₹500/day). Car only needed if you\'re planning longer trips. We can help arrange both.',
     },
     {
       question: 'Is Uber/Ola reliable in Varkala?',
