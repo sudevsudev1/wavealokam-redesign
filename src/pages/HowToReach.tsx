@@ -84,7 +84,7 @@ const HowToReach = () => {
     },
     {
       question: 'Is Uber/Ola reliable in Varkala?',
-      answer: 'Moderately. Works better in peak season. For airport transfers or specific timing, pre-book through us or hotel. Local autos are everywhere.',
+      answer: 'No. No. NO and for the last time NOooooo. No matter what anybody says, especially the CEO of Ola and Uber, the only chance of you getting one of these here is if someone managed to convince an Uber driver to drop them off here from the airport at the exact moment when you were looking for a cab and your destination is also the airport. In that case, congratulations you have to pay only half, Rs. 1250, of what you would otherwise have to pay, which would be both way fare, approx Rs. 2500. But the odds of this happening are worse than you saving Rs. 1250 by listening to Wavealokam\'s managers to plan your trip efficiently.',
     },
     {
       question: 'Any safe travel tips?',
