@@ -48,7 +48,7 @@ const LongStay = () => {
     },
     {
       question: 'Can I book a month and leave early if needed?',
-      answer: 'We\'re flexible with reasonable notice. Life happens. Just communicate with us and we\'ll figure it out together.',
+      answer: 'We\'re flexible with a reasonable notice of 3 days. Life happens. Just communicate with us and we\'ll figure it out together.',
     },
     {
       question: 'What\'s the longest someone has stayed?',
