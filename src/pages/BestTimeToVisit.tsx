@@ -29,7 +29,7 @@ const BestTimeToVisit = () => {
     { icon: Waves, type: 'Surfers (Beginner)', best: 'Sept-April', reason: 'Smaller, consistent waves. Warm water, easy conditions.' },
     { icon: Waves, type: 'Surfers (Advanced)', best: 'May. (June to mid August if you have a death wish and can manage to paddle out. All the best.)', reason: 'Monsoon swells bring power. Fewer tourists, more waves.' },
     { icon: Briefcase, type: 'Workation', best: 'Sep-May', reason: 'Avoid peak monsoon. Great weather, fewer distractions.' },
-    { icon: Heart, type: 'Couples', best: 'Nov-Feb', reason: 'Romantic weather, sunset dinners, quiet beaches.' },
+    { icon: Heart, type: 'Couples', best: 'Oct-Mar', reason: 'Romantic weather, sunset dinners, quiet beaches.' },
   ];
 
   const faqs = [
