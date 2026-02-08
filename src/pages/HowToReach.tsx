@@ -46,7 +46,7 @@ const HowToReach = () => {
       from: 'Trivandrum (Thiruvananthapuram)',
       distance: '~50 km',
       time: '1.5 hours',
-      notes: 'Smooth coastal road. Beautiful drive.',
+      notes: 'Smooth coastal road. Beautiful drive. Unlike some of the other coastal roads we know. From other cities with better PR but lesser cool. Talking about you Kochi.',
     },
     {
       from: 'Kochi (Cochin)',
