@@ -1,17 +1,18 @@
 import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { ROUTES } from '@/lib/routes';
 
 const PillarNav = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const navLinks = [
-    { name: 'Stay', href: '/stay' },
-    { name: 'Surf + Stay', href: '/surf-stay' },
-    { name: 'Workation', href: '/workation' },
-    { name: 'Long Stay', href: '/long-stay' },
-    { name: 'Guide', href: '/varkala-guide' },
-    { name: 'Contact', href: '/contact' },
+    { name: 'Stay', href: ROUTES.stay },
+    { name: 'Surf + Stay', href: ROUTES.surfStay },
+    { name: 'Workation', href: ROUTES.workation },
+    { name: 'Long Stay', href: ROUTES.longStay },
+    { name: 'Guide', href: ROUTES.guide },
+    { name: 'Contact', href: ROUTES.contact },
   ];
 
   return (
@@ -19,7 +20,7 @@ const PillarNav = () => {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="text-xl font-bold text-[hsl(var(--wave-orange))]">
+          <Link to={ROUTES.home} className="text-xl font-bold text-[hsl(var(--wave-orange))]">
             WAVEALOKAM
           </Link>
 
@@ -35,7 +36,7 @@ const PillarNav = () => {
               </Link>
             ))}
             <Link
-              to="/contact"
+              to={ROUTES.contact}
               className="px-4 py-2 bg-[hsl(var(--wave-orange))] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
             >
               Book Now
@@ -67,7 +68,7 @@ const PillarNav = () => {
                 </Link>
               ))}
               <Link
-                to="/contact"
+                to={ROUTES.contact}
                 onClick={() => setIsOpen(false)}
                 className="mt-2 px-4 py-3 bg-[hsl(var(--wave-orange))] text-white text-center font-semibold rounded-lg"
               >

@@ -2,27 +2,28 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ROUTES } from '@/lib/routes';
 
 interface NavItem {
   label: string;
   href: string;
-  isExternal?: boolean;
+  isHomepageSection?: boolean;
   children?: NavItem[];
 }
 
 const navItems: NavItem[] = [
-  { label: 'Stay', href: '/stay' },
-  { label: 'Surf + Stay', href: '/surf-stay' },
-  { label: 'Workation', href: '/workation' },
-  { label: 'Long Stay', href: '/long-stay' },
+  { label: 'Stay', href: ROUTES.stay },
+  { label: 'Surf + Stay', href: ROUTES.surfStay },
+  { label: 'Workation', href: ROUTES.workation },
+  { label: 'Long Stay', href: ROUTES.longStay },
   {
     label: 'Plan Your Stay',
     href: '#',
     children: [
-      { label: 'Varkala Travel Guide', href: '/varkala-guide' },
-      { label: 'Best Time to Visit', href: '/best-time-to-visit-varkala' },
-      { label: 'How to Reach Varkala', href: '/how-to-reach-varkala' },
-      { label: 'Build Your Itinerary', href: '/#itinerary', isExternal: true },
+      { label: 'Varkala Travel Guide', href: ROUTES.guide },
+      { label: 'Best Time to Visit', href: ROUTES.bestTime },
+      { label: 'How to Reach Varkala', href: ROUTES.reach },
+      { label: 'Build Your Itinerary', href: `/${ROUTES.sections.itinerary}`, isHomepageSection: true },
     ],
   },
 ];
@@ -49,21 +50,21 @@ const MainNav = () => {
     setIsMobileOpen(false);
   }, [location.pathname]);
 
-  const handleNavClick = (item: NavItem) => {
-    if (item.isExternal || item.href.startsWith('/#')) {
-      // Handle hash links for same-page navigation
-      if (item.href.startsWith('/#')) {
-        const hash = item.href.replace('/', '');
-        if (location.pathname === '/') {
-          // Already on homepage, just scroll
-          const element = document.querySelector(hash);
-          if (element) element.scrollIntoView({ behavior: 'smooth' });
-        } else {
-          // Navigate to homepage with hash
-          window.location.href = item.href;
-        }
-      }
+  const handleHomepageSectionClick = (href: string) => {
+    const hash = href.replace('/', '');
+    if (location.pathname === '/') {
+      // Already on homepage, just scroll
+      const element = document.querySelector(hash);
+      if (element) element.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Navigate to homepage with hash - use native navigation
+      window.location.href = href;
     }
+    setOpenDropdown(null);
+    setIsMobileOpen(false);
+  };
+
+  const handleLinkClick = () => {
     setOpenDropdown(null);
     setIsMobileOpen(false);
   };
@@ -74,7 +75,7 @@ const MainNav = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link 
-            to="/" 
+            to={ROUTES.home}
             className="text-xl font-bold text-wave-orange hover:opacity-90 transition-opacity"
             aria-label="Wavealokam Homepage"
           >
@@ -106,9 +107,10 @@ const MainNav = () => {
                     )} />
                   </button>
                 ) : (
-                  // Regular link
+                  // Regular link - use React Router Link
                   <Link
                     to={item.href}
+                    onClick={handleLinkClick}
                     className="px-4 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
                     aria-label={`Navigate to ${item.label}`}
                   >
@@ -124,21 +126,26 @@ const MainNav = () => {
                   >
                     <div className="py-2">
                       {item.children.map((child) => (
-                        child.isExternal || child.href.startsWith('/#') ? (
+                        child.isHomepageSection ? (
+                          // Homepage section link - use native anchor
                           <a
                             key={child.label}
                             href={child.href}
-                            onClick={() => handleNavClick(child)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleHomepageSectionClick(child.href);
+                            }}
                             className="block px-4 py-2.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-colors"
                             aria-label={child.label}
                           >
                             {child.label}
                           </a>
                         ) : (
+                          // Regular route - use React Router Link
                           <Link
                             key={child.label}
                             to={child.href}
-                            onClick={() => handleNavClick(child)}
+                            onClick={handleLinkClick}
                             className="block px-4 py-2.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-colors"
                             aria-label={`Navigate to ${child.label}`}
                           >
@@ -156,7 +163,7 @@ const MainNav = () => {
           {/* CTA Button - Desktop */}
           <div className="hidden lg:block">
             <Link
-              to="/contact"
+              to={ROUTES.contact}
               className="px-5 py-2.5 bg-wave-orange text-white text-sm font-semibold rounded-full hover:bg-wave-orange/90 transition-all hover:scale-105 shadow-lg shadow-wave-orange/20"
               aria-label="Contact Wavealokam to book"
             >
@@ -197,11 +204,14 @@ const MainNav = () => {
                       {openDropdown === item.label && (
                         <div className="ml-4 pl-4 border-l-2 border-wave-orange/30 space-y-1 py-2">
                           {item.children.map((child) => (
-                            child.isExternal || child.href.startsWith('/#') ? (
+                            child.isHomepageSection ? (
                               <a
                                 key={child.label}
                                 href={child.href}
-                                onClick={() => handleNavClick(child)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleHomepageSectionClick(child.href);
+                                }}
                                 className="block px-4 py-2.5 text-sm text-foreground/70 hover:text-foreground transition-colors"
                               >
                                 {child.label}
@@ -210,7 +220,7 @@ const MainNav = () => {
                               <Link
                                 key={child.label}
                                 to={child.href}
-                                onClick={() => handleNavClick(child)}
+                                onClick={handleLinkClick}
                                 className="block px-4 py-2.5 text-sm text-foreground/70 hover:text-foreground transition-colors"
                               >
                                 {child.label}
@@ -223,7 +233,7 @@ const MainNav = () => {
                   ) : (
                     <Link
                       to={item.href}
-                      onClick={() => setIsMobileOpen(false)}
+                      onClick={handleLinkClick}
                       className="block px-4 py-3 font-medium text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
                     >
                       {item.label}
@@ -234,8 +244,8 @@ const MainNav = () => {
               
               {/* Mobile CTA */}
               <Link
-                to="/contact"
-                onClick={() => setIsMobileOpen(false)}
+                to={ROUTES.contact}
+                onClick={handleLinkClick}
                 className="mt-4 mx-4 py-3 bg-wave-orange text-white text-center font-semibold rounded-xl hover:bg-wave-orange/90 transition-colors"
               >
                 Book / Contact
