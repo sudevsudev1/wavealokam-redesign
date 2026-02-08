@@ -255,24 +255,27 @@ const BlogPost = () => {
                   </li>
                 ),
                 a: ({ href, children }) => {
-                  // Comprehensive mapping for internal links to homepage sections
+                  // Comprehensive mapping for internal links
                   const sectionLinkMap: Record<string, string> = {
-                    // Direct section paths (common in blog content)
-                    '/rooms': HOME_SECTIONS.rooms,
-                    '/booking': HOME_SECTIONS.itinerary,
-                    '/surf-school': HOME_SECTIONS.surfSchool,
-                    '/activities': HOME_SECTIONS.activities,
-                    '/dining': HOME_SECTIONS.rooms, // No dining section, fallback to rooms
-                    '/gallery': HOME_SECTIONS.gallery,
-                    '/itinerary': HOME_SECTIONS.itinerary,
-                    '/faq': HOME_SECTIONS.faq,
+                    // Stay/Rooms/Booking → Stay pillar page
+                    '/rooms': ROUTES.stay,
+                    '/booking': ROUTES.stay,
+                    '/stay': ROUTES.stay,
+                    '#rooms': ROUTES.stay,
+                    '#itinerary': ROUTES.stay,
                     
-                    // Hash-only links (already correct format, but ensure they have leading slash)
-                    '#rooms': HOME_SECTIONS.rooms,
-                    '#surf-school': HOME_SECTIONS.surfSchool,
+                    // Surf → Surf+Stay pillar page
+                    '/surf-school': ROUTES.surfStay,
+                    '/surf': ROUTES.surfStay,
+                    '#surf-school': ROUTES.surfStay,
+                    
+                    // Other sections → Homepage hash links
+                    '/activities': HOME_SECTIONS.activities,
                     '#activities': HOME_SECTIONS.activities,
-                    '#itinerary': HOME_SECTIONS.itinerary,
+                    '/dining': ROUTES.stay,
+                    '/gallery': HOME_SECTIONS.gallery,
                     '#gallery': HOME_SECTIONS.gallery,
+                    '/faq': HOME_SECTIONS.faq,
                     '#faq': HOME_SECTIONS.faq,
                     '#origin-story': HOME_SECTIONS.originStory,
                   };
@@ -305,11 +308,12 @@ const BlogPost = () => {
                   // Check if it's a homepage section link (starts with /#)
                   const isHomepageSection = finalHref.startsWith('/#');
                   
-                  // Check if it's a pillar page
+                  // Check if it's a pillar page or internal route
                   const isPillarPage = pillarRoutes.includes(finalHref);
+                  const isInternalRoute = finalHref.startsWith('/') && !finalHref.startsWith('/#');
                   
-                  // For homepage, homepage sections, and external links - use native anchor
-                  if (isExternal || isHomepageLink || isHomepageSection) {
+                  // For homepage sections and external links - use native anchor
+                  if (isExternal || isHomepageSection) {
                     return (
                       <a 
                         href={finalHref || '/'}
@@ -322,11 +326,11 @@ const BlogPost = () => {
                     );
                   }
                   
-                  // For pillar pages, use React Router Link
-                  if (isPillarPage) {
+                  // For pillar pages and internal routes, use React Router Link
+                  if (isPillarPage || isInternalRoute || isHomepageLink) {
                     return (
                       <Link 
-                        to={finalHref}
+                        to={finalHref || '/'}
                         className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
                       >
                         {children}
