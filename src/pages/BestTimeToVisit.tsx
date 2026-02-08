@@ -26,7 +26,7 @@ const BestTimeToVisit = () => {
 
   const travelerRecs = [
     { icon: Users, type: 'Families', best: 'Nov-Feb', reason: 'Calm seas, pleasant weather, all attractions open' },
-    { icon: Waves, type: 'Surfers (Beginner)', best: 'Sept-Mid May', reason: 'Smaller, consistent waves. Warm water, easy conditions.' },
+    { icon: Waves, type: 'Surfers (Beginner)', best: 'Sept-April', reason: 'Smaller, consistent waves. Warm water, easy conditions.' },
     { icon: Waves, type: 'Surfers (Advanced)', best: 'Jun-Sep', reason: 'Monsoon swells bring power. Fewer tourists, more waves.' },
     { icon: Briefcase, type: 'Workation', best: 'Sep-May', reason: 'Avoid peak monsoon. Great weather, fewer distractions.' },
     { icon: Heart, type: 'Couples', best: 'Nov-Feb', reason: 'Romantic weather, sunset dinners, quiet beaches.' },
