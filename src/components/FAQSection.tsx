@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import {
   Accordion,
   AccordionContent,
@@ -222,7 +223,7 @@ const FAQSection = () => {
             Got more questions? Text us. We're almost always online.
           </p>
           <p className="text-white/70">
-            Planning your trip? Check our <a href="/varkala-guide" className="underline hover:text-white">Varkala travel guide</a>, learn about the <a href="/best-time-to-visit-varkala" className="underline hover:text-white">best time to visit</a>, or find out <a href="/how-to-reach-varkala" className="underline hover:text-white">how to reach Varkala</a>. Ready to book? <a href="/contact" className="underline hover:text-white">Contact Wavealokam</a> directly.
+            Planning your trip? Check our <Link to="/varkala-guide" className="underline hover:text-white">Varkala travel guide</Link>, learn about the <Link to="/best-time-to-visit-varkala" className="underline hover:text-white">best time to visit</Link>, or find out <Link to="/how-to-reach-varkala" className="underline hover:text-white">how to reach Varkala</Link>. Ready to book? <Link to="/contact" className="underline hover:text-white">Contact Wavealokam</Link> directly.
           </p>
         </div>
       </div>

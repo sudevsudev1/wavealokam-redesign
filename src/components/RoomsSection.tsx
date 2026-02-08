@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Users, Wifi, Wind, Tv, Coffee, Bath } from 'lucide-react';
@@ -120,7 +121,7 @@ const RoomsSection = () => {
             ROOMS
           </h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Wake up to ocean breezes and waves doing their ASMR thing. Whether you're here for a quick <a href="/stay" className="text-wave-orange hover:underline">stay at Wavealokam</a> or planning a <a href="/long-stay" className="text-wave-orange hover:underline">long stay in Varkala</a>, you'll sleep so well you'll question if your mattress at home is actively sabotaging you.
+            Wake up to ocean breezes and waves doing their ASMR thing. Whether you're here for a quick <Link to="/stay" className="text-wave-orange hover:underline">stay at Wavealokam</Link> or planning a <Link to="/long-stay" className="text-wave-orange hover:underline">long stay in Varkala</Link>, you'll sleep so well you'll question if your mattress at home is actively sabotaging you.
           </p>
           <p className="text-sm text-muted-foreground max-w-3xl mx-auto mt-3 italic font-bold">
             Fair warning: We are near the beach, NOT on the beach. Room views range from spectacular to "spiritually this is still seaside." Some rooms see waves, some see potential. Check first. Manage expectations. Avoid divorce.

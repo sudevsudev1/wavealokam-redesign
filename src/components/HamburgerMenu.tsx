@@ -1,36 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 
 interface MenuItem {
   label: string;
   href: string;
-  isExternal?: boolean;
+  isRoute?: boolean; // true = use React Router, false = homepage section scroll
 }
 
 const menuItems: MenuItem[] = [
-  { label: 'Home', href: '#hero' },
-  { label: 'Activities', href: '#activities' },
-  { label: 'Rooms', href: '#rooms' },
-  { label: 'Dining', href: '#dining' },
-  { label: 'Surf School', href: '#surf-school' },
-  { label: 'Gallery', href: '#gallery' },
-  { label: 'Origin Story', href: '#origin-story' },
-  { label: 'FAQ', href: '#faq' },
-  { label: 'Book Now', href: '#itinerary' },
-  { label: 'How to Kerala', href: '/blog', isExternal: true },
+  { label: 'Home', href: ROUTES.home, isRoute: true },
+  { label: 'Stay', href: ROUTES.stay, isRoute: true },
+  { label: 'Surf + Stay', href: ROUTES.surfStay, isRoute: true },
+  { label: 'Workation', href: ROUTES.workation, isRoute: true },
+  { label: 'Long Stay', href: ROUTES.longStay, isRoute: true },
+  { label: 'Activities', href: ROUTES.sections.activities, isRoute: false },
+  { label: 'Rooms', href: ROUTES.sections.rooms, isRoute: false },
+  { label: 'Surf School', href: ROUTES.sections.surfSchool, isRoute: false },
+  { label: 'Gallery', href: ROUTES.sections.gallery, isRoute: false },
+  { label: 'Origin Story', href: ROUTES.sections.originStory, isRoute: false },
+  { label: 'FAQ', href: ROUTES.sections.faq, isRoute: false },
+  { label: 'Book Now', href: ROUTES.sections.itinerary, isRoute: false },
+  { label: 'How to Kerala', href: ROUTES.blog, isRoute: true },
 ];
 
 const HamburgerMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Close menu on route change
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
 
   const handleNavClick = (item: MenuItem) => {
     setIsOpen(false);
-    if (item.isExternal) {
-      window.location.href = item.href;
+    
+    if (item.isRoute) {
+      // Use React Router for page navigation
+      navigate(item.href);
     } else {
-      const element = document.querySelector(item.href);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+      // Homepage section navigation
+      if (location.pathname === '/') {
+        // Already on homepage, just scroll
+        const element = document.querySelector(item.href);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else {
+        // Navigate to homepage with hash
+        window.location.href = `/${item.href}`;
       }
     }
   };
@@ -60,7 +81,7 @@ const HamburgerMenu = () => {
           <nav className="space-y-6">
             {menuItems.map((item, index) => (
               <button
-                key={item.href}
+                key={item.href + item.label}
                 onClick={() => handleNavClick(item)}
                 className="block text-4xl md:text-6xl text-display text-white hover:text-white/70 transition-all duration-300 transform hover:translate-x-4"
                 style={{

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { addDays, differenceInDays } from 'date-fns';
@@ -145,7 +146,7 @@ const BookingWizard = () => {
             BUILD YOUR ITINERARY
           </h2>
           <p className="text-sm md:text-base text-foreground/80 max-w-4xl mx-auto px-4 leading-relaxed">
-            Your beachside retreat in Varkala, Kerala, where "I'm just here for two days" is the most adorable lie we too had once said. Cost estimates to help you budget and plan your time before Varkala makes you irrational. We connect you directly with vendors and cab/auto at cost price. We are not middlemen. We only handle logistics, so you can handle having fun. Also this isn't a booking engine, availability is a beautiful mystery, room rates are seasonal like fashion trends, and you'll need to actually book via WhatsApp or an OTA like a normal person. We're curators, not wizards. New to Varkala? Check our <a href="/varkala-guide" className="text-wave-orange hover:underline font-medium">Varkala travel guide</a> first.
+            Your beachside retreat in Varkala, Kerala, where "I'm just here for two days" is the most adorable lie we too had once said. Cost estimates to help you budget and plan your time before Varkala makes you irrational. We connect you directly with vendors and cab/auto at cost price. We are not middlemen. We only handle logistics, so you can handle having fun. Also this isn't a booking engine, availability is a beautiful mystery, room rates are seasonal like fashion trends, and you'll need to actually book via WhatsApp or an OTA like a normal person. We're curators, not wizards. New to Varkala? Check our <Link to="/varkala-guide" className="text-wave-orange hover:underline font-medium">Varkala travel guide</Link> first.
           </p>
         </div>
 

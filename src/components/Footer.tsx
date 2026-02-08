@@ -1,35 +1,41 @@
 import { Instagram, Facebook, Mail, Phone, MapPin } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const location = useLocation();
 
   const pillarLinks = [
-    { name: 'Stay at Wavealokam', href: '/stay' },
-    { name: 'Surf + Stay Packages', href: '/surf-stay' },
-    { name: 'Workation in Varkala', href: '/workation' },
-    { name: 'Long Stays', href: '/long-stay' },
-    { name: 'Varkala Travel Guide', href: '/varkala-guide' },
-    { name: 'Best Time to Visit', href: '/best-time-to-visit-varkala' },
-    { name: 'How to Reach Varkala', href: '/how-to-reach-varkala' },
-    { name: 'Contact Us', href: '/contact' },
+    { name: 'Stay at Wavealokam', href: ROUTES.stay },
+    { name: 'Surf + Stay Packages', href: ROUTES.surfStay },
+    { name: 'Workation in Varkala', href: ROUTES.workation },
+    { name: 'Long Stays', href: ROUTES.longStay },
+    { name: 'Varkala Travel Guide', href: ROUTES.guide },
+    { name: 'Best Time to Visit', href: ROUTES.bestTime },
+    { name: 'How to Reach Varkala', href: ROUTES.reach },
+    { name: 'Contact Us', href: ROUTES.contact },
   ];
 
   const sectionLinks = [
-    { name: 'Home', href: '#hero' },
-    { name: 'Activities', href: '#activities' },
-    { name: 'Rooms', href: '#rooms' },
-    { name: 'Surf School', href: '#surf-school' },
-    { name: 'Gallery', href: '#gallery' },
-    { name: 'Build Your Itinerary', href: '#itinerary' },
+    { name: 'Home', href: ROUTES.sections.hero },
+    { name: 'Activities', href: ROUTES.sections.activities },
+    { name: 'Rooms', href: ROUTES.sections.rooms },
+    { name: 'Surf School', href: ROUTES.sections.surfSchool },
+    { name: 'Gallery', href: ROUTES.sections.gallery },
+    { name: 'Build Your Itinerary', href: ROUTES.sections.itinerary },
   ];
 
   const handleSectionClick = (href: string) => {
-    if (href.startsWith('#')) {
+    if (location.pathname === '/') {
+      // Already on homepage, just scroll
       const element = document.querySelector(href);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth' });
       }
+    } else {
+      // Navigate to homepage with hash
+      window.location.href = `/${href}`;
     }
   };
 
@@ -40,7 +46,9 @@ const Footer = () => {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div>
-            <h2 className="text-3xl font-bold text-wave-orange mb-4">WAVEALOKAM</h2>
+            <Link to={ROUTES.home}>
+              <h2 className="text-3xl font-bold text-wave-orange mb-4 hover:opacity-90 transition-opacity">WAVEALOKAM</h2>
+            </Link>
             <p className="text-background/70 mb-6 max-w-md">You can walk barefoot here. Emotionally and literally.</p>
 
             {/* Social Links */}
@@ -99,7 +107,7 @@ const Footer = () => {
               ))}
               <li>
                 <Link
-                  to="/blog"
+                  to={ROUTES.blog}
                   className="text-background/70 hover:text-wave-orange transition-colors"
                 >
                   How to Kerala
@@ -142,12 +150,11 @@ const Footer = () => {
         <div className="pt-8 border-t border-background/20 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-background/50 text-sm">© {currentYear} Wavealokam. All rights reserved.</p>
           <div className="flex gap-6 text-sm">
-            <a href="#" className="text-background/50 hover:text-wave-orange transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#" className="text-background/50 hover:text-wave-orange transition-colors">
-              Terms of Service
-            </a>
+            <Link to={ROUTES.home} className="text-background/50 hover:text-wave-orange transition-colors">
+              Home
+            </Link>
+            <span className="text-background/50">Privacy Policy</span>
+            <span className="text-background/50">Terms of Service</span>
           </div>
         </div>
       </div>

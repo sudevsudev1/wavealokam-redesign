@@ -1,15 +1,16 @@
 import { Link } from 'react-router-dom';
 import { Instagram, Facebook, Mail, Phone, MapPin } from 'lucide-react';
+import { ROUTES } from '@/lib/routes';
 
 const pillarLinks = [
-  { name: 'Stay', href: '/stay' },
-  { name: 'Surf + Stay', href: '/surf-stay' },
-  { name: 'Workation', href: '/workation' },
-  { name: 'Long Stay', href: '/long-stay' },
-  { name: 'Varkala Guide', href: '/varkala-guide' },
-  { name: 'Best Time to Visit', href: '/best-time-to-visit-varkala' },
-  { name: 'How to Reach', href: '/how-to-reach-varkala' },
-  { name: 'Contact', href: '/contact' },
+  { name: 'Stay', href: ROUTES.stay },
+  { name: 'Surf + Stay', href: ROUTES.surfStay },
+  { name: 'Workation', href: ROUTES.workation },
+  { name: 'Long Stay', href: ROUTES.longStay },
+  { name: 'Varkala Guide', href: ROUTES.guide },
+  { name: 'Best Time to Visit', href: ROUTES.bestTime },
+  { name: 'How to Reach', href: ROUTES.reach },
+  { name: 'Contact', href: ROUTES.contact },
 ];
 
 const PillarFooter = () => {
@@ -22,7 +23,7 @@ const PillarFooter = () => {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div className="md:col-span-2">
-            <Link to="/" className="inline-block">
+            <Link to={ROUTES.home} className="inline-block">
               <h2 className="text-3xl font-bold text-[hsl(var(--wave-orange))] mb-4">WAVEALOKAM</h2>
             </Link>
             <p className="text-background/70 mb-6 max-w-md">
@@ -66,7 +67,7 @@ const PillarFooter = () => {
               ))}
               <li>
                 <Link
-                  to="/blog"
+                  to={ROUTES.blog}
                   className="text-background/70 hover:text-[hsl(var(--wave-orange))] transition-colors"
                 >
                   Blog
@@ -109,15 +110,11 @@ const PillarFooter = () => {
         <div className="pt-8 border-t border-background/20 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-background/50 text-sm">© {currentYear} Wavealokam. All rights reserved.</p>
           <div className="flex gap-6 text-sm">
-            <Link to="/" className="text-background/50 hover:text-[hsl(var(--wave-orange))] transition-colors">
+            <Link to={ROUTES.home} className="text-background/50 hover:text-[hsl(var(--wave-orange))] transition-colors">
               Home
             </Link>
-            <a href="#" className="text-background/50 hover:text-[hsl(var(--wave-orange))] transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#" className="text-background/50 hover:text-[hsl(var(--wave-orange))] transition-colors">
-              Terms of Service
-            </a>
+            <span className="text-background/50">Privacy Policy</span>
+            <span className="text-background/50">Terms of Service</span>
           </div>
         </div>
       </div>
