@@ -15,7 +15,7 @@ const HowToReach = () => {
       distance: '~50 km from Wavealokam',
       time: '1-1.5 hours by road',
       notes: 'Closest airport. Direct flights from major Indian cities and some international routes.',
-      transfer: 'Pre-booked taxi (₹1200-1500) or Uber/Ola',
+      transfer: 'Pre-booked taxi (₹2200-2500) Uber/Ola do not work here with any dependability.',
     },
     {
       name: 'Cochin International Airport (COK)',
