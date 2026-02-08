@@ -88,7 +88,7 @@ const HowToReach = () => {
     },
     {
       question: 'Any safe travel tips?',
-      answer: 'Stick to pre-booked taxis at night. Share your location with someone. Kerala is generally very safe, but standard travel precautions apply. Don\'t accept "tours" from random strangers.',
+      answer: 'Kerala is generally very safe, but standard travel precautions apply. There could be other vacationers once in a while who understimate how good the cops here are at keeping Varkala safe and peaceful. They have all learnt their lesson. Neverthless, our managers are very responsible and are always checking up on the guests, every ready to help and assist. They are always just a call away. (Sometimes they don\'t respond immediately to texts because they work so much. Even we are irritated about this.)',
     },
   ];
 
