@@ -48,7 +48,7 @@ const SurfStay = () => {
   const weProvide = ['Surfboards (soft-tops for beginners)', 'Leashes & rashguards', 'Transport to surf spots', 'Fresh water rinse stations', 'First-aid trained instructors'];
   const faqs = [{
     question: 'I\'ve never surfed. Can I actually learn here?',
-    answer: 'Absolutely. Most of our guests are first-timers. We start in calm, shallow water where "wipeout" means "gentle flop into three feet of water." You\'ll be standing (briefly, proudly) by session two.'
+    answer: 'Absolutely. Most of our guests are first-timers. We start in calm, shallow water where "wipeout" means "gentle flop into three feet of water." You\'ll be standing (briefly, proudly) by session 2. But actually by end of session 1. We are just required to say session 2 by some unsaid mediocrity rule.'
   }, {
     question: 'How long are the lessons?',
     answer: 'Beginner lessons are 1.5 hours including theory and practice. Intermediate sessions run 2 hours. Any longer and your arms start filing complaints.'
