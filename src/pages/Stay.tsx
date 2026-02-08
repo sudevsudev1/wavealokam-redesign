@@ -7,6 +7,28 @@ import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
 import InternalLinks from '@/components/pillar/InternalLinks';
 import PillarFooter from '@/components/pillar/PillarFooter';
+import RoomGallery from '@/components/RoomGallery';
+
+const kingRoomImages = [
+  '/rooms/king-room/1.png',
+  '/rooms/king-room/2.png',
+  '/rooms/king-room/3.png',
+  '/rooms/king-room/4.png',
+  '/rooms/king-room/5.png',
+  '/rooms/king-room/6.png',
+];
+
+const doubleRoomImages = [
+  '/rooms/double-room/1.png',
+  '/rooms/double-room/2.jpeg',
+  '/rooms/double-room/3.png',
+  '/rooms/double-room/4.png',
+  '/rooms/double-room/5.png',
+  '/rooms/double-room/6.png',
+  '/rooms/double-room/7.png',
+  '/rooms/double-room/8.png',
+  '/rooms/double-room/9.png',
+];
 
 const Stay = () => {
   const roomTypes = [
@@ -15,12 +37,14 @@ const Stay = () => {
       size: '45 m²',
       features: ['King-size bed', 'Private balcony', 'Ocean sounds', 'Mini fridge', 'Smart TV'],
       ideal: 'Couples, honeymooners',
+      images: kingRoomImages,
     },
     {
       name: 'Double Room with Balcony',
       size: '28 m²',
       features: ['Double bed', 'Private balcony', 'Ocean sounds', 'Mini fridge', 'Smart TV'],
       ideal: 'Solo travelers, friends',
+      images: doubleRoomImages,
     },
   ];
 
@@ -102,20 +126,20 @@ const Stay = () => {
 
             <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {roomTypes.map((room, index) => (
-                <div key={index} className="bg-muted/20 rounded-2xl p-6 border border-border hover:shadow-lg transition-shadow">
-                  <div className="aspect-video bg-muted rounded-xl mb-4 flex items-center justify-center text-muted-foreground">
-                    [Room Image Placeholder]
+                <div key={index} className="bg-muted/20 rounded-2xl overflow-hidden border border-border hover:shadow-lg transition-shadow">
+                  <RoomGallery images={room.images} alt={room.name} />
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-foreground mb-2">{room.name}</h3>
+                    <p className="text-sm text-muted-foreground mb-4">{room.size} • Ideal for {room.ideal}</p>
+                    <ul className="space-y-2">
+                      {room.features.map((feature, i) => (
+                        <li key={i} className="flex items-center gap-2 text-foreground/80">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">{room.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{room.size} • Ideal for {room.ideal}</p>
-                  <ul className="space-y-2">
-                    {room.features.map((feature, i) => (
-                      <li key={i} className="flex items-center gap-2 text-foreground/80">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               ))}
             </div>
