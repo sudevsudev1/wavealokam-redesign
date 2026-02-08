@@ -50,9 +50,9 @@ const HeroSection = () => {
     background: 'linear-gradient(135deg, hsl(33, 100%, 50%) 0%, hsl(38, 100%, 54%) 100%)'
   }}>
       {/* Logo with Etymology */}
-      <div className="absolute top-6 left-6 z-20 max-w-[280px] md:max-w-sm">
+      <div className="absolute top-28 sm:top-24 lg:top-20 left-4 sm:left-6 z-20 max-w-[200px] sm:max-w-[280px] md:max-w-sm">
         <div className="text-white">
-          <p className="text-sm md:text-base leading-snug">
+          <p className="text-xs sm:text-sm md:text-base leading-snug">
             <span className="font-bold">Wavealokam</span> <span className="text-white/70 italic">(Wave-a-Lokam) n.</span> <span className="font-semibold">World of Waves.</span> <span className="text-white/60">Origin: lokam = "world" (Malayalam)</span>
           </p>
         </div>
