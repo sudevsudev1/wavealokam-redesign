@@ -19,7 +19,7 @@ const CTAStrip = ({ pageSlug }: CTAStripProps) => {
   
   // OTA placeholder URLs with UTM
   const bookingUrl = `https://www.booking.com/hotel/in/wavealokam.html?${buildUTM('booking')}`;
-  const airbnbUrl = `https://www.airbnb.com/rooms/wavealokam?${buildUTM('airbnb')}`;
+  const makemytripUrl = `https://www.makemytrip.com/hotels/wavealokam?${buildUTM('makemytrip')}`;
 
   return (
     <section className="py-12 bg-gradient-to-r from-[hsl(var(--wave-orange))] to-[hsl(var(--wave-orange-light))]">
@@ -80,9 +80,9 @@ const CTAStrip = ({ pageSlug }: CTAStripProps) => {
                 variant="outline"
                 className="border-white text-white hover:bg-white/10 font-semibold"
               >
-                <a href={airbnbUrl} target="_blank" rel="noopener noreferrer">
+                <a href={makemytripUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="w-5 h-5 mr-2" />
-                  Book on Airbnb
+                  Book on MakeMyTrip
                 </a>
               </Button>
             </div>
