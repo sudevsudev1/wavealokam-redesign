@@ -12,10 +12,6 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { label: 'Home', href: ROUTES.home, isRoute: true },
-  { label: 'Stay', href: ROUTES.stay, isRoute: true },
-  { label: 'Surf + Stay', href: ROUTES.surfStay, isRoute: true },
-  { label: 'Workation', href: ROUTES.workation, isRoute: true },
-  { label: 'Long Stay', href: ROUTES.longStay, isRoute: true },
   { label: 'Activities', href: HOME_SECTIONS.activities, isRoute: false },
   { label: 'Rooms', href: HOME_SECTIONS.rooms, isRoute: false },
   { label: 'Surf School', href: HOME_SECTIONS.surfSchool, isRoute: false },
