@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { useState } from 'react';
-import { MessageCircle, Phone, MapPin, Mail, ExternalLink, Send } from 'lucide-react';
+import { MessageCircle, Phone, MapPin, Mail, Send, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,41 @@ import PillarFAQ from '@/components/pillar/PillarFAQ';
 import InternalLinks from '@/components/pillar/InternalLinks';
 import PillarFooter from '@/components/pillar/PillarFooter';
 import { useToast } from '@/hooks/use-toast';
+
+interface OTA {
+  name: string;
+  rating: number;
+  url: string;
+}
+
+const otas: OTA[] = [
+  { name: "Google", rating: 4.9, url: "https://www.google.com/travel/search?q=wavealokam" },
+  { name: "Booking.com", rating: 4.8, url: "https://www.booking.com/hotel/in/wavealokam.en-gb.html" },
+  { name: "Agoda", rating: 4.9, url: "https://www.agoda.com/en-in/wavealokam/hotel/varkala-in.html" },
+  { name: "MakeMyTrip", rating: 4.7, url: "https://www.makemytrip.com/hotels/wavealokam_beach_retreat-details-varkala.html" },
+  { name: "Trip Advisor", rating: 5, url: "https://www.tripadvisor.in/Hotel_Review-g11864386-d32677942-Reviews-Wavealokam_Beach_Retreat-Edava_Varkala_Thiruvananthapuram_District_Kerala.html" },
+];
+
+const StarRating = ({ rating }: { rating: number }) => {
+  const getFillWidth = (starIndex: number) => {
+    if (starIndex < 4) return '100%';
+    return rating === 5 ? '100%' : '90%';
+  };
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="relative w-3 h-3">
+          <Star className="absolute w-3 h-3 text-wave-orange/30" />
+          <div className="absolute overflow-hidden" style={{ width: getFillWidth(i) }}>
+            <Star className="w-3 h-3 text-wave-orange fill-wave-orange" />
+          </div>
+        </div>
+      ))}
+      <span className="ml-1 text-xs text-foreground/80">{rating}/5</span>
+    </div>
+  );
+};
 
 const Contact = () => {
   const { toast } = useToast();
@@ -49,8 +84,6 @@ const Contact = () => {
   const whatsappMessage = encodeURIComponent('Hi! I found you on the website and wanted to inquire about booking.');
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}&${buildUTM('whatsapp')}`;
   const phoneUrl = 'tel:+919323858013';
-  const bookingUrl = `https://www.booking.com/hotel/in/wavealokam.html?${buildUTM('booking')}`;
-  const airbnbUrl = `https://www.airbnb.com/rooms/wavealokam?${buildUTM('airbnb')}`;
 
   const faqs = [
     {
@@ -99,54 +132,43 @@ const Contact = () => {
         {/* Quick Contact Options */}
         <section className="py-16 md:py-20 bg-background">
           <div className="container mx-auto px-6">
-            <h2 className="text-3xl md:text-4xl font-bold text-center text-foreground mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-center text-foreground mb-8">
               Reach Out
             </h2>
             
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
-              {/* India / WhatsApp */}
-              <div className="p-8 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl border-2 border-primary">
-                <h3 className="text-xl font-bold text-foreground mb-6">📍 From India</h3>
-                <div className="space-y-4">
-                  <Button asChild size="lg" className="w-full bg-primary hover:bg-primary/90">
-                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="w-5 h-5 mr-2" />
-                      WhatsApp Us
-                    </a>
-                  </Button>
-                  <Button asChild size="lg" variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
-                    <a href={phoneUrl}>
-                      <Phone className="w-5 h-5 mr-2" />
-                      Call: +91 93238 58013
-                    </a>
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-4">
-                  Best for quick questions & direct bookings
-                </p>
-              </div>
+            {/* WhatsApp & Call Buttons */}
+            <div className="flex flex-wrap gap-3 justify-center mb-8">
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90">
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  WhatsApp Us
+                </a>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="border-primary text-primary hover:bg-primary/10">
+                <a href={phoneUrl}>
+                  <Phone className="w-5 h-5 mr-2" />
+                  Call: +91 93238 58013
+                </a>
+              </Button>
+            </div>
 
-              {/* International / OTA */}
-              <div className="p-8 bg-muted/20 rounded-2xl border border-border">
-                <h3 className="text-xl font-bold text-foreground mb-6">🌍 International Guests</h3>
-                <div className="space-y-4">
-                  <Button asChild size="lg" className="w-full">
-                    <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-5 h-5 mr-2" />
-                      Book on Booking.com
-                    </a>
-                  </Button>
-                  <Button asChild size="lg" variant="outline" className="w-full">
-                    <a href={airbnbUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-5 h-5 mr-2" />
-                      Book on Airbnb
-                    </a>
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-4">
-                  Secure booking with international cards
-                </p>
-              </div>
+            {/* OTA Buttons with Ratings */}
+            <p className="text-muted-foreground text-center text-sm mb-4">Or book via your preferred platform:</p>
+            <div className="flex flex-wrap justify-center gap-3 md:gap-4 mb-12">
+              {otas.map((ota) => (
+                <a
+                  key={ota.name}
+                  href={`${ota.url}?${buildUTM(ota.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-1 px-4 py-3 rounded-xl backdrop-blur-sm border bg-wave-orange/10 border-wave-orange/30 hover:bg-wave-orange/20 transition-all duration-300 hover:scale-105 hover:-translate-y-1"
+                >
+                  <span className="text-sm md:text-base font-semibold text-foreground">
+                    {ota.name}
+                  </span>
+                  <StarRating rating={ota.rating} />
+                </a>
+              ))}
             </div>
 
             {/* Address & Map */}
