@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/lib/routes';
+import { HOME_SECTIONS } from '@/lib/homeSections';
 
 interface NavItem {
   label: string;
@@ -23,7 +24,7 @@ const navItems: NavItem[] = [
       { label: 'Varkala Travel Guide', href: ROUTES.guide },
       { label: 'Best Time to Visit', href: ROUTES.bestTime },
       { label: 'How to Reach Varkala', href: ROUTES.reach },
-      { label: 'Build Your Itinerary', href: `/${ROUTES.sections.itinerary}`, isHomepageSection: true },
+      { label: 'Build Your Itinerary', href: HOME_SECTIONS.itinerary, isHomepageSection: true },
     ],
   },
 ];
@@ -51,6 +52,7 @@ const MainNav = () => {
   }, [location.pathname]);
 
   const handleHomepageSectionClick = (href: string) => {
+    // href is already in format "/#section"
     const hash = href.replace('/', '');
     if (location.pathname === '/') {
       // Already on homepage, just scroll

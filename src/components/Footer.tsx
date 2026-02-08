@@ -1,6 +1,7 @@
 import { Instagram, Facebook, Mail, Phone, MapPin } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { ROUTES } from "@/lib/routes";
+import { HOME_SECTIONS } from "@/lib/homeSections";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -18,24 +19,25 @@ const Footer = () => {
   ];
 
   const sectionLinks = [
-    { name: 'Home', href: ROUTES.sections.hero },
-    { name: 'Activities', href: ROUTES.sections.activities },
-    { name: 'Rooms', href: ROUTES.sections.rooms },
-    { name: 'Surf School', href: ROUTES.sections.surfSchool },
-    { name: 'Gallery', href: ROUTES.sections.gallery },
-    { name: 'Build Your Itinerary', href: ROUTES.sections.itinerary },
+    { name: 'Home', href: HOME_SECTIONS.hero },
+    { name: 'Activities', href: HOME_SECTIONS.activities },
+    { name: 'Rooms', href: HOME_SECTIONS.rooms },
+    { name: 'Surf School', href: HOME_SECTIONS.surfSchool },
+    { name: 'Gallery', href: HOME_SECTIONS.gallery },
+    { name: 'Build Your Itinerary', href: HOME_SECTIONS.itinerary },
   ];
 
   const handleSectionClick = (href: string) => {
     if (location.pathname === '/') {
-      // Already on homepage, just scroll
-      const element = document.querySelector(href);
+      // Already on homepage, extract hash and scroll
+      const hash = href.replace('/', '');
+      const element = document.querySelector(hash);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth' });
       }
     } else {
-      // Navigate to homepage with hash
-      window.location.href = `/${href}`;
+      // Navigate to homepage with hash using native navigation
+      window.location.href = href;
     }
   };
 

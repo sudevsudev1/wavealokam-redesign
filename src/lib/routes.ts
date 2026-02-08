@@ -3,7 +3,7 @@
  * Use these constants instead of hardcoded strings to prevent routing regressions.
  */
 export const ROUTES = {
-  // Pillar pages
+  // Pillar pages (actual routes with their own page components)
   home: '/',
   stay: '/stay',
   surfStay: '/surf-stay',
@@ -17,22 +17,24 @@ export const ROUTES = {
   // Blog
   blog: '/blog',
   blogPost: (slug: string) => `/blog/${slug}`,
-  
-  // Homepage sections (only for same-page navigation on homepage)
-  sections: {
-    hero: '#hero',
-    activities: '#activities',
-    rooms: '#rooms',
-    surfSchool: '#surf-school',
-    itinerary: '#itinerary',
-    gallery: '#gallery',
-    originStory: '#origin-story',
-    faq: '#faq',
-  },
 } as const;
 
 /**
- * Helper to build homepage hash links for cross-page navigation.
- * Use native <a href="/#section"> for these, not React Router <Link>.
+ * Homepage section hashes.
+ * IMPORTANT: These are NOT routes! They are section anchors on the homepage.
+ * For same-page navigation, use the hash directly (e.g., #rooms).
+ * For cross-page navigation, import HOME_SECTIONS from homeSections.ts which
+ * provides the full path (e.g., /#rooms).
+ * 
+ * @deprecated Use HOME_SECTIONS from './homeSections' for cross-page navigation
  */
-export const getHomepageSection = (sectionId: string) => `/${sectionId}`;
+export const HOMEPAGE_SECTIONS = {
+  hero: '#hero',
+  activities: '#activities',
+  rooms: '#rooms',
+  surfSchool: '#surf-school',
+  itinerary: '#itinerary',
+  gallery: '#gallery',
+  originStory: '#origin-story',
+  faq: '#faq',
+} as const;
