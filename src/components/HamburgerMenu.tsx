@@ -79,13 +79,13 @@ const HamburgerMenu = () => {
           isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
         }`}
       >
-        <div className="h-full flex flex-col items-center justify-center">
-          <nav className="space-y-6">
+        <div className="h-full flex flex-col items-start sm:items-center justify-center px-6 sm:px-0">
+          <nav className="space-y-4 sm:space-y-6">
             {menuItems.map((item, index) => (
               <button
                 key={item.href + item.label}
                 onClick={() => handleNavClick(item)}
-                className="block text-4xl md:text-6xl text-display text-white hover:text-white/70 transition-all duration-300 transform hover:translate-x-4"
+                className="block text-3xl sm:text-4xl md:text-6xl text-display text-white hover:text-white/70 transition-all duration-300 transform hover:translate-x-4 text-left"
                 style={{
                   animationDelay: `${index * 0.1}s`,
                   opacity: isOpen ? 1 : 0,
