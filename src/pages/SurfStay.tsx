@@ -51,7 +51,7 @@ const SurfStay = () => {
     answer: 'Absolutely. Most of our guests are first-timers. We start in calm, shallow water where "wipeout" means "gentle flop into three feet of water." You\'ll be standing (briefly, proudly) by session 2. But actually by end of session 1. We are just required to say session 2 by some unsaid mediocrity rule.'
   }, {
     question: 'How long are the lessons?',
-    answer: 'Beginner lessons are 1.5 hours including theory and practice. Intermediate sessions run 2 hours. Any longer and your arms start filing complaints.'
+    answer: 'Beginner lessons are 1.5 hours including theory and practice. Intermediate sessions run 2 hours. Any longer and your arms start filing complaints. You won\'t be able to surf through the soreness for the next 6 days. Then what\'s the point.'
   }, {
     question: 'What boards do you use?',
     answer: 'Soft-top boards for beginners. They\'re forgiving, buoyant, and won\'t hurt when they inevitably bonk you. Advanced surfers can request hard boards.'
