@@ -66,7 +66,7 @@ const VarkalaGuide = () => {
     },
     {
       question: 'Is it suitable for families with kids?',
-      answer: 'Depends on the kids. The beach has currents, so constant supervision needed. The cliff has steep stairs. But families do come and enjoy it, especially with older children.',
+      answer: 'Yes. Kids love it. At Wavealokam we have a secret hack to keep the kids busy while the adults can have their "adult juice" time. Board games in the restaurant. Jenga, UNO and some other stuff kids love and we are too old to understand the rules of. Warning: There are also adult card games like Cards Against Humanity.',
     },
   ];
 
