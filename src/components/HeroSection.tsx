@@ -59,7 +59,7 @@ const HeroSection = () => {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 text-center px-4 pt-24 md:pt-20 pb-8">
+      <div className="relative z-10 text-center px-4 pt-44 sm:pt-40 md:pt-36 lg:pt-32 pb-8">
         {/* Tagline */}
         <h1 className="hero-title text-display-xl text-4xl sm:text-5xl md:text-7xl lg:text-8xl xl:text-9xl text-white mb-4 px-2">
           IT'S WAVECATION
