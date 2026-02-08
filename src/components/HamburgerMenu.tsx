@@ -62,7 +62,7 @@ const HamburgerMenu = () => {
         className="fixed z-[100] w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110
           top-[4.5rem] right-6
           sm:top-[3.5rem] sm:right-6
-          lg:top-5 lg:right-6
+          lg:top-14 lg:right-6
           bg-wave-orange lg:bg-white/10 lg:backdrop-blur-md lg:border lg:border-white/20 lg:hover:bg-white/20"
         aria-label="Toggle menu"
       >
