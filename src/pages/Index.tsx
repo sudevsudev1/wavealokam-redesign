@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 import MainNav from '@/components/MainNav';
+import HamburgerMenu from '@/components/HamburgerMenu';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import ChatBot from '@/components/ChatBot';
 import DiscountQuizBox from '@/components/DiscountQuizBox';
@@ -45,6 +46,9 @@ const Index = () => {
     <div className="relative overflow-x-hidden">
       {/* Main Navigation */}
       <MainNav />
+      
+      {/* Hamburger Menu (overlay) - above nav */}
+      <HamburgerMenu />
       
       {/* Fixed WhatsApp Button */}
       <WhatsAppButton />
