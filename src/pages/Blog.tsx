@@ -65,9 +65,9 @@ const Blog = () => {
   return (
     <>
       <BlogSEO
-        title="Blog | Wavealokam - Surf, Travel & Varkala Stories"
+        title="How to Kerala - Beach Math for Humans | Wavealokam"
         description="Discover surf tips, travel guides, and authentic Varkala stories from Wavealokam. Learn about surfing in Kerala, local experiences, and adventure in South India."
-        keywords={["Varkala blog", "surf Kerala", "travel India", "Wavealokam stories"]}
+        keywords={["Varkala blog", "surf Kerala", "travel India", "Wavealokam stories", "How to Kerala"]}
         url={currentUrl}
         type="website"
       />
@@ -84,9 +84,12 @@ const Blog = () => {
               <ArrowLeft className="w-4 h-4" />
               Back to Wavealokam
             </Link>
-            <h1 className="text-display-xl text-4xl md:text-6xl mb-4">
-              Wavealokam Blog
+            <h1 className="text-display-xl text-3xl md:text-5xl lg:text-6xl mb-4">
+              How to Kerala
             </h1>
+            <p className="text-xl md:text-2xl text-white/90 font-medium mb-2">
+              Beach Math for Humans
+            </p>
             <p className="text-lg text-white/90 max-w-2xl">
               Surf tips, travel guides, and honest stories from Varkala's cliff-side.
               No corporate fluff, just real talk about India's hidden surf paradise.
