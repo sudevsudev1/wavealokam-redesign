@@ -31,7 +31,7 @@ const HowToReach = () => {
       name: 'Varkala Sivagiri Station',
       distance: '~7 km from Wavealokam',
       notes: 'Main station. Well-connected to Trivandrum, Kochi, Bangalore, Mumbai.',
-      tip: 'Book AC Chair Car or Sleeper for longer journeys. Trains from Bangalore take ~12 hours.',
+      tip: 'Book AC Chair Car or Sleeper for longer journeys. Trains from Bangalore take ~12 hours. Wavealokam will send one our regular auto guys to pick you up. Don\'t worry. Pay him directly. Approx INR 200.',
     },
     {
       name: 'Varkala Tunnel Station',
