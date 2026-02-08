@@ -16,7 +16,7 @@ const SurfStay = () => {
   }, {
     name: 'Intermediate Package',
     description: 'Ready for green waves? Bigger waves, better technique, more spectacular wipeouts.',
-    includes: ['Daily 2hr sessions', 'Wave selection coaching', 'Video analysis', 'Flexible scheduling'],
+    includes: ['Daily 2 hr sessions', 'Wave selection coaching', 'Video analysis', 'Flexible scheduling'],
     duration: '5-7 days recommended'
   }];
   const typicalDay = [{
