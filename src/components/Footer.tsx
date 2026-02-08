@@ -19,12 +19,12 @@ const Footer = () => {
   ];
 
   const sectionLinks = [
-    { name: 'Home', href: HOME_SECTIONS.hero },
-    { name: 'Activities', href: HOME_SECTIONS.activities },
-    { name: 'Rooms', href: HOME_SECTIONS.rooms },
-    { name: 'Surf School', href: HOME_SECTIONS.surfSchool },
-    { name: 'Gallery', href: HOME_SECTIONS.gallery },
-    { name: 'Build Your Itinerary', href: HOME_SECTIONS.itinerary },
+    { name: 'Home', href: HOME_SECTIONS.hero, isSection: true },
+    { name: 'Activities', href: HOME_SECTIONS.activities, isSection: true },
+    { name: 'Rooms', href: ROUTES.stay, isSection: false },
+    { name: 'Surf School', href: ROUTES.surfStay, isSection: false },
+    { name: 'Gallery', href: HOME_SECTIONS.gallery, isSection: true },
+    { name: 'Book Now', href: ROUTES.stay, isSection: false },
   ];
 
   const handleSectionClick = (href: string) => {
@@ -98,13 +98,22 @@ const Footer = () => {
             <h3 className="font-bold text-lg mb-4 text-wave-orange">Quick Links</h3>
             <ul className="space-y-2">
               {sectionLinks.map((link) => (
-                <li key={link.href}>
-                  <button
-                    onClick={() => handleSectionClick(link.href)}
-                    className="text-background/70 hover:text-wave-orange transition-colors text-left"
-                  >
-                    {link.name}
-                  </button>
+                <li key={link.href + link.name}>
+                  {link.isSection ? (
+                    <button
+                      onClick={() => handleSectionClick(link.href)}
+                      className="text-background/70 hover:text-wave-orange transition-colors text-left"
+                    >
+                      {link.name}
+                    </button>
+                  ) : (
+                    <Link
+                      to={link.href}
+                      className="text-background/70 hover:text-wave-orange transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  )}
                 </li>
               ))}
               <li>

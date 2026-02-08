@@ -203,22 +203,13 @@ const VarkalaGuide = () => {
             
             {/* Build Your Itinerary CTA */}
             <div className="mt-12 text-center">
-              <a 
-                href="/#itinerary" 
-                onClick={(e) => {
-                  // If already on homepage, scroll smoothly instead
-                  if (window.location.pathname === '/') {
-                    e.preventDefault();
-                    const element = document.querySelector('#itinerary');
-                    if (element) element.scrollIntoView({ behavior: 'smooth' });
-                  }
-                  // Otherwise, native navigation with hash will handle it
-                }}
+              <Link 
+                to="/stay"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold hover:bg-primary/90 transition-colors"
               >
-                Build Your Own Itinerary
+                Book Your Stay
                 <ArrowRight className="w-5 h-5" />
-              </a>
+              </Link>
             </div>
           </div>
         </section>

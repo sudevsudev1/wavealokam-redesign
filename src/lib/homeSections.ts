@@ -33,49 +33,57 @@ export const SECTION_IDS = {
 } as const;
 
 /**
- * Link text variations mapped to their section hrefs.
- * Used by blog content rendering to map common link text to correct sections.
+ * Link text variations mapped to their destination hrefs.
+ * Used by blog content rendering to map common link text to correct pages.
+ * 
+ * ROUTING STRATEGY:
+ * - Stay/Rooms/Booking → /stay (Stay pillar page)
+ * - Surf/Surfing → /surf-stay (Surf+Stay pillar page)
+ * - Other sections → Homepage hash links
  */
 export const LINK_TEXT_TO_SECTION: Record<string, string> = {
-  // Rooms/Stay variations
-  'stay': HOME_SECTIONS.rooms,
-  'rooms': HOME_SECTIONS.rooms,
-  'room': HOME_SECTIONS.rooms,
-  'accommodation': HOME_SECTIONS.rooms,
-  'book a room': HOME_SECTIONS.rooms,
-  'wavealokam rooms': HOME_SECTIONS.rooms,
+  // Rooms/Stay/Booking variations → Stay pillar page
+  'stay': '/stay',
+  'rooms': '/stay',
+  'room': '/stay',
+  'accommodation': '/stay',
+  'book a room': '/stay',
+  'wavealokam rooms': '/stay',
+  'book now': '/stay',
+  'booking': '/stay',
+  'book': '/stay',
   
-  // Surf school variations
-  'surf school': HOME_SECTIONS.surfSchool,
-  'surf lessons': HOME_SECTIONS.surfSchool,
-  'learn surfing': HOME_SECTIONS.surfSchool,
-  'learn to surf': HOME_SECTIONS.surfSchool,
-  'surfing lessons': HOME_SECTIONS.surfSchool,
-  'wavealokam surf': HOME_SECTIONS.surfSchool,
+  // Surf school variations → Surf+Stay pillar page
+  'surf school': '/surf-stay',
+  'surf lessons': '/surf-stay',
+  'learn surfing': '/surf-stay',
+  'learn to surf': '/surf-stay',
+  'surfing lessons': '/surf-stay',
+  'wavealokam surf': '/surf-stay',
+  'surfing': '/surf-stay',
+  'surf': '/surf-stay',
   
-  // Activities variations
+  // Activities variations → Homepage section
   'activities': HOME_SECTIONS.activities,
   'things to do': HOME_SECTIONS.activities,
   'things to do in varkala': HOME_SECTIONS.activities,
   'what to do': HOME_SECTIONS.activities,
   
-  // Itinerary variations
-  'build itinerary': HOME_SECTIONS.itinerary,
-  'itinerary builder': HOME_SECTIONS.itinerary,
-  'plan your stay': HOME_SECTIONS.itinerary,
-  'book now': HOME_SECTIONS.itinerary,
-  'booking': HOME_SECTIONS.itinerary,
+  // Itinerary variations → Stay pillar page
+  'build itinerary': '/stay',
+  'itinerary builder': '/stay',
+  'plan your stay': '/stay',
   
-  // Gallery
+  // Gallery → Homepage section
   'gallery': HOME_SECTIONS.gallery,
   'photos': HOME_SECTIONS.gallery,
   
-  // Origin story
+  // Origin story → Homepage section
   'origin story': HOME_SECTIONS.originStory,
   'our story': HOME_SECTIONS.originStory,
   'about us': HOME_SECTIONS.originStory,
   
-  // FAQ
+  // FAQ → Homepage section
   'faq': HOME_SECTIONS.faq,
   'faqs': HOME_SECTIONS.faq,
   'questions': HOME_SECTIONS.faq,

@@ -13,12 +13,12 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { label: 'Home', href: ROUTES.home, isRoute: true },
   { label: 'Activities', href: HOME_SECTIONS.activities, isRoute: false },
-  { label: 'Rooms', href: HOME_SECTIONS.rooms, isRoute: false },
-  { label: 'Surf School', href: HOME_SECTIONS.surfSchool, isRoute: false },
+  { label: 'Rooms', href: ROUTES.stay, isRoute: true },
+  { label: 'Surf School', href: ROUTES.surfStay, isRoute: true },
   { label: 'Gallery', href: HOME_SECTIONS.gallery, isRoute: false },
   { label: 'Origin Story', href: HOME_SECTIONS.originStory, isRoute: false },
   { label: 'FAQ', href: HOME_SECTIONS.faq, isRoute: false },
-  { label: 'Book Now', href: HOME_SECTIONS.itinerary, isRoute: false },
+  { label: 'Book Now', href: ROUTES.stay, isRoute: true },
   { label: 'How to Kerala (Blog)', href: ROUTES.blog, isRoute: true },
 ];
 
