@@ -37,7 +37,7 @@ const HowToReach = () => {
       name: 'Varkala Tunnel Station',
       distance: '~5 km from Wavealokam',
       notes: 'Smaller station, fewer trains stop here. Check if yours does.',
-      tip: 'Closer to Edava but less convenient overall.',
+      tip: 'Closer to Edava but less convenient overall. But you know what they say... Wavealokam will send one our regular auto guys to pick you up. Don\'t worry. Pay him directly. Approx INR 200.',
     },
   ];
 
