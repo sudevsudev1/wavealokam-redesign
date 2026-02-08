@@ -21,7 +21,7 @@ const HowToReach = () => {
       name: 'Cochin International Airport (COK)',
       distance: '~180 km from Wavealokam',
       time: '5-6 hours by road',
-      notes: 'More international connections. Consider train from Ernakulam to Varkala if you have time.',
+      notes: 'More international connections. Consider train from Ernakulam to Varkala if you have time. Fastest train journey is 2 hours 48 mins and slowest is 4 hours 14 minutes. Wavealokam sends auto to pick you up (Approx Rs 200 fare and 15 min ride)',
       transfer: 'Train + taxi combo or direct taxi (₹4000-5000)',
     },
   ];
