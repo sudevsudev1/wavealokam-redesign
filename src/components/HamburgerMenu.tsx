@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
+import { HOME_SECTIONS } from '@/lib/homeSections';
 
 interface MenuItem {
   label: string;
@@ -15,13 +16,13 @@ const menuItems: MenuItem[] = [
   { label: 'Surf + Stay', href: ROUTES.surfStay, isRoute: true },
   { label: 'Workation', href: ROUTES.workation, isRoute: true },
   { label: 'Long Stay', href: ROUTES.longStay, isRoute: true },
-  { label: 'Activities', href: ROUTES.sections.activities, isRoute: false },
-  { label: 'Rooms', href: ROUTES.sections.rooms, isRoute: false },
-  { label: 'Surf School', href: ROUTES.sections.surfSchool, isRoute: false },
-  { label: 'Gallery', href: ROUTES.sections.gallery, isRoute: false },
-  { label: 'Origin Story', href: ROUTES.sections.originStory, isRoute: false },
-  { label: 'FAQ', href: ROUTES.sections.faq, isRoute: false },
-  { label: 'Book Now', href: ROUTES.sections.itinerary, isRoute: false },
+  { label: 'Activities', href: HOME_SECTIONS.activities, isRoute: false },
+  { label: 'Rooms', href: HOME_SECTIONS.rooms, isRoute: false },
+  { label: 'Surf School', href: HOME_SECTIONS.surfSchool, isRoute: false },
+  { label: 'Gallery', href: HOME_SECTIONS.gallery, isRoute: false },
+  { label: 'Origin Story', href: HOME_SECTIONS.originStory, isRoute: false },
+  { label: 'FAQ', href: HOME_SECTIONS.faq, isRoute: false },
+  { label: 'Book Now', href: HOME_SECTIONS.itinerary, isRoute: false },
   { label: 'How to Kerala', href: ROUTES.blog, isRoute: true },
 ];
 
@@ -44,14 +45,15 @@ const HamburgerMenu = () => {
     } else {
       // Homepage section navigation
       if (location.pathname === '/') {
-        // Already on homepage, just scroll
-        const element = document.querySelector(item.href);
+        // Already on homepage, extract hash from href (e.g., "/#rooms" -> "#rooms")
+        const hash = item.href.replace('/', '');
+        const element = document.querySelector(hash);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' });
         }
       } else {
-        // Navigate to homepage with hash
-        window.location.href = `/${item.href}`;
+        // Navigate to homepage with hash using native navigation
+        window.location.href = item.href;
       }
     }
   };

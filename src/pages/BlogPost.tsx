@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, Tag, Share2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
@@ -9,7 +9,8 @@ import RelatedPosts from "@/components/blog/RelatedPosts";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useCallback } from "react";
+import { HOME_SECTIONS } from "@/lib/homeSections";
+import { ROUTES } from "@/lib/routes";
 
 interface ImageData {
   url: string;
@@ -254,31 +255,66 @@ const BlogPost = () => {
                   </li>
                 ),
                 a: ({ href, children }) => {
-                  // Map internal links to actual routes or homepage hash sections
-                  const linkMap: Record<string, string> = {
-                    '/': '/',
-                    '/rooms': '/#rooms',
-                    '/booking': '/#rooms',
-                    '/surf-school': '/#surf-school',
-                    '/activities': '/#activities',
-                    '/dining': '/#dining',
+                  // Comprehensive mapping for internal links to homepage sections
+                  const sectionLinkMap: Record<string, string> = {
+                    // Direct section paths (common in blog content)
+                    '/rooms': HOME_SECTIONS.rooms,
+                    '/booking': HOME_SECTIONS.itinerary,
+                    '/surf-school': HOME_SECTIONS.surfSchool,
+                    '/activities': HOME_SECTIONS.activities,
+                    '/dining': HOME_SECTIONS.rooms, // No dining section, fallback to rooms
+                    '/gallery': HOME_SECTIONS.gallery,
+                    '/itinerary': HOME_SECTIONS.itinerary,
+                    '/faq': HOME_SECTIONS.faq,
+                    
+                    // Hash-only links (already correct format, but ensure they have leading slash)
+                    '#rooms': HOME_SECTIONS.rooms,
+                    '#surf-school': HOME_SECTIONS.surfSchool,
+                    '#activities': HOME_SECTIONS.activities,
+                    '#itinerary': HOME_SECTIONS.itinerary,
+                    '#gallery': HOME_SECTIONS.gallery,
+                    '#faq': HOME_SECTIONS.faq,
+                    '#origin-story': HOME_SECTIONS.originStory,
                   };
                   
-                  // Check if it's an internal path that needs mapping
-                  let mappedHref = href;
-                  if (href && linkMap[href] !== undefined) {
-                    mappedHref = linkMap[href];
+                  // Pillar page routes (these should use React Router Link)
+                  const pillarRoutes: string[] = [
+                    ROUTES.stay,
+                    ROUTES.surfStay,
+                    ROUTES.workation,
+                    ROUTES.longStay,
+                    ROUTES.guide,
+                    ROUTES.bestTime,
+                    ROUTES.reach,
+                    ROUTES.contact,
+                    ROUTES.blog,
+                  ];
+                  
+                  // Determine the final href
+                  let finalHref = href || '';
+                  const isExternal = finalHref.startsWith('http');
+                  
+                  // Check if it's a section link that needs mapping
+                  if (sectionLinkMap[finalHref]) {
+                    finalHref = sectionLinkMap[finalHref];
                   }
                   
-                  const isExternal = mappedHref?.startsWith('http');
-                  const isHomepage = mappedHref === '/';
-                  const isHashLink = mappedHref?.startsWith('/#');
+                  // Check if it's a homepage link
+                  const isHomepageLink = finalHref === '/' || finalHref === '';
                   
-                  // For homepage and hash links, use native anchor for proper navigation
-                  if (isHomepage || isHashLink) {
+                  // Check if it's a homepage section link (starts with /#)
+                  const isHomepageSection = finalHref.startsWith('/#');
+                  
+                  // Check if it's a pillar page
+                  const isPillarPage = pillarRoutes.includes(finalHref);
+                  
+                  // For homepage, homepage sections, and external links - use native anchor
+                  if (isExternal || isHomepageLink || isHomepageSection) {
                     return (
                       <a 
-                        href={mappedHref}
+                        href={finalHref || '/'}
+                        target={isExternal ? '_blank' : undefined}
+                        rel={isExternal ? 'noopener noreferrer' : undefined}
                         className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
                       >
                         {children}
@@ -286,11 +322,34 @@ const BlogPost = () => {
                     );
                   }
                   
+                  // For pillar pages, use React Router Link
+                  if (isPillarPage) {
+                    return (
+                      <Link 
+                        to={finalHref}
+                        className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
+                      >
+                        {children}
+                      </Link>
+                    );
+                  }
+                  
+                  // For blog links (e.g., /blog/some-slug)
+                  if (finalHref.startsWith('/blog/')) {
+                    return (
+                      <Link 
+                        to={finalHref}
+                        className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
+                      >
+                        {children}
+                      </Link>
+                    );
+                  }
+                  
+                  // Default: use native anchor for any other internal links
                   return (
                     <a 
-                      href={mappedHref} 
-                      target={isExternal ? '_blank' : undefined}
-                      rel={isExternal ? 'noopener noreferrer' : undefined}
+                      href={finalHref}
                       className="text-primary font-semibold underline decoration-primary decoration-2 underline-offset-4 hover:decoration-[3px] transition-all"
                     >
                       {children}

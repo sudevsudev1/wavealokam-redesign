@@ -17,10 +17,14 @@ import GallerySection from '@/components/GallerySection';
 import OriginStorySection from '@/components/OriginStorySection';
 import FAQSection from '@/components/FAQSection';
 import Footer from '@/components/Footer';
+import { useScrollToHash } from '@/hooks/useScrollToHash';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const Index = () => {
+  // Handle scrolling to hash anchors (from cross-page navigation)
+  useScrollToHash();
+
   useEffect(() => {
     // Initialize smooth scroll behavior
     ScrollTrigger.defaults({
