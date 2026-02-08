@@ -197,9 +197,19 @@ const Contact = () => {
                 </div>
               </div>
 
-              {/* Map Placeholder */}
-              <div className="bg-muted/30 rounded-2xl flex items-center justify-center min-h-[200px] border border-border">
-                <span className="text-muted-foreground">[Google Map Embed Placeholder]</span>
+              {/* Google Map Embed */}
+              <div className="rounded-2xl overflow-hidden min-h-[200px] border border-border">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3945.8076!2d76.6897!3d8.7334!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3b05ef46cdef53e3%3A0x51d30e3f8f7a4fb9!2sWavealokam%20Beach%20Retreat!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin"
+                  width="100%"
+                  height="200"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Wavealokam Beach Retreat Location"
+                  className="w-full h-full min-h-[200px]"
+                />
               </div>
             </div>
           </div>
