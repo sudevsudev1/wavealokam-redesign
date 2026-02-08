@@ -93,7 +93,7 @@ const SurfStay = () => {
               Our Packages
             </h2>
             <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
-              Not formal packages with rigid schedules. More like "here's what we recommend" combined with "let's see what the waves are doing."
+              We love people who surf with us and give them discounts when they book directly with us.
             </p>
 
             <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
