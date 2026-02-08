@@ -76,7 +76,7 @@ const HowToReach = () => {
     },
     {
       question: 'What if I arrive late at night?',
-      answer: 'Pre-book your taxi. Late-night Ubers are unreliable. Airport taxi counter is always open. Let us know your arrival time and we\'ll make sure someone is awake to receive you.',
+      answer: 'Pre-book your taxi. Wavealokam will help you out with that don\'t worry. Our guy will be waiting for you at the airport. Airport taxi counter is also always open. But they might charge more and you will have to do the driver brief yourself. Preferably in Malayalam. Let us know your arrival time and we\'ll make sure someone is awake to receive you.',
     },
     {
       question: 'Should I rent a scooter or car?',
