@@ -41,7 +41,7 @@ const VarkalaGuide = () => {
 
   const itinerary2Days = [
     { day: 'Day 1', activities: 'Arrive, settle in, beach walk, cliff sunset, dinner with a view' },
-    { day: 'Day 2', activities: 'Morning surf lesson, big breakfast, backwater trip, night market or chill' },
+    { day: 'Day 2', activities: 'Morning surf lesson, big breakfast, backwater trip, Varkala North Cliff night or chill at Wavealokam\'s romantic rooftop.' },
   ];
 
   const itinerary4Days = [
