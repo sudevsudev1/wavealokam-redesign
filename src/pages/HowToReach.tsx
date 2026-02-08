@@ -22,7 +22,7 @@ const HowToReach = () => {
       distance: '~180 km from Wavealokam',
       time: '5-6 hours by road',
       notes: 'More international connections. But so far. Yet better than having to change flights to come to Trivandrum airport and taking a cab again.',
-      transfer: 'Train + taxi combo or direct taxi (₹4000-5000)',
+      transfer: 'Taxi (approx 8k-10k INR). Wavealokam can arrange one for you if you ask nicely. Directly pay to vendor. We know the honest ones. IMPORTANT PRO TIP!!! Ask driver to take the MC road. NOT the highway, NOT the coastal road. Your back will thank you and so will half an hour of your time.',
     },
   ];
 
