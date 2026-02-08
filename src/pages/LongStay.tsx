@@ -52,7 +52,7 @@ const LongStay = () => {
     },
     {
       question: 'What\'s the longest someone has stayed?',
-      answer: 'Multiple months. Some guests came for a week and stayed the whole season. We don\'t ask questions, we just make sure the WiFi keeps working.',
+      answer: 'In our hearts? Forever.',
     },
   ];
 
