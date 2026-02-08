@@ -59,13 +59,17 @@ const HamburgerMenu = () => {
       {/* Hamburger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-6 right-6 z-[100] w-14 h-14 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center transition-all duration-300 hover:bg-white/20 hover:scale-110"
+        className="fixed z-[100] w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110
+          top-[7.5rem] right-6
+          sm:top-[6.5rem] sm:right-6
+          lg:top-20 lg:right-6
+          bg-wave-orange lg:bg-white/10 lg:backdrop-blur-md lg:border lg:border-white/20 lg:hover:bg-white/20"
         aria-label="Toggle menu"
       >
         {isOpen ? (
-          <X className="w-6 h-6 text-white" />
+          <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         ) : (
-          <Menu className="w-6 h-6 text-white" />
+          <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         )}
       </button>
 
