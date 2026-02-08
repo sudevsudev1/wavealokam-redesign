@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+import MainNav from '@/components/MainNav';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import ChatBot from '@/components/ChatBot';
@@ -39,7 +40,10 @@ const Index = () => {
 
   return (
     <div className="relative overflow-x-hidden">
-      {/* Fixed Navigation */}
+      {/* Main Navigation */}
+      <MainNav />
+      
+      {/* Hamburger Menu (overlay) */}
       <HamburgerMenu />
       
       {/* Fixed WhatsApp Button */}

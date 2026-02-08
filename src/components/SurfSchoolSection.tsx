@@ -98,7 +98,7 @@ const SurfSchoolSection = () => {
             SURF SCHOOL
           </h2>
           <p className="surf-title text-lg text-white/80 max-w-3xl mx-auto drop-shadow-md">
-            Varkala's best surf instructors will get you riding waves in no time. Beginner or expert, they'll teach you that the ocean has a sense of humor and you're the punchline.
+            Varkala's best surf instructors will get you riding waves in no time. Check out our <a href="/surf-stay" className="underline underline-offset-2 hover:text-white">surf + stay packages</a> — beginner or expert, they'll teach you that the ocean has a sense of humor and you're the punchline.
           </p>
         </div>
 

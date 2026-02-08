@@ -66,7 +66,7 @@ const HeroSection = () => {
         </h1>
 
         <p className="hero-subtitle text-lg md:text-xl lg:text-2xl text-white/90 font-medium mb-8 max-w-2xl mx-auto px-4">
-          Booking a room at Wavealokam is easier than catching a wave. And we will teach you that too.                 
+          Whether you're here to <a href="/stay" className="underline underline-offset-2 hover:text-white">stay in Varkala</a>, catch waves at our <a href="/surf-stay" className="underline underline-offset-2 hover:text-white">surf camp</a>, or escape for a <a href="/workation" className="underline underline-offset-2 hover:text-white">workation</a> — booking a room is easier than catching a wave. And we will teach you that too.                 
         </p>
 
         {/* OTA Ratings */}

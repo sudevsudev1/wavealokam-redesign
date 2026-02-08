@@ -218,8 +218,11 @@ const FAQSection = () => {
 
         {/* CTA */}
         <div className="text-center mt-16 pt-8 border-t border-white/20">
-          <p className="text-xl md:text-2xl text-white font-medium">
+          <p className="text-xl md:text-2xl text-white font-medium mb-4">
             Got more questions? Text us. We're almost always online.
+          </p>
+          <p className="text-white/70">
+            Planning your trip? Check our <a href="/varkala-guide" className="underline hover:text-white">Varkala travel guide</a>, learn about the <a href="/best-time-to-visit-varkala" className="underline hover:text-white">best time to visit</a>, or find out <a href="/how-to-reach-varkala" className="underline hover:text-white">how to reach Varkala</a>. Ready to book? <a href="/contact" className="underline hover:text-white">Contact Wavealokam</a> directly.
           </p>
         </div>
       </div>
