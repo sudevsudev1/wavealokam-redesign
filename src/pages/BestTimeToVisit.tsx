@@ -35,7 +35,7 @@ const BestTimeToVisit = () => {
   const faqs = [
     {
       question: 'Does it rain during monsoon?',
-      answer: 'Yes, heavily at times. June-August gets the most rain. It\'s dramatic and beautiful if you like that sort of thing. Some cafes close, but the brave ones stay open.',
+      answer: 'What kind of... yes! It\'s monsoon. In coastal Kerala. June-August brings torrential, dramatic rain. Most resorts close. We stay open at half price, operating at a loss for the three people who understand that monsoon isn\'t a bug, it\'s a feature.\n\nEmpty beaches. Crashing waves. The kind of solitude that either breaks you or fixes you. If you need "things to do," stay home. If you want to sit in the rain and feel something real, come through. Different breed of traveler entirely. Unlike the reviewer who gave us 4 stars saying there is nothing to do in Varkala. Such is life.',
     },
     {
       question: 'How humid does it get?',
