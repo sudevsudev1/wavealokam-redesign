@@ -12,7 +12,7 @@ const SurfStay = () => {
     name: 'Beginner Package',
     description: 'Perfect first-timers. Learn to stand, ride whitewater, and fall gracefully.',
     includes: ['Daily 1.5hr lessons', 'Board & equipment', 'Theory sessions', 'Beach transport'],
-    duration: '3-5 days recommended'
+    duration: '3-5 days recommended. 10% discount on pre paying for 5 sessions'
   }, {
     name: 'Intermediate Package',
     description: 'Ready for green waves? Bigger waves, better technique, more spectacular wipeouts.',
