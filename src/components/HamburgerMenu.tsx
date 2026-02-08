@@ -4,6 +4,7 @@ import { Menu, X } from 'lucide-react';
 interface MenuItem {
   label: string;
   href: string;
+  isExternal?: boolean;
 }
 
 const menuItems: MenuItem[] = [
@@ -12,17 +13,25 @@ const menuItems: MenuItem[] = [
   { label: 'Rooms', href: '#rooms' },
   { label: 'Dining', href: '#dining' },
   { label: 'Surf School', href: '#surf-school' },
+  { label: 'Gallery', href: '#gallery' },
+  { label: 'Origin Story', href: '#origin-story' },
+  { label: 'FAQ', href: '#faq' },
   { label: 'Book Now', href: '#itinerary' },
+  { label: 'How to Kerala', href: '/blog', isExternal: true },
 ];
 
 const HamburgerMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleNavClick = (href: string) => {
+  const handleNavClick = (item: MenuItem) => {
     setIsOpen(false);
-    const element = document.querySelector(href);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+    if (item.isExternal) {
+      window.location.href = item.href;
+    } else {
+      const element = document.querySelector(item.href);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 
@@ -52,8 +61,8 @@ const HamburgerMenu = () => {
             {menuItems.map((item, index) => (
               <button
                 key={item.href}
-                onClick={() => handleNavClick(item.href)}
-                className="block text-5xl md:text-7xl text-display text-white hover:text-white/70 transition-all duration-300 transform hover:translate-x-4"
+                onClick={() => handleNavClick(item)}
+                className="block text-4xl md:text-6xl text-display text-white hover:text-white/70 transition-all duration-300 transform hover:translate-x-4"
                 style={{
                   animationDelay: `${index * 0.1}s`,
                   opacity: isOpen ? 1 : 0,
