@@ -1,14 +1,17 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
+
+gsap.registerPlugin(ScrollToPlugin);
 
 /**
  * Hook that handles scrolling to hash anchors on the homepage.
  * 
- * Features:
- * - Scrolls to hash on initial mount
- * - Handles hash changes during navigation
- * - Retries finding the element for up to 1500ms (handles lazy-loaded content)
- * - Uses smooth scrolling
+ * Uses GSAP ScrollToPlugin to correctly scroll to elements even when
+ * ScrollTrigger has pinned/transformed sections that distort native
+ * scrollIntoView positioning.
  * 
  * Usage: Call this hook in the homepage component (Index.tsx)
  */
@@ -26,39 +29,48 @@ export const useScrollToHash = () => {
     const scrollToElement = () => {
       const element = document.getElementById(id);
       if (element) {
-        // Small delay to ensure GSAP/animations have settled
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+        // Refresh ScrollTrigger so pin positions are accurate
+        ScrollTrigger.refresh();
+        // Use GSAP ScrollToPlugin which respects ScrollTrigger pin spacing
+        gsap.to(window, {
+          scrollTo: { y: element, offsetY: 0 },
+          duration: 0.8,
+          ease: 'power2.out',
+          delay: 0.1,
+        });
         return true;
       }
       return false;
     };
 
-    // Try immediately
-    if (scrollToElement()) return;
-
-    // If not found, retry with increasing delays (for lazy-loaded content)
-    const retryDelays = [100, 200, 300, 400, 500];
-    let retryIndex = 0;
-    let totalTime = 0;
-    const maxTime = 1500;
-
-    const retryScroll = () => {
-      if (totalTime >= maxTime) return;
-      
+    // Wait for GSAP ScrollTrigger to initialize (Index.tsx refreshes at 500ms)
+    const initialDelay = 800;
+    
+    const startScrolling = () => {
       if (scrollToElement()) return;
-      
-      if (retryIndex < retryDelays.length) {
-        const delay = retryDelays[retryIndex];
-        totalTime += delay;
-        retryIndex++;
-        setTimeout(retryScroll, delay);
-      }
+
+      // Retry with increasing delays up to 3000ms total
+      const retryDelays = [200, 300, 400, 500, 600];
+      let retryIndex = 0;
+      let totalTime = initialDelay;
+      const maxTime = 3000;
+
+      const retryScroll = () => {
+        if (totalTime >= maxTime) return;
+        if (scrollToElement()) return;
+        
+        if (retryIndex < retryDelays.length) {
+          const delay = retryDelays[retryIndex];
+          totalTime += delay;
+          retryIndex++;
+          setTimeout(retryScroll, delay);
+        }
+      };
+
+      setTimeout(retryScroll, retryDelays[0]);
     };
 
-    // Start retrying
-    setTimeout(retryScroll, retryDelays[0]);
+    setTimeout(startScrolling, initialDelay);
   }, [location.hash, location.pathname]);
 };
 
