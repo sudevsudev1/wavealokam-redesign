@@ -23,12 +23,12 @@ const storyContent: ContentSegment[] = [
   { text: "before discovering her actual calling: hospitality." },
   { text: "", image: "/origin-story/choreographer_power_trips.webp" },
   {
-    text: "After enough air kisses and power trips of dull-witted choreographers nicknamed Chubhna (grating to the ear) Admas and such, even the glamorous life gets annoyingly unfulfilling.",
+    text: "After enough air kisses and power trips of dull-witted choreographers nicknamed Chubhna (grating to the ear) Adam and such, the glamorous life gets annoyingly fake.",
   },
   { text: "Hospitality wasn't the plan though..." },
   { text: "", image: "/origin-story/fell_in_love.webp" },
   {
-    text: 'She and Sudev fell in love in 2021 while he was living his "disappear for a year and forge yourself in solitude" phase. Except it wasn\'t poetic solitude - it was a slum rehabilitation housing complex in Mumbai because he genuinely had no money. True story. Also no friends, but that came standard with the Sudev package.',
+    text: 'She and Sudev fell in love in 2021 while he was living his "disappear for a year and forge yourself in solitude" phase. Except it wasn\'t poetic solitude or just 1 year - it was a slum rehabilitation housing complex in Mumbai because he genuinely had no money. True story. Also no friends, but that came standard with the Sudev package.',
   },
   { text: "", image: "/origin-story/Here_is_a_picture_of_Sudev_with_all_his_friends.webp" },
   { text: "Here is a picture of Sudev with all his friends.", isCaption: true },
@@ -72,13 +72,14 @@ const storyContent: ContentSegment[] = [
   },
   { text: "", image: "/origin-story/that_was_unforgivable.webp" },
   { text: "That was unforgivable." },
+  { text: "Amardeep packed up from Mumbai, drove down to Varkala and cleaned house." },
   { text: "", image: "/origin-story/drove_down.webp" },
   {
-    text: "Amardeep packed up from Mumbai, drove down to Varkala, and cleaned house. Took over like she'd been running hospitality her entire life.",
+    text: "Took over like she'd been running hospitality her entire life. Managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation.",
   },
   { text: "", image: "/origin-story/household_with_three_women_and_a_brother.webp" },
   {
-    text: "Managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation. Domestic Chaos is a degree in Hotel Management.",
+    text: "Domestic Chaos is a degree in Hotel Management.",
   },
   { text: "", image: "/origin-story/Here_we_are.webp" },
   { text: "And so here we are." },
