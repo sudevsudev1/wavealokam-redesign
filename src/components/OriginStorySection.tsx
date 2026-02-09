@@ -96,7 +96,7 @@ const OriginStorySection = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [audioStarted, setAudioStarted] = useState(false);
   const [isInSection, setIsInSection] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -104,13 +104,42 @@ const OriginStorySection = () => {
   const toggleMute = () => {
     if (audioRef.current) {
       if (!audioStarted) {
+        audioRef.current.muted = false;
         audioRef.current.play().catch(() => {});
         setAudioStarted(true);
       }
-      audioRef.current.muted = !isMuted;
+      audioRef.current.muted = isMuted; // toggle: if currently unmuted, mute it
       setIsMuted(!isMuted);
     }
   };
+
+  // Start playing when expanded
+  useEffect(() => {
+    if (isOpen && audioRef.current && !audioStarted) {
+      audioRef.current.muted = false;
+      audioRef.current.play().then(() => {
+        setAudioStarted(true);
+        setIsMuted(false);
+      }).catch(() => {
+        // Browser blocked autoplay — keep muted state
+        setIsMuted(true);
+      });
+    }
+    if (!isOpen && audioRef.current) {
+      audioRef.current.pause();
+      setAudioStarted(false);
+    }
+  }, [isOpen]);
+
+  // Pause when scrolling out of section
+  useEffect(() => {
+    if (!isInSection && audioStarted && audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (isInSection && isOpen && audioRef.current && audioStarted && audioRef.current.paused) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [isInSection, isOpen, audioStarted]);
 
   useEffect(() => {
     if (!sectionRef.current || !isOpen) return;
@@ -230,7 +259,7 @@ const OriginStorySection = () => {
       className="relative bg-gradient-to-b from-[hsl(var(--wave-purple))] via-[hsl(var(--wave-purple-light))] to-[hsl(var(--wave-blue-ocean))] py-24 md:py-32"
     >
       {/* Background Music */}
-      <audio ref={audioRef} src="/audio/origin-story-theme.mp3" loop muted={isMuted} preload="auto" />
+      <audio ref={audioRef} src="/audio/origin-story-theme.mp3" loop preload="auto" />
 
       {/* Audio Control Button - always rendered, visibility controlled by CSS */}
       <button
