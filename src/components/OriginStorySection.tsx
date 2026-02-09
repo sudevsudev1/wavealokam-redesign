@@ -77,7 +77,7 @@ const storyContent: ContentSegment[] = [
   {
     text: "Took over like she'd been running hospitality her entire life.",
   },
-  text: "Managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation."}, 
+  { text: "Managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation."}, 
   { text: "", image: "/origin-story/household_with_three_women_and_a_brother.webp" },
   {
     text : "Domestic Chaos is a degree in Hotel Management.",
