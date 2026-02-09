@@ -31,13 +31,17 @@ const navItems: NavItem[] = [
 
 const MainNav = () => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const desktopDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const isInsideDesktop = desktopDropdownRef.current?.contains(target);
+      const isInsideMobile = mobileDropdownRef.current?.contains(target);
+      if (!isInsideDesktop && !isInsideMobile) {
         setOpenDropdown(null);
       }
     };
@@ -77,7 +81,7 @@ const MainNav = () => {
           </Link>
 
           {/* Desktop Navigation - single row */}
-          <div className="hidden lg:flex items-center gap-2" ref={dropdownRef}>
+          <div className="hidden lg:flex items-center gap-2" ref={desktopDropdownRef}>
             {navItems.map((item) => (
               <div key={item.label} className="relative">
                 {item.children ? (
@@ -151,7 +155,7 @@ const MainNav = () => {
         </div>
 
         {/* Row 2: Mobile/Tablet Navigation Links - wrapping */}
-        <div className="lg:hidden pb-2 -mt-1" ref={dropdownRef}>
+        <div className="lg:hidden pb-2 -mt-1" ref={mobileDropdownRef}>
           <div className="flex flex-wrap items-center justify-center gap-1">
             {navItems.map((item) => (
               <div key={item.label} className="relative">
