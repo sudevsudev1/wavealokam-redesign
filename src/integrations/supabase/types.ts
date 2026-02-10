@@ -110,6 +110,45 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_insights: {
+        Row: {
+          best_answer: string | null
+          created_at: string
+          follow_up_topics: string[] | null
+          id: string
+          intent: string
+          language: string | null
+          last_seen_at: string | null
+          occurrence_count: number | null
+          question_pattern: string
+          topic: string
+        }
+        Insert: {
+          best_answer?: string | null
+          created_at?: string
+          follow_up_topics?: string[] | null
+          id?: string
+          intent: string
+          language?: string | null
+          last_seen_at?: string | null
+          occurrence_count?: number | null
+          question_pattern: string
+          topic: string
+        }
+        Update: {
+          best_answer?: string | null
+          created_at?: string
+          follow_up_topics?: string[] | null
+          id?: string
+          intent?: string
+          language?: string | null
+          last_seen_at?: string | null
+          occurrence_count?: number | null
+          question_pattern?: string
+          topic?: string
+        }
+        Relationships: []
+      }
       evergreen_topics: {
         Row: {
           bucket: string
