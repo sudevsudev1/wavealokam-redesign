@@ -127,7 +127,7 @@ const ChatBot = () => {
   return <>
       {/* Chat Toggle Button */}
       <button onClick={() => setIsOpen(!isOpen)} className={cn('fixed bottom-6 right-6 z-[80] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110', isOpen ? 'bg-foreground text-background' : 'bg-wave-orange text-white hover:shadow-[0_0_30px_hsl(var(--wave-orange)/0.6)]')} aria-label={isOpen ? 'Close chat' : 'Open chat'}>
-        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-7 h-7" />}
+        {isOpen ? <X className="w-6 h-6" /> : <img src="/images/drifter-avatar.webp" alt="Drifter" className="w-10 h-10 rounded-full object-cover" />}
         {!isOpen && <span className="absolute inset-0 rounded-full bg-wave-orange animate-ping opacity-30" />}
       </button>
 
@@ -137,9 +137,7 @@ const ChatBot = () => {
     }}>
         {/* Header */}
         <div className="bg-wave-orange text-white p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-            <MessageCircle className="w-5 h-5" />
-          </div>
+          <img src="/images/drifter-avatar.webp" alt="Drifter" className="w-10 h-10 rounded-full object-cover" />
           <div>
             <h3 className="font-bold">Drifter</h3>
             <p className="text-xs text-white/80">Your charmingly tactless beachside informant       </p>
