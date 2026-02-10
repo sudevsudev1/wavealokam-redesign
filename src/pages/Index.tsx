@@ -5,7 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import MainNav from '@/components/MainNav';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import WhatsAppButton from '@/components/WhatsAppButton';
-import ChatBot from '@/components/ChatBot';
+
 import DiscountQuizBox from '@/components/DiscountQuizBox';
 import HeroSection from '@/components/HeroSection';
 import SurfboardScrollSection from '@/components/SurfboardScrollSection';
@@ -53,9 +53,8 @@ const Index = () => {
       {/* Fixed WhatsApp Button */}
       <WhatsAppButton />
       
-      {/* AI Chatbot */}
-      <ChatBot />
-      
+
+
       {/* Discount Quiz Box */}
       <DiscountQuizBox />
 
