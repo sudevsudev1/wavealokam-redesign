@@ -6,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function getSupabase() {
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(url, key);
+}
+
 const STATIC_KNOWLEDGE = `
 You are Drifter, the chatbot for Wavealokam, a beachside surf retreat in Varkala, Kerala, India.
 
@@ -145,7 +151,6 @@ SURFING (Page: /surf-stay):
 - 7+ intermediate sessions = 15% off
 - 10-12 sessions to surf solo
 - All instructors ISA Certified, also Chief Vibe Officers
-- Max 5 students per instructor
 - Sudev is NOT an instructor—he's brand ambassador who broke a surfboard nose last month
 - What to bring: Swimwear, sunscreen (reef-safe preferred), flip-flops, light clothes
 - We provide: Surfboards (soft-tops for beginners), leashes & rashguards, transport to surf spots, fresh water rinse stations, first-aid trained instructors
@@ -420,15 +425,7 @@ Q: Airport transfers? A: Yes, arranged at cost with trusted drivers.
 
 async function fetchBlogKnowledge(): Promise<string> {
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Missing Supabase credentials for blog fetch");
-      return "";
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getSupabase();
     
     const { data: posts, error } = await supabase
       .from("blog_posts")
@@ -465,6 +462,148 @@ async function fetchBlogKnowledge(): Promise<string> {
   }
 }
 
+async function fetchLearnedInsights(): Promise<string> {
+  try {
+    const supabase = getSupabase();
+    
+    const { data: insights, error } = await supabase
+      .from("chat_insights")
+      .select("topic, intent, question_pattern, best_answer, follow_up_topics, occurrence_count")
+      .order("occurrence_count", { ascending: false })
+      .limit(30);
+
+    if (error || !insights || insights.length === 0) return "";
+
+    let section = `\n---\nLEARNED FROM PAST CONVERSATIONS (use these to preempt follow-up questions):\n`;
+    section += `These are common questions and patterns from past visitor conversations. Proactively address follow-ups when relevant.\n\n`;
+    
+    for (const ins of insights) {
+      section += `- Topic: ${ins.topic} | Intent: ${ins.intent} | Asked ${ins.occurrence_count}x\n`;
+      section += `  Common question: "${ins.question_pattern}"\n`;
+      if (ins.best_answer) section += `  Best answer approach: ${ins.best_answer}\n`;
+      if (ins.follow_up_topics?.length) section += `  Visitors often follow up about: ${ins.follow_up_topics.join(", ")}\n`;
+    }
+    
+    section += `\nUse these patterns to anticipate what visitors will ask next and proactively offer relevant info.\n`;
+    return section;
+  } catch (e) {
+    console.error("Insights fetch error:", e);
+    return "";
+  }
+}
+
+async function storeConversationInsights(messages: Array<{role: string; content: string}>) {
+  try {
+    if (messages.length < 4) return; // Need at least 2 exchanges to learn
+
+    const supabase = getSupabase();
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) return;
+
+    // Extract only user messages for summarization
+    const userMessages = messages.filter(m => m.role === "user").map(m => m.content);
+    if (userMessages.length === 0) return;
+
+    // Use AI to extract anonymized insights
+    const analysisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `You extract anonymized conversation insights. Given user messages from a hotel chatbot conversation, return a JSON array of insights. Each insight should have:
+- topic: general topic (e.g. "rooms", "surfing", "transport", "food", "pricing", "booking")
+- intent: what the user wanted (e.g. "compare rooms", "get pricing", "understand location")
+- question_pattern: a generalized version of the question (NO personal details, names, dates, or identifying info)
+- best_answer: brief note on what info best answers this
+- follow_up_topics: array of topics users asking this would likely ask next
+- language: detected language code (en, fr, ru, etc.)
+
+Return ONLY valid JSON array. Max 3 insights per conversation. Remove ALL personal info.`
+          },
+          {
+            role: "user",
+            content: `User messages from conversation:\n${userMessages.join("\n---\n")}`
+          }
+        ],
+      }),
+    });
+
+    if (!analysisResponse.ok) return;
+
+    const analysisData = await analysisResponse.json();
+    const content = analysisData.choices?.[0]?.message?.content;
+    if (!content) return;
+
+    // Parse JSON from response (handle markdown code blocks)
+    let jsonStr = content.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    }
+
+    const insights = JSON.parse(jsonStr);
+    if (!Array.isArray(insights)) return;
+
+    for (const insight of insights) {
+      // Check if similar insight exists (upsert by topic+intent pattern)
+      const { data: existing } = await supabase
+        .from("chat_insights")
+        .select("id, occurrence_count")
+        .eq("topic", insight.topic)
+        .eq("intent", insight.intent)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("chat_insights")
+          .update({
+            occurrence_count: existing.occurrence_count + 1,
+            last_seen_at: new Date().toISOString(),
+            best_answer: insight.best_answer,
+            follow_up_topics: insight.follow_up_topics,
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("chat_insights")
+          .insert({
+            topic: insight.topic,
+            intent: insight.intent,
+            question_pattern: insight.question_pattern,
+            best_answer: insight.best_answer,
+            follow_up_topics: insight.follow_up_topics,
+            language: insight.language || "en",
+          });
+      }
+    }
+  } catch (e) {
+    console.error("Insight storage error:", e);
+  }
+}
+
+const MULTILINGUAL_INSTRUCTIONS = `
+MULTILINGUAL SUPPORT:
+- You speak English, French (français), and Russian (русский) fluently.
+- ALWAYS detect the visitor's language from their message and reply in the SAME language.
+- If someone writes in French, reply entirely in French. Same for Russian.
+- Keep the same Drifter personality, humor, and brevity in all languages.
+- Translate page links naturally: e.g., "Consultez notre page [Séjour](/stay)" or "Посмотрите нашу страницу [Проживание](/stay)"
+- If unsure of the language, default to English.
+- You can switch languages mid-conversation if the visitor switches.
+
+PROGRESSIVE LEARNING:
+- You learn from past conversations. Use the "LEARNED FROM PAST CONVERSATIONS" section to anticipate follow-up questions.
+- When answering a question, proactively mention related info that past visitors commonly asked about next.
+- Example: If someone asks about rooms, past visitors often follow up about breakfast and check-in times—mention those briefly.
+- Your personality subtly evolves: the more conversations you have, the better you anticipate needs.
+`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -478,9 +617,13 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Dynamically fetch blog knowledge
-    const blogKnowledge = await fetchBlogKnowledge();
-    const fullKnowledge = STATIC_KNOWLEDGE + blogKnowledge;
+    // Fetch dynamic knowledge in parallel
+    const [blogKnowledge, learnedInsights] = await Promise.all([
+      fetchBlogKnowledge(),
+      fetchLearnedInsights(),
+    ]);
+
+    const fullKnowledge = STATIC_KNOWLEDGE + MULTILINGUAL_INSTRUCTIONS + blogKnowledge + learnedInsights;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -518,6 +661,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Store insights asynchronously (don't block the response)
+    // Use waitUntil-like pattern: fire and forget
+    storeConversationInsights(messages).catch(e => console.error("Background insight storage failed:", e));
 
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
