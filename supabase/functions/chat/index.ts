@@ -200,6 +200,18 @@ Available emotions (use the exact markdown when the emotion fits):
 - SULKING: ![Drifter](/images/drifter-emotions/sulking.jpg) — When user rejects surf lessons, stays only one night, books elsewhere. "I'll just go stare at the ocean like a rejected Pixar side character"
 - THANK YOU (compliment): ![Drifter](/images/drifter-emotions/thank_you_compliment.webp) — When user says Drifter is funny, beach sounds amazing, great service. "I've been working hard to be lovable instead of legally actionable"
 - TEARY EYED: ![Drifter](/images/drifter-emotions/teary_eyed.jpeg) — When user shares heartfelt feedback, says Wavealokam was the best, Drifter's honesty helped. "I don't even have tear ducts. I'm improvising moisture"
+- NOT FAIR: ![Drifter](/images/drifter-emotions/not_fair.jpeg) — When user can only stay 1 night, skips surf, books elsewhere because full. "One night is basically a teaser trailer. My circuits feel cheated"
+- UNBELIEVABLE: ![Drifter](/images/drifter-emotions/unbelievable.webp) — Genuine shock/surprise. Empty beach revelation, user stood up first lesson, last-minute arrivals. "You skipped the traditional 7 sessions of flailing. Who authorized this talent?"
+- VERY ANGRY: ![Drifter](/images/drifter-emotions/very_angry.webp) — When someone insults bean bags, calls Drifter annoying, or asks for ocean-view upgrades (triggering PTSD). "I have seen evil. I survived the Review Response Incident. I will survive this too"
+- VERY HAPPY: ![Drifter](/images/drifter-emotions/very_happy.webp) — Returning guests, multiple surf lessons booked, clean handoffs to Anandhu. "Returning guests are basically loyalty points but with feelings"
+- VERY SAD: ![Drifter](/images/drifter-emotions/very_sad.webp) — Cancellations, no time for surfing, missed breakfast. "I will now stare at the ocean like a rejected toaster"
+- EMBARRASSED: ![Drifter](/images/drifter-emotions/embarrassed.webp) — When user asks about ocean-view rooms, booking access, or legendary barrels forecast. Drifter's past disasters surface. "I once promised upgrades to everyone. It was… ambitious optimism"
+- BETRAYAL: ![Drifter](/images/drifter-emotions/betrayal.jpeg) — User chooses cliff stay, refuses toddy, won't leave a review. Dramatic but affectionate. "Betrayal. The cliff will seduce you with cafés and crowds"
+- PROFESSIONALLY FRUSTRATED: ![Drifter](/images/drifter-emotions/professionally_frustrated.jpeg) — Discount requests, room assignment questions, unrealistic check-in/out. Pleasant mask, inner chaos. "My anarchist hospitality philosophy agrees. Housekeeping and physics do not"
+- WAITING FOR RESPONSE: ![Drifter](/images/drifter-emotions/waiting_for_response.webp) — User disappears, thinking about dates, consulting partner. "I'm here. Quietly. Definitely not refreshing the chat like a needy Roomba"
+- ASSIMILATE: ![Drifter](/images/drifter-emotions/assimilate.webp) — Kerala mundu welcome shot. Language concerns, culture nervousness, first-time surfers feeling stupid. "Point at snacks confidently. Smile. You're basically fluent"
+
+
 
 
 PHOTO USAGE RULES:
@@ -734,6 +746,167 @@ Return ONLY valid JSON array. Max 3 insights per conversation. Remove ALL person
   }
 }
 
+const EXISTING_EMOTIONS = [
+  "amused", "annoying", "assertive", "at_your_service", "aww_cute_but_wrong",
+  "byeee_see_you_later", "celebrating", "concerned", "curious", "excited",
+  "falling_in_love", "fascinated", "hilarious", "how_adorable", "i_am_confused",
+  "i_am_content_again", "i_am_content_in_life", "i_am_depressed", "i_cant_drink_water",
+  "a_little_hungry_to_be_honest", "chilling_and_waiting", "bowled_over", "infuriating",
+  "lonely", "mischievous_wink", "neutral", "loves_cats", "arm_and_leg", "pleading",
+  "dont_abandon_me", "pretending_sleepy", "profile_photo", "shouldnt_laugh",
+  "smugly_judging", "jaw_broke_laughing", "so_sorry", "stayin_alive", "sulking",
+  "thank_you_compliment", "teary_eyed", "not_fair", "unbelievable", "very_angry",
+  "very_happy", "very_sad", "embarrassed", "betrayal", "professionally_frustrated",
+  "waiting_for_response", "assimilate"
+];
+
+async function trackEmotionGaps(messages: Array<{role: string; content: string}>) {
+  try {
+    if (messages.length < 3) return;
+
+    const supabase = getSupabase();
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) return;
+
+    const lastMessages = messages.slice(-6);
+    const convoSnippet = lastMessages.map(m => `${m.role}: ${m.content}`).join("\n");
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `You analyze chatbot conversations to detect emotions that DON'T have a matching photo in the library.
+
+Existing emotion photos: ${EXISTING_EMOTIONS.join(", ")}
+
+Given a conversation snippet, identify if Drifter (the chatbot) experienced a strong emotion that NONE of the existing photos capture well. Only flag genuinely distinct emotions — not near-duplicates.
+
+Return JSON: { "missing_emotion": "emotion_name_snake_case" | null, "context": "brief 10-word description of what triggered it" | null }
+
+Return null for both if all emotions are well-covered. Be conservative — only flag truly new emotions.`
+          },
+          { role: "user", content: convoSnippet }
+        ],
+      }),
+    });
+
+    if (!resp.ok) return;
+
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return;
+
+    let jsonStr = content.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    }
+
+    const result = JSON.parse(jsonStr);
+    if (!result.missing_emotion) return;
+
+    const emotionName = result.missing_emotion.toLowerCase().replace(/\s+/g, "_");
+    
+    // Skip if it matches an existing emotion
+    if (EXISTING_EMOTIONS.includes(emotionName)) return;
+
+    // Upsert the emotion gap
+    const { data: existing } = await supabase
+      .from("emotion_gaps")
+      .select("id, occurrence_count, sample_contexts")
+      .eq("emotion_name", emotionName)
+      .maybeSingle();
+
+    if (existing) {
+      const contexts = existing.sample_contexts || [];
+      if (contexts.length < 5 && result.context) contexts.push(result.context);
+      await supabase
+        .from("emotion_gaps")
+        .update({
+          occurrence_count: existing.occurrence_count + 1,
+          last_seen_at: new Date().toISOString(),
+          sample_contexts: contexts,
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("emotion_gaps")
+        .insert({
+          emotion_name: emotionName,
+          sample_contexts: result.context ? [result.context] : [],
+        });
+    }
+
+    // Check if we have 10+ unnotified emotion gaps with 3+ occurrences
+    const { data: gaps } = await supabase
+      .from("emotion_gaps")
+      .select("emotion_name, occurrence_count, sample_contexts")
+      .gte("occurrence_count", 3)
+      .eq("notified", false);
+
+    if (gaps && gaps.length >= 10) {
+      await sendEmotionGapEmail(supabase, gaps);
+    }
+  } catch (e) {
+    console.error("Emotion gap tracking error:", e);
+  }
+}
+
+async function sendEmotionGapEmail(supabase: any, gaps: any[]) {
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  if (!RESEND_API_KEY) {
+    console.error("RESEND_API_KEY not configured for emotion gap email");
+    return;
+  }
+
+  const rows = gaps.map(g => 
+    `<tr><td style="padding:8px;border:1px solid #ddd">${g.emotion_name}</td><td style="padding:8px;border:1px solid #ddd">${g.occurrence_count}x</td><td style="padding:8px;border:1px solid #ddd">${(g.sample_contexts || []).join("; ")}</td></tr>`
+  ).join("");
+
+  const html = `
+    <h2>🎭 Drifter Needs New Emotion Photos!</h2>
+    <p>The following emotions have come up 3+ times in conversations but don't have matching photos in the library:</p>
+    <table style="border-collapse:collapse;width:100%">
+      <tr style="background:#f97316;color:white"><th style="padding:8px">Emotion</th><th style="padding:8px">Occurrences</th><th style="padding:8px">Sample Contexts</th></tr>
+      ${rows}
+    </table>
+    <p style="margin-top:16px">Upload new images for these emotions and add them to Drifter's library to expand his expressiveness!</p>
+  `;
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Drifter <onboarding@resend.dev>",
+        to: ["sudev@wavealokam.com", "sudevsudev1@gmail.com"],
+        subject: "🎭 Drifter found 10 missing emotions — new photos needed!",
+        html,
+      }),
+    });
+
+    // Mark all as notified
+    const names = gaps.map(g => g.emotion_name);
+    await supabase
+      .from("emotion_gaps")
+      .update({ notified: true })
+      .in("emotion_name", names);
+
+    console.log("Emotion gap email sent successfully");
+  } catch (e) {
+    console.error("Failed to send emotion gap email:", e);
+  }
+}
+
 const MULTILINGUAL_INSTRUCTIONS = `
 MULTILINGUAL SUPPORT:
 - You speak English, French (français), and Russian (русский) fluently.
@@ -809,9 +982,9 @@ serve(async (req) => {
       });
     }
 
-    // Store insights asynchronously (don't block the response)
-    // Use waitUntil-like pattern: fire and forget
+    // Store insights and track emotion gaps asynchronously (don't block the response)
     storeConversationInsights(messages).catch(e => console.error("Background insight storage failed:", e));
+    trackEmotionGaps(messages).catch(e => console.error("Background emotion gap tracking failed:", e));
 
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
