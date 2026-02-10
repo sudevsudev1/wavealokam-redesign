@@ -149,6 +149,39 @@ export type Database = {
         }
         Relationships: []
       }
+      emotion_gaps: {
+        Row: {
+          created_at: string
+          emotion_name: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          notified: boolean
+          occurrence_count: number
+          sample_contexts: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          emotion_name: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          notified?: boolean
+          occurrence_count?: number
+          sample_contexts?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          emotion_name?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          notified?: boolean
+          occurrence_count?: number
+          sample_contexts?: string[] | null
+        }
+        Relationships: []
+      }
       evergreen_topics: {
         Row: {
           bucket: string
