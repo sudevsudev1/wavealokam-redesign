@@ -11,7 +11,7 @@ const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([{
     role: 'assistant',
-    content: "Hi. I am Drifter. Wave-a-lokam's digital representative. I might look like an AI chatbot. But trust me, that's only because I am.\n\nWhat can I help you with?"
+    content: "Drifter here. Digital representative, former booking engine anarchist, current dispenser of honest answers. Available in French, Russian, satire, and disappointment when you don't book.\n\nWhat can I help you with?"
   }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
