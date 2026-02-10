@@ -6,13 +6,25 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+const INITIAL_MESSAGE: Message = {
+  role: 'assistant',
+  content: "Drifter here. Digital representative, former booking engine anarchist, current dispenser of honest answers. Available in French, Russian, satire, and disappointment when you don't book.\n\nWhat can I help you figure out?"
+};
+
+const STORAGE_KEY = 'drifter-chat-messages';
+
+const getStoredMessages = (): Message[] => {
+  try {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return [INITIAL_MESSAGE];
+};
+
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([{
-    role: 'assistant',
-    content: "Drifter here. Digital representative, former booking engine anarchist, current dispenser of honest answers. Available in French, Russian, satire, and disappointment when you don't book.\n\nWhat can I help you figure out?"
-  }]);
+  const [messages, setMessages] = useState<Message[]>(getStoredMessages);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,12 +38,15 @@ const ChatBot = () => {
     scrollToBottom();
   }, [messages]);
   useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+  useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isOpen]);
   const streamChat = async (userMessages: Message[]) => {
-    const resp = await fetch(CHAT_URL, {
+    const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -148,10 +163,13 @@ const ChatBot = () => {
         <div className="h-80 overflow-y-auto p-4 space-y-4 bg-muted/30">
           {messages.map((message, index) => <div key={index} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
               <div className={cn('max-w-[85%] rounded-2xl px-4 py-2 text-sm', message.role === 'user' ? 'bg-wave-orange text-white rounded-br-md' : 'bg-card text-foreground border border-border rounded-bl-md')}>
-                {message.role === 'assistant' ? <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-0 [&>p:last-child]:mb-0 [&>p>img]:rounded-xl [&>p>img]:my-2 [&>p>img]:max-w-[200px]">
+               {message.role === 'assistant' ? <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-0 [&>p:last-child]:mb-0 [&>p>img]:rounded-xl [&>p>img]:my-2 [&>p>img]:max-w-[200px] [&_a]:font-bold [&_a]:underline [&_a]:text-[hsl(var(--wave-orange))] [&_a:hover]:opacity-80">
                     <ReactMarkdown components={{
                       img: ({ src, alt, ...props }) => (
                         <img src={src} alt={alt || 'Drifter'} className="rounded-xl my-2 max-w-[200px] w-auto" loading="lazy" {...props} />
+                      ),
+                      a: ({ href, children, ...props }) => (
+                        <a href={href} target={href?.startsWith('http') ? '_blank' : '_self'} rel="noopener noreferrer" className="font-bold underline text-[hsl(var(--wave-orange))] hover:opacity-80 transition-opacity" {...props}>{children}</a>
                       )
                     }}>{message.content}</ReactMarkdown>
                   </div> : message.content}
