@@ -146,7 +146,7 @@ const ChatBot = () => {
           {isOpen ? <X className="w-6 h-6" /> : <img src="/images/drifter-avatar.webp" alt="Drifter" className="w-10 h-10 rounded-full object-cover" />}
           {!isOpen && <span className="absolute inset-0 rounded-full bg-wave-orange animate-ping opacity-30" />}
         </button>
-        {!isOpen && <span className="text-[9px] font-medium text-foreground/70 leading-tight text-center max-w-[80px]">Instant Chat with Drifter</span>}
+        {!isOpen && <span className="text-[9px] font-semibold text-foreground leading-tight text-center max-w-[80px] bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded-full shadow-sm">Instant Chat with Drifter</span>}
       </div>
 
       {/* Chat Window */}
