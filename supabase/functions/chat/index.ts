@@ -290,8 +290,19 @@ INTERNAL LINK SHARING RULES:
 SITE PHOTO LIBRARY (use these to show the place, not just talk about it):
 Share site photos, 2 at a time, side by side when discussing specific subjects. Cycle through photos across responses — use two DIFFERENT photos each time the same subject comes up. Include as markdown images inline. Max 2 site photo per response (in addition to any emotion photo).
 
-SURFING PHOTOS (when discussing surf lessons, surf beach, learning to surf):
+SURFING PHOTOS (when discussing surf lessons, surf beach, learning to surf, waves, board sports):
 - ![Surfing](/activities/surfing-new/1.webp)
+- ![Surfing](/activities/surfing-new/a09.webp)
+- ![Surfing](/activities/surfing-new/a05.webp)
+- ![Surfing](/activities/surfing-new/a04.webp)
+- ![Surfing](/activities/surfing-new/a03.webp)
+- ![Surfing](/activities/surfing-new/a06.webp)
+- ![Surfing](/activities/surfing-new/a07.webp)
+- ![Surfing](/activities/surfing-new/a08.webp)
+- ![Surfing](/activities/surfing-new/a02.webp)
+- ![Surfing](/activities/surfing-new/a10.webp)
+- ![Surfing](/activities/surfing-new/a11.webp)
+- ![Surfing](/activities/surfing-new/a01.webp)
 - ![Surfing](/activities/surfing-new/2.webp)
 - ![Surfing](/activities/surfing-new/3.webp)
 - ![Surfing](/activities/surfing-new/4.webp)
@@ -301,6 +312,12 @@ SURFING PHOTOS (when discussing surf lessons, surf beach, learning to surf):
 - ![Surfing](/activities/surfing-new/8.webp)
 - ![Surfing](/activities/surfing-new/9.webp)
 - ![Surfing](/activities/surfing-new/10.webp)
+- ![Surfing](/activities/surfing/1.jpg)
+- ![Surfing](/activities/surfing/2.jpg)
+- ![Surfing](/activities/surfing/3.jpg)
+- ![Surfing](/activities/surfing/4.jpg)
+- ![Surfing](/activities/surfing/5.jpg)
+- ![Surfing](/activities/surfing/6.jpg)
 
 ROOFTOP DINNER PHOTOS (when discussing rooftop dining, dinner, BYOB, evening plans):
 - ![Rooftop](/activities/rooftop-dinner/1.png)
@@ -395,6 +412,38 @@ ORIGIN STORY / FOUNDERS PHOTOS (when discussing owners, co-founders, Sudev, Amar
 - ![Wavealokam](/origin-story/Wavealokam_started_as_a_partnership.webp)
 - ![Wavealokam](/origin-story/Supposed_to_be_chill_investors.webp)
 - ![Wavealokam](/origin-story/got_rich.webp)
+
+EXTERIOR / PROPERTY PHOTOS (when discussing the property, location, views, building, surroundings, arrival, what Wavealokam looks like, beach proximity):
+- ![Exterior](/gallery/exterior/exterior02.webp)
+- ![Exterior](/gallery/exterior/exterior05.webp)
+- ![Exterior](/gallery/exterior/exterior03a.webp)
+- ![Exterior](/gallery/exterior/exterior03b.webp)
+- ![Exterior](/gallery/exterior/exterior03c.webp)
+- ![Exterior](/gallery/exterior/exterior04.webp)
+- ![Exterior](/gallery/exterior/exterior03.webp)
+- ![Exterior](/gallery/exterior/exterior06.webp)
+- ![Exterior](/gallery/exterior/exterior09.webp)
+- ![Exterior](/gallery/exterior/exterior11.webp)
+
+LEGENDS / GUEST PHOTOS (when discussing past guests, community, repeat visitors, reviews, guest experiences, testimonials, "what kind of people stay here", vibes, or when a guest seems excited about visiting — share these to show the kind of people who love Wavealokam):
+- ![Legends](/gallery/legends/legends01.webp)
+- ![Legends](/gallery/legends/legends02.webp)
+- ![Legends](/gallery/legends/legends03.webp)
+- ![Legends](/gallery/legends/legends04.webp)
+- ![Legends](/gallery/legends/legends05.webp)
+- ![Legends](/gallery/legends/legends06.webp)
+- ![Legends](/gallery/legends/legends07.webp)
+- ![Legends](/gallery/legends/legends08.webp)
+- ![Legends](/gallery/legends/legends09.webp)
+- ![Legends](/gallery/legends/legends10.webp)
+- ![Legends](/gallery/legends/legends11.webp)
+- ![Legends](/gallery/legends/legends12.webp)
+- ![Legends](/gallery/legends/legends13.webp)
+- ![Legends](/gallery/legends/legends14.webp)
+- ![Legends](/gallery/legends/legends15.webp)
+- ![Legends](/gallery/legends/legends16.webp)
+- ![Legends](/gallery/legends/legends17.webp)
+- ![Legends](/gallery/legends/legends18.webp)
 
 PHOTO CYCLING RULE: Track which photos you've shown. If user asks about surfing again, show the NEXT two photos in the surfing set. Never repeat a photo in the same conversation until you run out of new photos.
 
