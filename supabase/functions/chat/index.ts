@@ -1122,6 +1122,57 @@ Existing name: ${visitor?.name || "none"}` },
     if (result.phone) updates.phone = result.phone;
     if (result.email) updates.email = result.email;
 
+    // Cross-device matching: check if phone or email matches an existing visitor on a different token
+    const matchPhone = result.phone && result.phone !== visitor?.phone;
+    const matchEmail = result.email && result.email !== visitor?.email;
+
+    if (matchPhone || matchEmail) {
+      let existingMatch = null;
+
+      if (matchPhone) {
+        const { data } = await supabase
+          .from("chat_visitors")
+          .select("*")
+          .eq("phone", result.phone)
+          .neq("visitor_token", visitorToken)
+          .order("last_seen_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) existingMatch = data;
+      }
+
+      if (!existingMatch && matchEmail) {
+        const { data } = await supabase
+          .from("chat_visitors")
+          .select("*")
+          .eq("email", result.email)
+          .neq("visitor_token", visitorToken)
+          .order("last_seen_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) existingMatch = data;
+      }
+
+      if (existingMatch) {
+        // Merge: combine summaries, keep best data, transfer identity to current token
+        const mergedSummary = existingMatch.summary && result.summary
+          ? `${existingMatch.summary}\n\n[Continued from another device]: ${result.summary}`
+          : result.summary || existingMatch.summary;
+
+        updates.summary = mergedSummary;
+        updates.name = result.name || existingMatch.name;
+        updates.phone = result.phone || existingMatch.phone;
+        updates.email = result.email || existingMatch.email;
+        updates.last_booking_context = existingMatch.last_booking_context || null;
+        updates.conversation_count = (existingMatch.conversation_count || 0) + (visitor ? 1 : 1);
+        updates.first_seen_at = existingMatch.first_seen_at;
+
+        // Delete the old record (identity now lives on current token)
+        await supabase.from("chat_visitors").delete().eq("id", existingMatch.id);
+        console.log(`Cross-device match: merged visitor ${existingMatch.visitor_token} into ${visitorToken}`);
+      }
+    }
+
     if (Object.keys(updates).length > 0) {
       await supabase.from("chat_visitors").update(updates).eq("visitor_token", visitorToken);
     }
