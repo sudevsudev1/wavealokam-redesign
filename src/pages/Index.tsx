@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 import MainNav from '@/components/MainNav';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import WhatsAppButton from '@/components/WhatsAppButton';
+
 
 import DiscountQuizBox from '@/components/DiscountQuizBox';
 import HeroSection from '@/components/HeroSection';
@@ -50,8 +50,6 @@ const Index = () => {
       {/* Hamburger Menu (overlay) - above nav */}
       <HamburgerMenu />
       
-      {/* Fixed WhatsApp Button */}
-      <WhatsAppButton />
       
 
 
