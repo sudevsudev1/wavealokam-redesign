@@ -14,7 +14,18 @@ const galleryFolders: GalleryFolder[] = [
     id: 'exterior',
     title: 'Exterior',
     description: 'The views that greet you',
-    images: [], // User will upload later
+    images: [
+      '/gallery/exterior/exterior02.webp',
+      '/gallery/exterior/exterior03.webp',
+      '/gallery/exterior/exterior03a.webp',
+      '/gallery/exterior/exterior03b.webp',
+      '/gallery/exterior/exterior03c.webp',
+      '/gallery/exterior/exterior04.webp',
+      '/gallery/exterior/exterior05.webp',
+      '/gallery/exterior/exterior06.webp',
+      '/gallery/exterior/exterior09.webp',
+      '/gallery/exterior/exterior11.webp',
+    ],
   },
   {
     id: 'surfing',
