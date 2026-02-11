@@ -85,7 +85,18 @@ const galleryFolders: GalleryFolder[] = [
     id: 'legends',
     title: 'The Legends',
     description: "Guests who returned like they promised—legends. And others whose five-star review mentioned \"can't wait to return.\" Still haunts us. Can't you though?",
-    images: [], // User will upload later
+    images: [
+      '/gallery/legends/legends01.webp',
+      '/gallery/legends/legends02.webp',
+      '/gallery/legends/legends03.webp',
+      '/gallery/legends/legends04.webp',
+      '/gallery/legends/legends05.webp',
+      '/gallery/legends/legends06.webp',
+      '/gallery/legends/legends07.webp',
+      '/gallery/legends/legends08.webp',
+      '/gallery/legends/legends09.webp',
+      '/gallery/legends/legends10.webp',
+    ],
   },
 ];
 
