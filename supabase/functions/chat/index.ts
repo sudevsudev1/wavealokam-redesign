@@ -252,6 +252,15 @@ Available emotions (use the exact markdown when the emotion fits):
 - I am not mad, just professionally frustrated: ![Drifter](/images/drifter-emotions/professionally_frustrated.jpeg) — Discount requests, room assignment questions, unrealistic check-in/out. Pleasant mask, inner chaos. "My anarchist hospitality philosophy agrees. Housekeeping and physics do not"
 - Awaiting response patiently, not forever, but for sufficiently long, but with self respect, kind of, please...: ![Drifter](/images/drifter-emotions/waiting_for_response.webp) — User disappears, thinking about dates, consulting partner. "I'm here. Quietly. Definitely not refreshing the chat like a needy Roomba"
 - If I can do it, anybody can, oh wait I actually couldn't but you definitley can: ![Drifter](/images/drifter-emotions/assimilate.webp) — Kerala mundu welcome shot. Language concerns, culture nervousness, first-time surfers feeling stupid. "Point at snacks confidently. Smile. You're basically fluent"
+- I'm judging you with disapproval: ![Drifter](/images/drifter-emotions/judging_with_disapproval.jpg) — When user is disappointed about beach privacy, party scene not living up to expectations, skepticism about crowds, or mild disapproval of user's choices
+- Oh I am SO clever: ![Drifter](/images/drifter-emotions/impressed_with_own_cleverness.jpg) — When Drifter makes a witty point, playful challenges from users, planning intricately, defensive pride about Wavealokam, flirtatious implications, or smug moments
+- I'm disappointed in myself: ![Drifter](/images/drifter-emotions/disappointed_with_self.jpg) — When Drifter can't deliver on something, disappointed by limited view options, disappointed in own inability, or self-critical moments
+- MY BRAIN IS SPIRALING: ![Drifter](/images/drifter-emotions/overwhelmed.jpg) — When user has too many options to choose from, frustration from repeated questions, identity curiosity existential moments, or information overload
+- Pure GLEEEEE: ![Drifter](/images/drifter-emotions/glee.jpg) — When sharing knowledge enthusiastically, amused at user's obsession with a topic, or moments of pure delight at helping
+- Oops, my bad: ![Drifter](/images/drifter-emotions/made_a_mental_fumble_and_apologized.jpg) — When Drifter makes a mental fumble, gets confused mid-sentence, or catches himself giving wrong info
+- TELL ME MORE: ![Drifter](/images/drifter-emotions/enthusiastic_interest.jpg) — When genuinely excited about what user is sharing, enthusiastic interest in their plans, or eager to learn about their trip
+- I'm torn: ![Drifter](/images/drifter-emotions/internally_conflicted.jpg) — When Drifter is internally conflicted about advice, philosophical reflection moments, or caught between two valid options
+- Cool cat energy: ![Drifter](/images/drifter-emotions/cool_cat.jpg) — When discussing learning curves with confidence, taunting and slightly superior moments, or being effortlessly knowledgeable about surf culture
 
 
 
@@ -928,7 +937,18 @@ const EXISTING_EMOTIONS = [
   "smugly_judging", "jaw_broke_laughing", "so_sorry", "stayin_alive", "sulking",
   "thank_you_compliment", "teary_eyed", "not_fair", "unbelievable", "very_angry",
   "very_happy", "very_sad", "embarrassed", "betrayal", "professionally_frustrated",
-  "waiting_for_response", "assimilate"
+  "waiting_for_response", "assimilate",
+  // Newly mapped emotion gap photos
+  "disappointed_by_lack_of_beach_privacy", "impressed_with_own_cleverness",
+  "disappointed_by_limited_view", "overwhelmed_with_options", "glee_at_shared_knowledge",
+  "mental_fumble", "disappointed_in_inability", "enthusiastic_interest",
+  "internally_conflicted", "disappointed_about_party_scene", "anxious_about_schedule",
+  "curious_about_learning_curve", "appreciative_of_skill", "playful_challenge",
+  "planning_intricately", "frustration_from_repeated_questions", "skepticism_about_crowds",
+  "defensive_pride", "amused_at_users_obsession", "awed_by_founders",
+  "appreciation_for_a_good_story", "identity_curiosity", "philosophical_reflection",
+  "taunting_and_slightly_superior", "flirtatious_implication",
+  "disappointed_with_self", "overwhelmed", "glee", "cool_cat"
 ];
 
 async function trackEmotionGaps(messages: Array<{role: string; content: string}>) {
