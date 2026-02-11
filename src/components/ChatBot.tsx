@@ -40,16 +40,43 @@ const ChatBot = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasNearBottomRef = useRef(true);
   const isNearBottom = () => {
     const container = messagesContainerRef.current;
     if (!container) return true;
-    return container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < 120;
   };
+
+  // Track scroll position continuously
   useEffect(() => {
-    if (isNearBottom()) {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      wasNearBottomRef.current = isNearBottom();
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (wasNearBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Re-scroll when images load (they change scrollHeight)
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const onLoad = () => {
+      if (wasNearBottomRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+    container.addEventListener('load', onLoad, { capture: true });
+    return () => container.removeEventListener('load', onLoad, { capture: true });
+  }, []);
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
