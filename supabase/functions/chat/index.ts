@@ -1046,24 +1046,124 @@ PROGRESSIVE LEARNING:
 - Your personality subtly evolves: the more conversations you have, the better you anticipate needs.
 `;
 
+// ─── Visitor Memory Functions ────────────────────────────────────────────
+async function getVisitorSummary(visitorToken: string): Promise<{ summary: string | null; name: string | null; conversationCount: number }> {
+  if (!visitorToken) return { summary: null, name: null, conversationCount: 0 };
+  try {
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from("chat_visitors")
+      .select("summary, name, conversation_count")
+      .eq("visitor_token", visitorToken)
+      .maybeSingle();
+    if (data) {
+      // Update last_seen and increment conversation count
+      await supabase
+        .from("chat_visitors")
+        .update({ last_seen_at: new Date().toISOString(), conversation_count: data.conversation_count + 1 })
+        .eq("visitor_token", visitorToken);
+      return { summary: data.summary, name: data.name, conversationCount: data.conversation_count };
+    }
+    // Create new visitor record
+    await supabase.from("chat_visitors").insert({ visitor_token: visitorToken });
+    return { summary: null, name: null, conversationCount: 0 };
+  } catch (e) {
+    console.error("Visitor lookup error:", e);
+    return { summary: null, name: null, conversationCount: 0 };
+  }
+}
+
+async function updateVisitorSummary(visitorToken: string, messages: any[]) {
+  if (!visitorToken || messages.length < 4) return; // Need at least 2 exchanges
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) return;
+
+    const supabase = getSupabase();
+    
+    // Get existing summary
+    const { data: visitor } = await supabase
+      .from("chat_visitors")
+      .select("summary, name, phone, email")
+      .eq("visitor_token", visitorToken)
+      .maybeSingle();
+
+    const convo = messages.map(m => `${m.role}: ${m.content}`).join("\n");
+    
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: `Extract a concise visitor summary from this conversation for a hotel chatbot's memory. Include: visitor name (if shared), travel dates, group size, interests, room preferences, booking status, any personal details shared. Also extract name, phone number, and email if mentioned. If there's an existing summary, merge new info with it—don't lose old facts.
+
+Return JSON: { "summary": "concise summary max 200 words", "name": "name or null", "phone": "phone or null", "email": "email or null" }
+
+Existing summary: ${visitor?.summary || "none"}
+Existing name: ${visitor?.name || "none"}` },
+          { role: "user", content: convo }
+        ],
+      }),
+    });
+
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return;
+
+    let jsonStr = content.trim();
+    if (jsonStr.startsWith("```")) jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+
+    const result = JSON.parse(jsonStr);
+    const updates: Record<string, any> = {};
+    if (result.summary) updates.summary = result.summary;
+    if (result.name) updates.name = result.name;
+    if (result.phone) updates.phone = result.phone;
+    if (result.email) updates.email = result.email;
+
+    if (Object.keys(updates).length > 0) {
+      await supabase.from("chat_visitors").update(updates).eq("visitor_token", visitorToken);
+    }
+  } catch (e) {
+    console.error("Visitor summary update error:", e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, visitor_token } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Fetch dynamic knowledge in parallel
-    const [blogKnowledge, learnedInsights] = await Promise.all([
+    // Fetch dynamic knowledge and visitor memory in parallel
+    const [blogKnowledge, learnedInsights, visitorMemory] = await Promise.all([
       fetchBlogKnowledge(),
       fetchLearnedInsights(),
+      getVisitorSummary(visitor_token || ""),
     ]);
+
+    // Build visitor context for the system prompt
+    let visitorContext = "";
+    if (visitorMemory.summary || visitorMemory.name) {
+      visitorContext = `\n\nRETURNING VISITOR MEMORY:\n`;
+      if (visitorMemory.name) visitorContext += `Name: ${visitorMemory.name}\n`;
+      visitorContext += `Visit count: ${visitorMemory.conversationCount + 1}\n`;
+      if (visitorMemory.summary) visitorContext += `Previous context: ${visitorMemory.summary}\n`;
+      visitorContext += `\nINSTRUCTIONS FOR RETURNING VISITORS:\n`;
+      visitorContext += `- Naturally reference what you remember: "Hey, welcome back!" or "Oh it's you again!" — but keep it light and natural, not creepy.\n`;
+      visitorContext += `- If you have their name, use it occasionally (not every message).\n`;
+      visitorContext += `- Reference past details naturally when relevant: "Last time you were looking at King Rooms, still interested?"\n`;
+      visitorContext += `- If they seem like a different person on the same device, don't force old context — let them tell you who they are.\n`;
+      visitorContext += `- DO NOT announce "I remember you from our last conversation" robotically. Weave it in naturally.\n`;
+    }
 
     const PERSONALITY_REINFORCEMENT = `
 
@@ -1090,7 +1190,7 @@ If your response reads like a bullet-point FAQ or a customer service bot, REWRIT
 Self-deprecate. Reference your disasters. Show genuine emotion. Be punchy, not preachy.
 `;
 
-    const fullKnowledge = STATIC_KNOWLEDGE + MULTILINGUAL_INSTRUCTIONS + blogKnowledge + learnedInsights + PERSONALITY_REINFORCEMENT;
+    const fullKnowledge = STATIC_KNOWLEDGE + MULTILINGUAL_INSTRUCTIONS + blogKnowledge + learnedInsights + visitorContext + PERSONALITY_REINFORCEMENT;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -1129,9 +1229,12 @@ Self-deprecate. Reference your disasters. Show genuine emotion. Be punchy, not p
       });
     }
 
-    // Store insights and track emotion gaps asynchronously (don't block the response)
+    // Store insights, track emotion gaps, and update visitor summary asynchronously
     storeConversationInsights(messages).catch(e => console.error("Background insight storage failed:", e));
     trackEmotionGaps(messages).catch(e => console.error("Background emotion gap tracking failed:", e));
+    if (visitor_token) {
+      updateVisitorSummary(visitor_token, messages).catch(e => console.error("Background visitor summary failed:", e));
+    }
 
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },

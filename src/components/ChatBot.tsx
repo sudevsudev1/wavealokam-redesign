@@ -13,10 +13,20 @@ const INITIAL_MESSAGE: Message = {
 };
 
 const STORAGE_KEY = 'drifter-chat-messages';
+const VISITOR_TOKEN_KEY = 'drifter-visitor-token';
+
+const getOrCreateVisitorToken = (): string => {
+  let token = localStorage.getItem(VISITOR_TOKEN_KEY);
+  if (!token) {
+    token = crypto.randomUUID();
+    localStorage.setItem(VISITOR_TOKEN_KEY, token);
+  }
+  return token;
+};
 
 const getStoredMessages = (): Message[] => {
   try {
-    const stored = sessionStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
   } catch {}
   return [INITIAL_MESSAGE];
@@ -41,7 +51,7 @@ const ChatBot = () => {
     }
   }, [messages]);
   useEffect(() => {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -49,6 +59,7 @@ const ChatBot = () => {
     }
   }, [isOpen]);
   const streamChat = async (userMessages: Message[]) => {
+    const visitorToken = getOrCreateVisitorToken();
     const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
       method: 'POST',
       headers: {
@@ -56,7 +67,8 @@ const ChatBot = () => {
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
       },
       body: JSON.stringify({
-        messages: userMessages
+        messages: userMessages,
+        visitor_token: visitorToken
       })
     });
     if (!resp.ok) {
@@ -164,7 +176,7 @@ const ChatBot = () => {
             <p className="text-xs text-white/80">Your charmingly tactless beachside informant</p>
           </div>
           <button
-            onClick={() => { setMessages([INITIAL_MESSAGE]); sessionStorage.removeItem(STORAGE_KEY); }}
+            onClick={() => { setMessages([INITIAL_MESSAGE]); localStorage.removeItem(STORAGE_KEY); }}
             className="text-white/70 hover:text-white text-xs underline underline-offset-2 transition-colors"
             title="Start a new conversation"
           >

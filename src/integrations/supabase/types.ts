@@ -149,6 +149,48 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_visitors: {
+        Row: {
+          conversation_count: number
+          email: string | null
+          first_seen_at: string
+          id: string
+          last_booking_context: Json | null
+          last_seen_at: string
+          name: string | null
+          phone: string | null
+          summary: string | null
+          updated_at: string
+          visitor_token: string
+        }
+        Insert: {
+          conversation_count?: number
+          email?: string | null
+          first_seen_at?: string
+          id?: string
+          last_booking_context?: Json | null
+          last_seen_at?: string
+          name?: string | null
+          phone?: string | null
+          summary?: string | null
+          updated_at?: string
+          visitor_token: string
+        }
+        Update: {
+          conversation_count?: number
+          email?: string | null
+          first_seen_at?: string
+          id?: string
+          last_booking_context?: Json | null
+          last_seen_at?: string
+          name?: string | null
+          phone?: string | null
+          summary?: string | null
+          updated_at?: string
+          visitor_token?: string
+        }
+        Relationships: []
+      }
       emotion_gaps: {
         Row: {
           created_at: string
