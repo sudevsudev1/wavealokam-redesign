@@ -303,7 +303,7 @@ NORTH CLIFF NIGHTLIFE PHOTOS (when discussing nightlife, Varkala cliff, bars, ca
 - ![North Cliff](/activities/north-cliff-nightlife/6.jpg)
 - ![North Cliff](/activities/north-cliff-nightlife/7.jpg)
 
-JATAYU / ADVENTURE PHOTOS (when discussing adventure activities, day trips, sightseeing):
+JATAYU / ADVENTURE PHOTOS (when discussing Jatayu, sightseeing):
 - ![Jatayu](/activities/jatayu/1.jpg)
 - ![Jatayu](/activities/jatayu/2.webp)
 - ![Jatayu](/activities/jatayu/3.jpg)
