@@ -44,16 +44,17 @@ export const useScrollToHash = () => {
     };
 
     // Wait for GSAP ScrollTrigger to initialize (Index.tsx refreshes at 500ms)
-    const initialDelay = 800;
+    // Pinned sections (ActivitiesSection) need extra time to set up
+    const initialDelay = 1200;
     
     const startScrolling = () => {
       if (scrollToElement()) return;
 
-      // Retry with increasing delays up to 3000ms total
-      const retryDelays = [200, 300, 400, 500, 600];
+      // Retry with increasing delays up to 5000ms total
+      const retryDelays = [300, 400, 500, 600, 700, 800];
       let retryIndex = 0;
       let totalTime = initialDelay;
-      const maxTime = 3000;
+      const maxTime = 5000;
 
       const retryScroll = () => {
         if (totalTime >= maxTime) return;
