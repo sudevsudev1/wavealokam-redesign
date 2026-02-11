@@ -43,6 +43,7 @@ const galleryFolders: GalleryFolder[] = [
       '/activities/surfing-new/a08.webp',
       '/activities/surfing-new/a09.webp',
       '/activities/surfing-new/a10.webp',
+      '/activities/surfing-new/a11.webp',
       // From surfing-new folder
       '/activities/surfing-new/1.webp',
       '/activities/surfing-new/2.webp',
