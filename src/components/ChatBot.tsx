@@ -141,10 +141,13 @@ const ChatBot = () => {
   };
   return <>
       {/* Chat Toggle Button */}
-      <button onClick={() => setIsOpen(!isOpen)} className={cn('fixed bottom-6 right-6 z-[80] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110', isOpen ? 'bg-foreground text-background' : 'bg-wave-orange text-white hover:shadow-[0_0_30px_hsl(var(--wave-orange)/0.6)]')} aria-label={isOpen ? 'Close chat' : 'Open chat'}>
-        {isOpen ? <X className="w-6 h-6" /> : <img src="/images/drifter-avatar.webp" alt="Drifter" className="w-10 h-10 rounded-full object-cover" />}
-        {!isOpen && <span className="absolute inset-0 rounded-full bg-wave-orange animate-ping opacity-30" />}
-      </button>
+      <div className="fixed bottom-6 right-6 z-[80] flex flex-col items-center gap-1">
+        <button onClick={() => setIsOpen(!isOpen)} className={cn('w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110', isOpen ? 'bg-foreground text-background' : 'bg-wave-orange text-white hover:shadow-[0_0_30px_hsl(var(--wave-orange)/0.6)]')} aria-label={isOpen ? 'Close chat' : 'Open chat'}>
+          {isOpen ? <X className="w-6 h-6" /> : <img src="/images/drifter-avatar.webp" alt="Drifter" className="w-10 h-10 rounded-full object-cover" />}
+          {!isOpen && <span className="absolute inset-0 rounded-full bg-wave-orange animate-ping opacity-30" />}
+        </button>
+        {!isOpen && <span className="text-[9px] font-medium text-foreground/70 leading-tight text-center max-w-[80px]">Instant Chat with Drifter</span>}
+      </div>
 
       {/* Chat Window */}
       <div className={cn('fixed bottom-24 right-6 z-[79] w-[calc(100%-3rem)] max-w-md bg-background border border-border rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden', isOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none')} style={{
