@@ -28,14 +28,17 @@ const ChatBot = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: 'smooth'
-    });
+  const isNearBottom = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < 80;
   };
   useEffect(() => {
-    scrollToBottom();
+    if (isNearBottom()) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -170,7 +173,7 @@ const ChatBot = () => {
         </div>
 
         {/* Messages */}
-        <div className="h-80 overflow-y-auto p-4 space-y-4 bg-muted/30">
+        <div ref={messagesContainerRef} className="h-80 overflow-y-auto p-4 space-y-4 bg-muted/30">
           {messages.map((message, index) => <div key={index} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
               <div className={cn('max-w-[85%] rounded-2xl px-4 py-2 text-sm', message.role === 'user' ? 'bg-wave-orange text-white rounded-br-md' : 'bg-card text-foreground border border-border rounded-bl-md')}>
                {message.role === 'assistant' ? <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-0 [&>p:last-child]:mb-0 [&>p>img]:rounded-xl [&>p>img]:my-2 [&>p>img]:max-w-[200px] [&_a]:font-bold [&_a]:underline [&_a]:text-[hsl(var(--wave-orange))] [&_a:hover]:opacity-80">
