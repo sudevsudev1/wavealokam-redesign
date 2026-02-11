@@ -156,10 +156,17 @@ const ChatBot = () => {
         {/* Header */}
         <div className="bg-wave-orange text-white p-4 flex items-center gap-3">
           <img src="/images/drifter-avatar.webp" alt="Drifter" className="w-10 h-10 rounded-full object-cover" />
-          <div>
+          <div className="flex-1">
             <h3 className="font-bold">Drifter</h3>
-            <p className="text-xs text-white/80">Your charmingly tactless beachside informant       </p>
+            <p className="text-xs text-white/80">Your charmingly tactless beachside informant</p>
           </div>
+          <button
+            onClick={() => { setMessages([INITIAL_MESSAGE]); sessionStorage.removeItem(STORAGE_KEY); }}
+            className="text-white/70 hover:text-white text-xs underline underline-offset-2 transition-colors"
+            title="Start a new conversation"
+          >
+            New chat
+          </button>
         </div>
 
         {/* Messages */}
