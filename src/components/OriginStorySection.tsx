@@ -84,7 +84,7 @@ const storyContent: ContentSegment[] = [
   { text: "And so here we are. (Featuring aforementioned Ishtu and Nero. They big and naughty now)" },
   { text: "", image: "/origin-story/Sudev_remains_the_chill_investor.webp" },
   {
-    text: 'Sudev remains the chill investor who shows up on non-shooting days, surfs, sips cocktails on the terrace, blames Amardeep for being the temptress who always gets him fat and "too happy to want to work hard for a career anymore" but eventually returns to shooting to earn money that Amardeep efficiently converts into guest satisfaction and operational excellence.',
+    text: 'Sudev remains the chill investor who shows up on non-shooting days, surfs, sips cocktails on the rooftop, blames Amardeep for being the temptress who always gets him fat and "too happy to want to work hard for a career anymore" but eventually returns to shooting to earn money that Amardeep efficiently converts into guest satisfaction and operational excellence.',
   },
   { text: "It's a system. It works." },
   { text: "", image: "/origin-story/Nobody_s_living_in_a_slum_anymore.webp" },
