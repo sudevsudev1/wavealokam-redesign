@@ -11,6 +11,19 @@ interface GalleryFolder {
 
 const galleryFolders: GalleryFolder[] = [
 {
+  id: 'rooftop',
+  title: 'Rooftop: Beach Views Without Beach Prices',
+  description: 'We\'re not ON the beach, we\'re strategically NEAR it. The rooftop vibes make up for the 180-meter walk.',
+  images: [
+  '/gallery/rooftop/rooftop01.webp',
+  '/gallery/rooftop/rooftop02.webp',
+  '/gallery/rooftop/rooftop03.webp',
+  '/gallery/rooftop/rooftop04.webp',
+  '/gallery/rooftop/rooftop05.webp',
+  '/gallery/rooftop/rooftop06.webp',
+  '/gallery/rooftop/rooftop07.webp']
+},
+{
   id: 'exterior',
   title: 'Exterior',
   description: 'First impressions that justify the flight. Click responsibly',
