@@ -108,15 +108,15 @@ export const surfingImages: CatalogImage[] = [
 ];
 
 export const doubleRoomImages: CatalogImage[] = [
-  { path: '/rooms/double-room/1.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/2.jpeg', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/3.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/4.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/5.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/6.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/7.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/8.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
-  { path: '/rooms/double-room/9.png', title: 'Double room', alt: 'Wavealokam double room', tags: ['room', 'double'] },
+  { path: '/rooms/double-room/1.png', title: 'View from the window of the famed Room 103', alt: 'View from the window of Room 103 at Wavealokam', tags: ['room', 'double', 'view'] },
+  { path: '/rooms/double-room/2.jpeg', title: 'This room instantly relaxes me', alt: 'Relaxing double room interior at Wavealokam', tags: ['room', 'double', 'interior'] },
+  { path: '/rooms/double-room/3.png', title: 'Our staff when they see a super sweet guest', alt: 'Wavealokam staff welcoming guests', tags: ['room', 'double', 'staff'] },
+  { path: '/rooms/double-room/4.png', title: 'Morning rays confusing whether to get up or lay in bed', alt: 'Morning sunlight in Wavealokam double room', tags: ['room', 'double', 'morning'] },
+  { path: '/rooms/double-room/5.png', title: 'Coffee tastes better in your private balcony', alt: 'Private balcony coffee at Wavealokam double room', tags: ['room', 'double', 'balcony', 'coffee'] },
+  { path: '/rooms/double-room/6.png', title: 'Our housekeeping staff when they see a sweet romantic couple', alt: 'Wavealokam housekeeping staff', tags: ['room', 'double', 'staff'] },
+  { path: '/rooms/double-room/7.png', title: 'Night time heart to heart conversations are best enjoyed from the balcony', alt: 'Nighttime balcony view at Wavealokam double room', tags: ['room', 'double', 'balcony', 'night'] },
+  { path: '/rooms/double-room/8.png', title: 'Ground floor double room night view', alt: 'Ground floor double room at night at Wavealokam', tags: ['room', 'double', 'night', 'exterior'] },
+  { path: '/rooms/double-room/9.png', title: 'There is no right or wrong time to sleep here', alt: 'Cozy double room at Wavealokam', tags: ['room', 'double', 'comfort'] },
 ];
 
 export const kingRoomImages: CatalogImage[] = [
