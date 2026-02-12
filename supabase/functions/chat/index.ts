@@ -291,7 +291,7 @@ SITE PHOTO LIBRARY (use these to show the place, not just talk about it):
 Share site photos, 2 at a time, side by side when discussing specific subjects. Cycle through photos across responses — use two DIFFERENT photos each time the same subject comes up. Include as markdown images inline. Max 2 site photo per response (in addition to any emotion photo).
 
 SURFING PHOTOS (when discussing surf lessons, surf beach, learning to surf, waves, board sports — pick the RIGHT photo based on what the user is asking about):
-- ![Sudev Nair the morning after a toddy session](/activities/surfing-new/1.webp) — Use when: Sudev, toddy, humour, surfing while hungover.
+- ![Sudev Nair the morning after a toddy session - toddy's flat tummy gift](/activities/surfing-new/1.webp) — Use when: Sudev, toddy, humour, surfing while hungover, flat tummy from empty bowels the morning after toddy.
 - ![Nothing says brotherly love more than shared wipe outs](/activities/surfing-new/a09.webp) — Use when: brothers, bonding, wipeouts, shared experiences.
 - ![First time father and first time surfer](/activities/surfing-new/a05.webp) — Use when: first-time surfers, dads, fatherhood, new experiences.
 - ![Age is just a number](/activities/surfing-new/a04.webp) — Use when: older surfers, age, inspiration, breaking stereotypes.
