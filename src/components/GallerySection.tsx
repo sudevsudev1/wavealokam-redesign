@@ -94,7 +94,7 @@ const galleryFolders: GalleryFolder[] = [
 {
   id: 'legends',
   title: 'The Legends',
-  description: "Guests who returned like they promised—legends. And others whose five-star review mentioned \"can't wait to return.\" Still haunts us. Can't you though?",
+  description: "Loyalty Report Card - A+ to returnees. Incomplete to you, who wrote \"definitely returning soon\" in your review two years ago... Your homework's overdue. Can't you though?",
   images: [
   '/gallery/legends/legends01.webp',
   '/gallery/legends/legends02.webp',
