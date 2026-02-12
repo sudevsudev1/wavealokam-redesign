@@ -81,7 +81,7 @@ const storyContent: ContentSegment[] = [
     text: "Managing a household with three women and a brother translates directly into managing an entire bed-and-breakfast operation. Domestic Chaos is a degree in Hotel Management.",
   },
   { text: "", image: "/origin-story/Here_we_are.webp" },
-  { text: "And so here we are. (Featuring aforementioned Nero and Ishtu. They big and naughty now)" },
+  { text: "And so here we are. (Featuring aforementioned Ishtu and Nero. They big and naughty now)" },
   { text: "", image: "/origin-story/Sudev_remains_the_chill_investor.webp" },
   {
     text: 'Sudev remains the chill investor who shows up on non-shooting days, surfs, sips cocktails on the terrace, blames Amardeep for being the temptress who always gets him fat and "too happy to want to work hard for a career anymore" but eventually returns to shooting to earn money that Amardeep efficiently converts into guest satisfaction and operational excellence.',
