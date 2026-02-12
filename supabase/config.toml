@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.reset-selector-state]
 verify_jwt = false
+
+[functions.scrape-reviews]
+verify_jwt = false

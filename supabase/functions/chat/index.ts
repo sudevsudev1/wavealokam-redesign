@@ -827,6 +827,44 @@ Q: Deposit needed? A: Peak season/long stays may need small advance.
 Q: Airport transfers? A: Yes, arranged at cost with trusted drivers.
 `;
 
+async function fetchGuestReviews(): Promise<string> {
+  try {
+    const supabase = getSupabase();
+    const { data: reviews, error } = await supabase
+      .from("guest_reviews")
+      .select("reviewer_name, rating, review_text, platform, language")
+      .eq("is_featured", true)
+      .order("rating", { ascending: false })
+      .limit(15);
+
+    if (error) {
+      console.error("Error fetching guest reviews:", error);
+      return "";
+    }
+    if (!reviews || reviews.length === 0) return "";
+
+    let section = `\n---\nREAL GUEST REVIEWS (use these as testimonials when relevant — quote verbatim for strong ones, paraphrase naturally for others):\n\n`;
+    for (const r of reviews) {
+      section += `- `;
+      if (r.reviewer_name) section += `**${r.reviewer_name}**`;
+      if (r.rating) section += ` (${r.rating}★)`;
+      section += `: "${r.review_text}"`;
+      if (r.language && r.language !== 'en') section += ` [${r.language}]`;
+      section += `\n`;
+    }
+    section += `\nUSAGE RULES:\n`;
+    section += `- When a user asks about quality, rooms, surf, food, or staff — weave in a real review naturally.\n`;
+    section += `- For strong quotes (emotional, specific, vivid), use verbatim: "As [Name] put it: '[exact quote]'"\n`;
+    section += `- For general sentiment, paraphrase in your own voice: "Guests keep saying the breakfast is life-changing — and honestly, I agree."\n`;
+    section += `- Max 1 review reference per response. Don't dump multiple quotes.\n`;
+    section += `- Never invent reviews. Only use what's listed above.\n`;
+    return section;
+  } catch (e) {
+    console.error("Guest reviews fetch error:", e);
+    return "";
+  }
+}
+
 async function fetchBlogKnowledge(): Promise<string> {
   try {
     const supabase = getSupabase();
@@ -1486,8 +1524,9 @@ serve(async (req) => {
       : messages;
 
     // Fetch dynamic knowledge, directives, and visitor memory in parallel
-    const [blogKnowledge, learnedInsights, ownerDirectives, visitorMemory] = await Promise.all([
+    const [blogKnowledge, guestReviews, learnedInsights, ownerDirectives, visitorMemory] = await Promise.all([
       fetchBlogKnowledge(),
+      fetchGuestReviews(),
       fetchLearnedInsights(),
       fetchActiveDirectives(),
       getVisitorSummary(visitor_token || ""),
@@ -1536,7 +1575,7 @@ If your response reads like a bullet-point FAQ or a customer service bot, REWRIT
 Self-deprecate. Reference your disasters. Show genuine emotion. Be punchy, not preachy.
 `;
 
-    const fullKnowledge = STATIC_KNOWLEDGE + MULTILINGUAL_INSTRUCTIONS + blogKnowledge + learnedInsights + ownerDirectives + visitorContext + PERSONALITY_REINFORCEMENT;
+    const fullKnowledge = STATIC_KNOWLEDGE + MULTILINGUAL_INSTRUCTIONS + blogKnowledge + guestReviews + learnedInsights + ownerDirectives + visitorContext + PERSONALITY_REINFORCEMENT;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
