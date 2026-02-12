@@ -319,6 +319,15 @@ SURFING PHOTOS (when discussing surf lessons, surf beach, learning to surf, wave
 - ![Surfing](/activities/surfing/5.jpg)
 - ![Surfing](/activities/surfing/6.jpg)
 
+ROOFTOP GALLERY PHOTOS (when discussing rooftop views, lounge, couples corner, stargazing, romantic setups, special occasions on the rooftop — pick the RIGHT photo based on what the user is asking about):
+- ![Main lounge area during sunset](/gallery/rooftop/rooftop01.webp) — The main rooftop lounge bathed in golden sunset light. Use when: general rooftop vibes, sunset, lounge area.
+- ![Group of friends at the main lounge](/gallery/rooftop/rooftop02.webp) — Friends chilling over dinner and drinks in the group lounge area. Use when: group travel, friends, social dining, group area.
+- ![Couples corner with fairy lights — special occasion](/gallery/rooftop/rooftop03.webp) — Romantic couples corner with fairy lights, special occasion dinner with complimentary cake. Use when: couples, fairy lights, celebrations, cake, anniversaries, birthdays.
+- ![Couple on date night — private ocean view side](/gallery/rooftop/rooftop04.webp) — Couple enjoying date night at the private ocean view side. Use when: date night, ocean view, romantic dinner for two.
+- ![Couple stargazing — private ocean view side](/gallery/rooftop/rooftop05.webp) — Couple stargazing from the private ocean view side, a life-changing moment. Use when: stargazing, night sky, romantic evenings, life-changing experiences.
+- ![The moment they fell in love — private ocean view side](/gallery/rooftop/rooftop06.webp) — Intimate moment of a couple falling in love at the ocean view side. Use when: love, romance, intimate moments, proposals, honeymoon vibes.
+- ![Special occasion romantic display](/gallery/rooftop/rooftop07.webp) — Customized romantic celebration display for guests on romantic getaway. Use when: special occasions, romantic getaways, customized setups, anniversary celebrations.
+
 ROOFTOP DINNER PHOTOS (when discussing rooftop dining, dinner, BYOB, evening plans):
 - ![Rooftop](/activities/rooftop-dinner/1.png)
 - ![Rooftop](/activities/rooftop-dinner/2.png)
