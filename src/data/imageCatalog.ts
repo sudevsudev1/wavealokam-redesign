@@ -78,7 +78,7 @@ export const exteriorImages: CatalogImage[] = [
 ];
 
 export const surfingImages: CatalogImage[] = [
-  { path: '/activities/surfing-new/1.webp', title: 'Surfing', alt: 'Surfing at Varkala', tags: ['surfing'] },
+  
   { path: '/activities/surfing-new/a09.webp', title: 'Sudev Nair the morning after a toddy session — if you\'ve been paying attention you\'ll know why', alt: 'Sudev Nair surfing the morning after a toddy session at Varkala', tags: ['surfing', 'sudev', 'toddy', 'humour'] },
   { path: '/activities/surfing-new/a05.webp', title: 'Nothing says brotherly love more than shared wipe outs', alt: 'Two surfers sharing a wipe out moment — brotherly love on the waves at Varkala', tags: ['surfing', 'brothers', 'wipeout', 'bonding'] },
   { path: '/activities/surfing-new/a04.webp', title: 'First time father and first time surfer', alt: 'A new father trying surfing for the first time at Wavealokam surf school', tags: ['surfing', 'beginner', 'father', 'first-time'] },
