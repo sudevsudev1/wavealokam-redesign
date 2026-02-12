@@ -13,7 +13,7 @@ const galleryFolders: GalleryFolder[] = [
 {
   id: 'exterior',
   title: 'Exterior',
-  description: 'The views that greet you',
+  description: 'First impressions that justify the flight. Click responsibly',
   images: [
   '/gallery/exterior/exterior02.webp',
   '/gallery/exterior/exterior05.webp',
