@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Wifi, Coffee, Sun, Clock, Waves, MapPin, Zap, Volume2 } from 'lucide-react';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { workationHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
@@ -75,6 +76,7 @@ const Workation = () => {
         <PillarHero
           title="Workation in Varkala at Wavealokam"
           subtitle="Your office soundtrack: waves, not traffic. Work with ocean as your background noise."
+          heroImages={workationHeroImages}
         />
 
         {/* Work Features */}

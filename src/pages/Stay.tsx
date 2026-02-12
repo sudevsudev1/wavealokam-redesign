@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Wifi, Coffee, Waves, Users, Heart, MapPin, Bed, Wind } from 'lucide-react';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { stayHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
@@ -112,6 +113,7 @@ const Stay = () => {
         <PillarHero
           title="Stay at Wavealokam in Varkala"
           subtitle="A peaceful boutique retreat where the beach is private, the vibes are chill, and two-day trips turn into week-long stays."
+          heroImages={stayHeroImages}
         />
 
         {/* Room Types */}

@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Waves, Sun, Shield, Backpack, Clock, Users, GraduationCap } from 'lucide-react';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { surfStayHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
@@ -84,7 +85,7 @@ const SurfStay = () => {
       <PillarNav />
       
       <main className="pt-16">
-        <PillarHero title="Surf + Stay Packages at Wavealokam" subtitle="Wake up, surf, eat, repeat. The Kerala surf holiday you didn't know you needed." />
+        <PillarHero title="Surf + Stay Packages at Wavealokam" subtitle="Wake up, surf, eat, repeat. The Kerala surf holiday you didn't know you needed." heroImages={surfStayHeroImages} />
 
         {/* Packages */}
         <section className="py-16 md:py-20 bg-background">

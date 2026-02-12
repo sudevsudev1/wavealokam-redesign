@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Calendar, Wallet, Home, Coffee, Shirt, MapPin, Heart } from 'lucide-react';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { longStayHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
@@ -75,6 +76,7 @@ const LongStay = () => {
         <PillarHero
           title="Long Stays in Varkala (Weekly & Monthly)"
           subtitle="Some places you visit. Some places you stay. This one has a way of keeping people longer than planned."
+          heroImages={longStayHeroImages}
         />
 
         {/* Who It's For */}

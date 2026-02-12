@@ -5,3 +5,8 @@
   padding: 0;
   text-align: left;
 }
+
+/* Hide scrollbar for hero gallery */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
