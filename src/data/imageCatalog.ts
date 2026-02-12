@@ -65,16 +65,16 @@ export const rooftopImages: CatalogImage[] = [
 
 // ─── PLACEHOLDER FOLDERS (to be filled with descriptions) ───
 export const exteriorImages: CatalogImage[] = [
-  { path: '/gallery/exterior/exterior02.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior05.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior03a.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior03b.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior03c.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior04.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior03.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior06.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior09.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
-  { path: '/gallery/exterior/exterior11.webp', title: 'Exterior view', alt: 'Wavealokam exterior', tags: ['exterior'] },
+  { path: '/gallery/exterior/exterior02.webp', title: 'Wavealokam night beauty mode', alt: 'Wavealokam property beautifully lit up at night', tags: ['exterior', 'night', 'beauty', 'lighting'] },
+  { path: '/gallery/exterior/exterior05.webp', title: 'Wavealokam twilight beauty mode', alt: 'Wavealokam property during twilight with sky turning purple and amber', tags: ['exterior', 'twilight', 'beauty', 'golden-hour'] },
+  { path: '/gallery/exterior/exterior03a.webp', title: 'Cozy garden for breakfast, work, and group chats', alt: 'Wavealokam cozy garden area perfect for breakfast, remote work, and group conversations', tags: ['exterior', 'garden', 'breakfast', 'workation', 'social'] },
+  { path: '/gallery/exterior/exterior03b.webp', title: 'Guest\'s favourite workation spot — surprisingly comfy round back support', alt: 'Guest called dibs on her favourite workation spot — its round back support is surprisingly comfortable for long sitting hours plus it now has a power source socket', tags: ['exterior', 'garden', 'workation', 'comfort', 'power-socket'] },
+  { path: '/gallery/exterior/exterior03c.webp', title: 'Workation spot doubles as gently rocking cradle for naps', alt: 'Favourite workation spot doubles up as a gently rocking cradle with bed for quick breaks and naps', tags: ['exterior', 'garden', 'workation', 'nap', 'cradle', 'relaxation'] },
+  { path: '/gallery/exterior/exterior04.webp', title: 'Sunsets are a different colour every evening — orange, pink, violet', alt: 'Wavealokam sunsets are a different colour every evening with variations of orange, pink, and violet', tags: ['exterior', 'sunset', 'colours', 'orange', 'pink', 'violet'] },
+  { path: '/gallery/exterior/exterior03.webp', title: 'Staff hard at work behind pretty doors', alt: 'Wavealokam staff working diligently behind the property\'s charming doors', tags: ['exterior', 'staff', 'doors', 'behind-the-scenes'] },
+  { path: '/gallery/exterior/exterior06.webp', title: 'Wavealokam sunset colour 2', alt: 'Another stunning sunset colour variation at Wavealokam', tags: ['exterior', 'sunset', 'colours', 'sky'] },
+  { path: '/gallery/exterior/exterior09.webp', title: 'Garden looks just as pretty from the rooftop', alt: 'Wavealokam garden viewed from the rooftop looking equally beautiful from above', tags: ['exterior', 'garden', 'rooftop-view', 'aerial'] },
+  { path: '/gallery/exterior/exterior11.webp', title: 'Best sleep of life with resident feline boss Tyler', alt: 'Guest having the best sleep of their life with Wavealokam resident feline boss Tyler', tags: ['exterior', 'tyler', 'cat', 'sleep', 'cozy', 'pet'] },
 ];
 
 export const surfingImages: CatalogImage[] = [
