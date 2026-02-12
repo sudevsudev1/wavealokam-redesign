@@ -857,56 +857,25 @@ async function fetchBlogKnowledge(): Promise<string> {
   }
 }
 
-// Owner authentication via secret passphrase typed in normal chat
+// Owner authentication via secret passphrase typed in normal chat (SESSION-ONLY)
 // The passphrase is stored as a Supabase secret (DRIFTER_OWNER_PASSPHRASE)
-// When detected, the visitor_token is marked as owner-verified in chat_visitors
+// Owner mode is active ONLY for the current conversation — resets on "New chat" or refresh
 
 function getOwnerPassphrase(): string {
   return (Deno.env.get("DRIFTER_OWNER_PASSPHRASE") || "").trim().toLowerCase();
 }
 
-function detectPassphraseInMessages(messages: Array<{role: string; content: string}>): boolean {
+function isPassphraseMessage(content: string): boolean {
   const passphrase = getOwnerPassphrase();
   if (!passphrase) return false;
-  // Check only the latest user message
-  const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
-  if (!lastUserMsg) return false;
-  return lastUserMsg.content.toLowerCase().trim().includes(passphrase);
+  return content.toLowerCase().trim().includes(passphrase);
 }
 
-async function markVisitorAsOwner(visitorToken: string): Promise<void> {
-  if (!visitorToken) return;
-  const supabase = getSupabase();
-  // Store owner flag in last_booking_context (repurposing a JSON field to avoid migration)
-  const { data } = await supabase
-    .from("chat_visitors")
-    .select("last_booking_context")
-    .eq("visitor_token", visitorToken)
-    .maybeSingle();
-  
-  const existing = (data?.last_booking_context as Record<string, unknown>) || {};
-  await supabase
-    .from("chat_visitors")
-    .upsert({
-      visitor_token: visitorToken,
-      last_booking_context: { ...existing, _owner_verified: true },
-    }, { onConflict: "visitor_token" });
-  console.log("Visitor marked as owner:", visitorToken);
-}
-
-async function isOwnerVisitor(visitorToken: string): Promise<boolean> {
-  if (!visitorToken) return false;
-  try {
-    const supabase = getSupabase();
-    const { data } = await supabase
-      .from("chat_visitors")
-      .select("last_booking_context")
-      .eq("visitor_token", visitorToken)
-      .maybeSingle();
-    if (!data) return false;
-    const ctx = data.last_booking_context as Record<string, unknown> | null;
-    return ctx?._owner_verified === true;
-  } catch { return false; }
+// Check if passphrase was typed anywhere in the current conversation history
+function isOwnerSession(messages: Array<{role: string; content: string}>): boolean {
+  const passphrase = getOwnerPassphrase();
+  if (!passphrase) return false;
+  return messages.some(m => m.role === "user" && m.content.toLowerCase().trim().includes(passphrase));
 }
 
 async function fetchActiveDirectives(): Promise<string> {
@@ -930,11 +899,10 @@ async function fetchActiveDirectives(): Promise<string> {
   }
 }
 
-async function extractOwnerDirectives(visitorToken: string, messages: Array<{role: string; content: string}>) {
-  if (!visitorToken || messages.length < 2) return;
+async function extractOwnerDirectives(_visitorToken: string, messages: Array<{role: string; content: string}>) {
+  // Called only when ownerSession is true (caller already verified)
+  if (messages.length < 2) return;
   try {
-    const isOwner = await isOwnerVisitor(visitorToken);
-    if (!isOwner) return;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return;
@@ -1009,7 +977,7 @@ Return ONLY valid JSON.`
         await supabase.from("chat_directives").insert({
           directive,
           source: "owner_chat",
-          created_by_visitor_token: visitorToken,
+          created_by_visitor_token: _visitorToken,
         });
         console.log("New owner directive stored:", directive);
       }
@@ -1481,31 +1449,32 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Check for owner passphrase in messages
-    const passphraseDetected = detectPassphraseInMessages(messages);
-    if (passphraseDetected && visitor_token) {
-      await markVisitorAsOwner(visitor_token);
-      // Strip the passphrase message and replace with a clean activation message
-      const passphrase = getOwnerPassphrase();
-      const cleanedMessages = messages.map((m: {role: string; content: string}) => {
-        if (m.role === "user" && m.content.toLowerCase().trim().includes(passphrase)) {
-          // Replace the passphrase message so it doesn't leak into AI context
-          return { ...m, content: "[Owner mode activated. Ready for directives.]" };
-        }
-        return m;
-      });
+    // Check if the LATEST message is the passphrase (first-time activation in this session)
+    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
+    const justActivated = lastUserMsg && isPassphraseMessage(lastUserMsg.content);
+    
+    if (justActivated) {
       // Return a hardcoded acknowledgment — no AI call needed
-      const ackMessage = "Boss mode activated 🔓 Anything you say from here gets stored as a permanent directive. Fire away.";
+      const ackMessage = "Boss mode activated 🔓 This session only — resets on New Chat. Anything you say now gets stored as a permanent directive. Fire away.";
       const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content: ackMessage } }] })}\n\ndata: [DONE]\n\n`;
-      
-      // Still run background tasks with cleaned messages
-      storeConversationInsights(cleanedMessages).catch(e => console.error("Background insight storage failed:", e));
-      updateVisitorSummary(visitor_token, cleanedMessages).catch(e => console.error("Background visitor summary failed:", e));
-      
       return new Response(sseData, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
+
+    // Check if owner mode is active for this session (passphrase was typed earlier in conversation)
+    const ownerSession = isOwnerSession(messages);
+
+    // Clean passphrase from messages before sending to AI
+    const passphrase = getOwnerPassphrase();
+    const cleanedMessages = passphrase
+      ? messages.map((m: {role: string; content: string}) => {
+          if (m.role === "user" && isPassphraseMessage(m.content)) {
+            return { ...m, content: "[Owner verified]" };
+          }
+          return m;
+        })
+      : messages;
 
     // Fetch dynamic knowledge, directives, and visitor memory in parallel
     const [blogKnowledge, learnedInsights, ownerDirectives, visitorMemory] = await Promise.all([
@@ -1515,12 +1484,9 @@ serve(async (req) => {
       getVisitorSummary(visitor_token || ""),
     ]);
 
-    // Check if this visitor is a verified owner
-    const isOwner = visitor_token ? await isOwnerVisitor(visitor_token) : false;
-
     // Build visitor context for the system prompt
     let visitorContext = "";
-    if (isOwner) {
+    if (ownerSession) {
       visitorContext += `\n\nOWNER MODE ACTIVE: This is a verified owner (Amardeep or Sudev). Any behavioral instructions they give should be acknowledged. They may give you directives about how to behave — confirm you understand and will follow them. Be yourself but more direct. No need to sell to them.\n`;
     }
     if (visitorMemory.summary || visitorMemory.name) {
@@ -1573,7 +1539,7 @@ Self-deprecate. Reference your disasters. Show genuine emotion. Be punchy, not p
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: fullKnowledge },
-          ...messages,
+          ...cleanedMessages,
         ],
         stream: true,
       }),
@@ -1601,11 +1567,14 @@ Self-deprecate. Reference your disasters. Show genuine emotion. Be punchy, not p
     }
 
     // Store insights, track emotion gaps, extract directives, and update visitor summary asynchronously
-    storeConversationInsights(messages).catch(e => console.error("Background insight storage failed:", e));
-    trackEmotionGaps(messages).catch(e => console.error("Background emotion gap tracking failed:", e));
+    storeConversationInsights(cleanedMessages).catch(e => console.error("Background insight storage failed:", e));
+    trackEmotionGaps(cleanedMessages).catch(e => console.error("Background emotion gap tracking failed:", e));
     if (visitor_token) {
-      updateVisitorSummary(visitor_token, messages).catch(e => console.error("Background visitor summary failed:", e));
-      extractOwnerDirectives(visitor_token, messages).catch(e => console.error("Background directive extraction failed:", e));
+      updateVisitorSummary(visitor_token, cleanedMessages).catch(e => console.error("Background visitor summary failed:", e));
+      // Only extract directives if this is an owner session
+      if (ownerSession) {
+        extractOwnerDirectives(visitor_token, cleanedMessages).catch(e => console.error("Background directive extraction failed:", e));
+      }
     }
 
     return new Response(response.body, {
