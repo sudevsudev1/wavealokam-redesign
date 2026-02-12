@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Waves, Coffee, Sun, Calendar, ArrowRight } from 'lucide-react';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { varkalaGuideHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
@@ -83,6 +84,7 @@ const VarkalaGuide = () => {
         <PillarHero
           title="Varkala Travel Guide (Wavealokam Edition)"
           subtitle="Everything you need to know about Kerala's favorite cliff-top beach town. Written by people who actually live here."
+          heroImages={varkalaGuideHeroImages}
         />
 
         {/* Hub Links */}

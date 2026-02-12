@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Sun, Cloud, CloudRain, Users, Waves, Briefcase, Heart } from 'lucide-react';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { bestTimeHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
@@ -74,6 +75,7 @@ const BestTimeToVisit = () => {
         <PillarHero
           title="Best Time to Visit Varkala"
           subtitle="Honest answers about weather, waves, and when to come (hint: there's no bad time, just different vibes)"
+          heroImages={bestTimeHeroImages}
         />
 
         {/* Month by Month */}

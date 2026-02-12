@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Plane, Train, Car, MapPin, Clock, IndianRupee } from 'lucide-react';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { howToReachHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import CTAStrip from '@/components/pillar/CTAStrip';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
@@ -111,6 +112,7 @@ const HowToReach = () => {
         <PillarHero
           title="How to Reach Varkala (Flights, Trains, Road)"
           subtitle="Getting to Kerala's cliff-top beach town is easier than you think. Here's every route, with real costs."
+          heroImages={howToReachHeroImages}
         />
 
         {/* By Air */}
