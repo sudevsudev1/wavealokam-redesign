@@ -110,6 +110,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_directives: {
+        Row: {
+          created_at: string
+          created_by_visitor_token: string | null
+          directive: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_visitor_token?: string | null
+          directive: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_visitor_token?: string | null
+          directive?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          source?: string
+        }
+        Relationships: []
+      }
       chat_insights: {
         Row: {
           best_answer: string | null
