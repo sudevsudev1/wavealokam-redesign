@@ -296,6 +296,51 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_reviews: {
+        Row: {
+          created_at: string
+          id: string
+          is_featured: boolean
+          language: string | null
+          platform: string
+          rating: number | null
+          review_date: string | null
+          review_hash: string
+          review_text: string
+          reviewer_name: string | null
+          scraped_at: string
+          tags: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_featured?: boolean
+          language?: string | null
+          platform?: string
+          rating?: number | null
+          review_date?: string | null
+          review_hash: string
+          review_text: string
+          reviewer_name?: string | null
+          scraped_at?: string
+          tags?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_featured?: boolean
+          language?: string | null
+          platform?: string
+          rating?: number | null
+          review_date?: string | null
+          review_hash?: string
+          review_text?: string
+          reviewer_name?: string | null
+          scraped_at?: string
+          tags?: string[] | null
+        }
+        Relationships: []
+      }
       post_history: {
         Row: {
           blog_post_id: string | null
