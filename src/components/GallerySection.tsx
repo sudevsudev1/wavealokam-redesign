@@ -65,7 +65,7 @@ const galleryFolders: GalleryFolder[] = [
 {
   id: 'double-room',
   title: 'Double Room',
-  description: 'Cozy comfort with a view',
+  description: 'Compact Luxury - Everything you need, nothing you don\'t. The beautiful rooftop is our living room anyway.',
   images: [
   '/rooms/double-room/1.png',
   '/rooms/double-room/2.jpeg',
