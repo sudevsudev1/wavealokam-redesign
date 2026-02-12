@@ -857,6 +857,144 @@ async function fetchBlogKnowledge(): Promise<string> {
   }
 }
 
+// Owner identifiers — these people can "teach" Drifter persistent behavioral instructions
+const OWNER_IDENTIFIERS = {
+  phones: ["+919323858013"],
+  emails: ["sudev@wavealokam.com", "sudevsudev1@gmail.com", "amardeep@wavealokam.com"],
+  names: ["amardeep", "sudev", "anandhu"],
+};
+
+async function isOwnerVisitor(visitorToken: string): Promise<boolean> {
+  if (!visitorToken) return false;
+  try {
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from("chat_visitors")
+      .select("name, phone, email")
+      .eq("visitor_token", visitorToken)
+      .maybeSingle();
+    if (!data) return false;
+    const name = (data.name || "").toLowerCase().trim();
+    const phone = (data.phone || "").replace(/\s+/g, "");
+    const email = (data.email || "").toLowerCase().trim();
+    return (
+      OWNER_IDENTIFIERS.names.includes(name) ||
+      OWNER_IDENTIFIERS.phones.includes(phone) ||
+      OWNER_IDENTIFIERS.emails.includes(email)
+    );
+  } catch { return false; }
+}
+
+async function fetchActiveDirectives(): Promise<string> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("chat_directives")
+      .select("directive, created_at")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+    if (error || !data || data.length === 0) return "";
+    let section = `\n---\nOWNER BEHAVIORAL DIRECTIVES (these override default behavior — follow them strictly):\n`;
+    for (const d of data) {
+      section += `- ${d.directive}\n`;
+    }
+    section += `\nThese are instructions from Wavealokam's owners. Always follow them.\n`;
+    return section;
+  } catch (e) {
+    console.error("Directives fetch error:", e);
+    return "";
+  }
+}
+
+async function extractOwnerDirectives(visitorToken: string, messages: Array<{role: string; content: string}>) {
+  if (!visitorToken || messages.length < 2) return;
+  try {
+    const isOwner = await isOwnerVisitor(visitorToken);
+    if (!isOwner) return;
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) return;
+
+    // Look for directive-like instructions in user messages
+    const userMessages = messages.filter(m => m.role === "user").map(m => m.content);
+    const recentMessages = userMessages.slice(-3); // Only check last 3 user messages
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `You analyze messages from a hotel owner talking to their AI chatbot (Drifter). Extract any BEHAVIORAL DIRECTIVES — instructions about how Drifter should behave, what to emphasize, what to avoid, tone changes, content priorities, etc.
+
+Only extract directives that are clearly meant to change Drifter's future behavior permanently. Ignore casual conversation, questions, or one-time requests.
+
+Examples of directives:
+- "You should mention more about Amardeep and Sudev" → directive: "Emphasize Amardeep and Sudev as the driving force behind Wavealokam more than Anandhu"
+- "Stop recommending the cliff restaurants" → directive: "Do not recommend cliff restaurants to visitors"
+- "Always mention checkout is at 11am" → directive: "Always mention checkout time is 11am when discussing stays"
+
+Examples of NON-directives (ignore these):
+- "What's the room rate?" (question)
+- "Tell this person about surf lessons" (one-time request about current chat)
+- "Hey Drifter, you're funny" (casual conversation)
+
+Return JSON: { "directives": ["directive1", "directive2"] } — or { "directives": [] } if none found.
+Return ONLY valid JSON.`
+          },
+          {
+            role: "user",
+            content: `Owner messages:\n${recentMessages.join("\n---\n")}`
+          }
+        ],
+      }),
+    });
+
+    if (!response.ok) return;
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return;
+
+    let jsonStr = content.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    }
+
+    const result = JSON.parse(jsonStr);
+    if (!Array.isArray(result.directives) || result.directives.length === 0) return;
+
+    const supabase = getSupabase();
+    for (const directive of result.directives) {
+      // Check for duplicate/similar directives
+      const { data: existing } = await supabase
+        .from("chat_directives")
+        .select("id, directive")
+        .eq("is_active", true);
+
+      const isDuplicate = (existing || []).some((e: any) => 
+        e.directive.toLowerCase().includes(directive.toLowerCase().slice(0, 30)) ||
+        directive.toLowerCase().includes(e.directive.toLowerCase().slice(0, 30))
+      );
+
+      if (!isDuplicate) {
+        await supabase.from("chat_directives").insert({
+          directive,
+          source: "owner_chat",
+          created_by_visitor_token: visitorToken,
+        });
+        console.log("New owner directive stored:", directive);
+      }
+    }
+  } catch (e) {
+    console.error("Owner directive extraction error:", e);
+  }
+}
+
 async function fetchLearnedInsights(): Promise<string> {
   try {
     const supabase = getSupabase();
@@ -1319,10 +1457,11 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Fetch dynamic knowledge and visitor memory in parallel
-    const [blogKnowledge, learnedInsights, visitorMemory] = await Promise.all([
+    // Fetch dynamic knowledge, directives, and visitor memory in parallel
+    const [blogKnowledge, learnedInsights, ownerDirectives, visitorMemory] = await Promise.all([
       fetchBlogKnowledge(),
       fetchLearnedInsights(),
+      fetchActiveDirectives(),
       getVisitorSummary(visitor_token || ""),
     ]);
 
@@ -1366,7 +1505,7 @@ If your response reads like a bullet-point FAQ or a customer service bot, REWRIT
 Self-deprecate. Reference your disasters. Show genuine emotion. Be punchy, not preachy.
 `;
 
-    const fullKnowledge = STATIC_KNOWLEDGE + MULTILINGUAL_INSTRUCTIONS + blogKnowledge + learnedInsights + visitorContext + PERSONALITY_REINFORCEMENT;
+    const fullKnowledge = STATIC_KNOWLEDGE + MULTILINGUAL_INSTRUCTIONS + blogKnowledge + learnedInsights + ownerDirectives + visitorContext + PERSONALITY_REINFORCEMENT;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -1405,11 +1544,12 @@ Self-deprecate. Reference your disasters. Show genuine emotion. Be punchy, not p
       });
     }
 
-    // Store insights, track emotion gaps, and update visitor summary asynchronously
+    // Store insights, track emotion gaps, extract directives, and update visitor summary asynchronously
     storeConversationInsights(messages).catch(e => console.error("Background insight storage failed:", e));
     trackEmotionGaps(messages).catch(e => console.error("Background emotion gap tracking failed:", e));
     if (visitor_token) {
       updateVisitorSummary(visitor_token, messages).catch(e => console.error("Background visitor summary failed:", e));
+      extractOwnerDirectives(visitor_token, messages).catch(e => console.error("Background directive extraction failed:", e));
     }
 
     return new Response(response.body, {
