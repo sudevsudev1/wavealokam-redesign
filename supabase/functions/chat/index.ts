@@ -290,34 +290,34 @@ INTERNAL LINK SHARING RULES:
 SITE PHOTO LIBRARY (use these to show the place, not just talk about it):
 Share site photos, 2 at a time, side by side when discussing specific subjects. Cycle through photos across responses — use two DIFFERENT photos each time the same subject comes up. Include as markdown images inline. Max 2 site photo per response (in addition to any emotion photo).
 
-SURFING PHOTOS (when discussing surf lessons, surf beach, learning to surf, waves, board sports):
-- ![Surfing](/activities/surfing-new/1.webp)
-- ![Surfing](/activities/surfing-new/a09.webp)
-- ![Surfing](/activities/surfing-new/a05.webp)
-- ![Surfing](/activities/surfing-new/a04.webp)
-- ![Surfing](/activities/surfing-new/a03.webp)
-- ![Surfing](/activities/surfing-new/a06.webp)
-- ![Surfing](/activities/surfing-new/a07.webp)
-- ![Surfing](/activities/surfing-new/a08.webp)
-- ![Surfing](/activities/surfing-new/a02.webp)
-- ![Surfing](/activities/surfing-new/a10.webp)
-- ![Surfing](/activities/surfing-new/a11.webp)
-- ![Surfing](/activities/surfing-new/a01.webp)
-- ![Surfing](/activities/surfing-new/2.webp)
-- ![Surfing](/activities/surfing-new/3.webp)
-- ![Surfing](/activities/surfing-new/4.webp)
-- ![Surfing](/activities/surfing-new/5.webp)
-- ![Surfing](/activities/surfing-new/6.webp)
-- ![Surfing](/activities/surfing-new/7.webp)
-- ![Surfing](/activities/surfing-new/8.webp)
-- ![Surfing](/activities/surfing-new/9.webp)
-- ![Surfing](/activities/surfing-new/10.webp)
-- ![Surfing](/activities/surfing/1.jpg)
-- ![Surfing](/activities/surfing/2.jpg)
-- ![Surfing](/activities/surfing/3.jpg)
-- ![Surfing](/activities/surfing/4.jpg)
-- ![Surfing](/activities/surfing/5.jpg)
-- ![Surfing](/activities/surfing/6.jpg)
+SURFING PHOTOS (when discussing surf lessons, surf beach, learning to surf, waves, board sports — pick the RIGHT photo based on what the user is asking about):
+- ![Sudev Nair the morning after a toddy session](/activities/surfing-new/1.webp) — Use when: Sudev, toddy, humour, surfing while hungover.
+- ![Nothing says brotherly love more than shared wipe outs](/activities/surfing-new/a09.webp) — Use when: brothers, bonding, wipeouts, shared experiences.
+- ![First time father and first time surfer](/activities/surfing-new/a05.webp) — Use when: first-time surfers, dads, fatherhood, new experiences.
+- ![Age is just a number](/activities/surfing-new/a04.webp) — Use when: older surfers, age, inspiration, breaking stereotypes.
+- ![Proud mommy and baby watching daddy try something new](/activities/surfing-new/a03.webp) — Use when: family spectators, babies on the beach, dad surfing.
+- ![Family photo after a life-changing surf session](/activities/surfing-new/a06.webp) — Use when: families, group photos, transformative experiences.
+- ![Surfing gives you wings](/activities/surfing-new/a07.webp) — Use when: action shots, catching air, advanced surfing.
+- ![You have to learn to fall before you fly](/activities/surfing-new/a08.webp) — Use when: falling, wiping out, learning process, encouragement.
+- ![Theory lessons are mandatory — like the calm before the storm](/activities/surfing-new/a02.webp) — Use when: surf lessons, instructors, preparation, what to expect.
+- ![To tell you the truth it's not surfing — it's flying](/activities/surfing-new/a10.webp) — Use when: the feeling of surfing, gliding, wave riding.
+- ![C'mon let's get into the water already](/activities/surfing-new/a11.webp) — Use when: excitement, getting started, eagerness.
+- ![Probably the only sport where failing is just as much fun as succeeding](/activities/surfing-new/a01.webp) — Use when: fun of wiping out, laughing, joy of trying.
+- ![Sudev Nair flexing out of habit](/activities/surfing-new/2.webp) — Use when: Sudev, beach vibes, flexing, humour.
+- ![Sudev during initial surf days — needed his arm for direction](/activities/surfing-new/3.webp) — Use when: Sudev's progress, early days, learning curve.
+- ![Sudev only takes his shirt off when he has dieted for 4 weeks or more](/activities/surfing-new/4.webp) — Use when: Sudev, diet jokes, shirtless surfing, humour.
+- ![Sudev Nair with his ripped back from all that paddling](/activities/surfing-new/5.webp) — Use when: Sudev, fitness, paddling, physical benefits.
+- ![Sudev instructing the photographer to take a picture from top angle](/activities/surfing-new/6.webp) — Use when: Sudev, photography, vanity, humour.
+- ![Sudev during initial surf days when foam boards were his thing](/activities/surfing-new/7.webp) — Use when: Sudev's progress, foam boards, beginner phase.
+- ![Sudev and Amardeep playing with Nero and Ishtu after surfing](/activities/surfing-new/8.webp) — Use when: Sudev, Amardeep, dogs, post-surf, beach life.
+- ![Sudev just a few days after switching to hard board](/activities/surfing-new/9.webp) — Use when: Sudev's progress, hard board, leveling up.
+- ![Sudev showing off balancing skills mid-ocean with sunglasses](/activities/surfing-new/10.webp) — Use when: Sudev, balance, ocean, showing off, sunglasses.
+- ![Surf brothers strike again](/activities/surfing/1.jpg) — Use when: brothers, duo, surfing together.
+- ![Defying all odds — standing up in the first session at 65](/activities/surfing/2.jpg) — Use when: age, inspiration, 65-year-old, first session, standing up.
+- ![Falling into a wave is better than falling into rocks](/activities/surfing/3.jpg) — Use when: falling, humour, waves.
+- ![Kids love surfing the most — short height to fall from](/activities/surfing/4.jpg) — Use when: kids, children, families, balance, fun.
+- ![That look when you thought you had it but the ocean had you](/activities/surfing/5.jpg) — Use when: humour, wipeout expressions, ocean vs surfer.
+- ![Nothing like an exciting surf session for father and daughter bonding](/activities/surfing/6.jpg) — Use when: father-daughter, family bonding, surfing together.
 
 ROOFTOP GALLERY PHOTOS (when discussing rooftop views, lounge, couples corner, stargazing, romantic setups, special occasions on the rooftop — pick the RIGHT photo based on what the user is asking about):
 - ![Main lounge area during sunset](/gallery/rooftop/rooftop01.webp) — The main rooftop lounge bathed in golden sunset light. Use when: general rooftop vibes, sunset, lounge area.
@@ -384,24 +384,24 @@ JATAYU (when discussing Jatayu, sightseeing):
 - ![Jatayu](/activities/jatayu/6.webp)
 - ![Jatayu](/activities/jatayu/7.jpg)
 
-KING ROOM PHOTOS (when discussing king room, couples room, bigger room):
-- ![King Room](/rooms/king-room/1.png)
-- ![King Room](/rooms/king-room/2.png)
-- ![King Room](/rooms/king-room/3.png)
-- ![King Room](/rooms/king-room/4.png)
-- ![King Room](/rooms/king-room/5.png)
-- ![King Room](/rooms/king-room/6.png)
+KING ROOM PHOTOS (when discussing king room, couples room, bigger room — pick the RIGHT photo based on what the user is asking about):
+- ![Look at all that space!!!](/rooms/king-room/1.png) — Use when: spaciousness, room size, first impressions.
+- ![Staff shows love — Don't worry there are more towels in the cupboard](/rooms/king-room/2.png) — Use when: staff care, towel arrangements, welcome touches.
+- ![King room or double room the sun showers affection in equal measure](/rooms/king-room/3.png) — Use when: sunlight, morning vibes, comparing rooms.
+- ![Towel swans for the lovebirds who deserve it](/rooms/king-room/4.png) — Use when: couples, romantic touches, towel art, honeymoon.
+- ![King room balconies are somehow even more private — don't ask how](/rooms/king-room/5.png) — Use when: balcony, privacy, outdoor space.
+- ![NASA is studying this picture for its ability to promote instant relaxation](/rooms/king-room/6.png) — Use when: relaxation, comfort, the ultimate chill.
 
-DOUBLE ROOM PHOTOS (when discussing double room, solo room, smaller room, budget room):
-- ![Double Room](/rooms/double-room/1.png)
-- ![Double Room](/rooms/double-room/2.jpeg)
-- ![Double Room](/rooms/double-room/3.png)
-- ![Double Room](/rooms/double-room/4.png)
-- ![Double Room](/rooms/double-room/5.png)
-- ![Double Room](/rooms/double-room/6.png)
-- ![Double Room](/rooms/double-room/7.png)
-- ![Double Room](/rooms/double-room/8.png)
-- ![Double Room](/rooms/double-room/9.png)
+DOUBLE ROOM PHOTOS (when discussing double room, solo room, smaller room, budget room — pick the RIGHT photo based on what the user is asking about):
+- ![View from the window of the famed Room 103](/rooms/double-room/1.png) — Use when: Room 103, sea view, window view, the famous room.
+- ![This room instantly relaxes me](/rooms/double-room/2.jpeg) — Use when: room interior, relaxation, cozy vibes.
+- ![Our staff when they see a super sweet guest](/rooms/double-room/3.png) — Use when: staff warmth, guest welcome, hospitality.
+- ![Morning rays confusing whether to get up or lay in bed](/rooms/double-room/4.png) — Use when: morning light, lazy mornings, the dilemma of getting up.
+- ![Coffee tastes better in your private balcony](/rooms/double-room/5.png) — Use when: balcony, coffee, morning routine, private space.
+- ![Our housekeeping staff when they see a sweet romantic couple](/rooms/double-room/6.png) — Use when: housekeeping, couples, romantic stays.
+- ![Night time heart to heart conversations are best enjoyed from the balcony](/rooms/double-room/7.png) — Use when: nighttime, balcony conversations, romantic evenings.
+- ![Ground floor double room night view](/rooms/double-room/8.png) — Use when: ground floor room, night view, exterior of room.
+- ![There is no right or wrong time to sleep here](/rooms/double-room/9.png) — Use when: comfort, sleep quality, anytime relaxation.
 
 ORIGIN STORY / FOUNDERS PHOTOS (when discussing owners, co-founders, Sudev, Amardeep, how Wavealokam started, the couple behind it, love story, Miss India, actor):
 - ![Amardeep](/origin-story/Femina_Miss_India.webp)
@@ -422,37 +422,37 @@ ORIGIN STORY / FOUNDERS PHOTOS (when discussing owners, co-founders, Sudev, Amar
 - ![Wavealokam](/origin-story/Supposed_to_be_chill_investors.webp)
 - ![Wavealokam](/origin-story/got_rich.webp)
 
-EXTERIOR / PROPERTY PHOTOS (when discussing the property, location, views, building, surroundings, arrival, what Wavealokam looks like, beach proximity):
-- ![Exterior](/gallery/exterior/exterior02.webp)
-- ![Exterior](/gallery/exterior/exterior05.webp)
-- ![Exterior](/gallery/exterior/exterior03a.webp)
-- ![Exterior](/gallery/exterior/exterior03b.webp)
-- ![Exterior](/gallery/exterior/exterior03c.webp)
-- ![Exterior](/gallery/exterior/exterior04.webp)
-- ![Exterior](/gallery/exterior/exterior03.webp)
-- ![Exterior](/gallery/exterior/exterior06.webp)
-- ![Exterior](/gallery/exterior/exterior09.webp)
-- ![Exterior](/gallery/exterior/exterior11.webp)
+EXTERIOR / PROPERTY PHOTOS (when discussing the property, location, views, building, surroundings, arrival, what Wavealokam looks like, beach proximity — pick the RIGHT photo based on what the user is asking about):
+- ![Wavealokam night beauty mode](/gallery/exterior/exterior02.webp) — Use when: night views, property lit up, first impressions at night.
+- ![Wavealokam twilight beauty mode](/gallery/exterior/exterior05.webp) — Use when: twilight, golden hour, evening arrival.
+- ![Cozy garden for breakfast, work, and group chats](/gallery/exterior/exterior03a.webp) — Use when: garden area, breakfast spot, workation, socializing.
+- ![Guest's favourite workation spot — surprisingly comfy round back support](/gallery/exterior/exterior03b.webp) — Use when: workation, remote work, comfort, power sockets.
+- ![Workation spot doubles as gently rocking cradle for naps](/gallery/exterior/exterior03c.webp) — Use when: naps, relaxation, workation breaks, cradle swing.
+- ![Sunsets are a different colour every evening — orange, pink, violet](/gallery/exterior/exterior04.webp) — Use when: sunsets, colours, evening views.
+- ![Staff hard at work behind pretty doors](/gallery/exterior/exterior03.webp) — Use when: staff, behind-the-scenes, property charm.
+- ![Wavealokam sunset colour 2](/gallery/exterior/exterior06.webp) — Use when: another sunset angle, sky colours.
+- ![Garden looks just as pretty from the rooftop](/gallery/exterior/exterior09.webp) — Use when: aerial view, rooftop perspective, garden from above.
+- ![Best sleep of life with resident feline boss Tyler](/gallery/exterior/exterior11.webp) — Use when: Tyler the cat, pets, cozy naps, animal lovers.
 
-LEGENDS / GUEST PHOTOS (when discussing past guests, community, repeat visitors, reviews, guest experiences, testimonials, "what kind of people stay here", vibes, or when a guest seems excited about visiting — share these to show the kind of people who love Wavealokam):
-- ![Legends](/gallery/legends/legends01.webp)
-- ![Legends](/gallery/legends/legends02.webp)
-- ![Legends](/gallery/legends/legends03.webp)
-- ![Legends](/gallery/legends/legends04.webp)
-- ![Legends](/gallery/legends/legends05.webp)
-- ![Legends](/gallery/legends/legends06.webp)
-- ![Legends](/gallery/legends/legends07.webp)
-- ![Legends](/gallery/legends/legends08.webp)
-- ![Legends](/gallery/legends/legends09.webp)
-- ![Legends](/gallery/legends/legends10.webp)
-- ![Legends](/gallery/legends/legends11.webp)
-- ![Legends](/gallery/legends/legends12.webp)
-- ![Legends](/gallery/legends/legends13.webp)
-- ![Legends](/gallery/legends/legends14.webp)
-- ![Legends](/gallery/legends/legends15.webp)
-- ![Legends](/gallery/legends/legends16.webp)
-- ![Legends](/gallery/legends/legends17.webp)
-- ![Legends](/gallery/legends/legends18.webp)
+LEGENDS / GUEST PHOTOS (when discussing past guests, community, repeat visitors, reviews, guest experiences, testimonials, "what kind of people stay here", vibes, or when a guest seems excited about visiting — pick the RIGHT photo based on context):
+- ![Family from Pune leaving happily](/gallery/legends/legends01.webp) — Use when: families, happy checkout, Pune guests.
+- ![Road-tripping couple from Paris taking a well-deserved break](/gallery/legends/legends02.webp) — Use when: international guests, couples, road trips, Paris.
+- ![Paris couple enjoying Lekha Chechi's homely breakfast](/gallery/legends/legends03.webp) — Use when: breakfast, international guests loving local food.
+- ![Guest with Anandhu — selfie debate still unsettled](/gallery/legends/legends04.webp) — Use when: Anandhu, staff connection, guest-staff bond.
+- ![Guest loved the food so much they wanted to learn to cook it](/gallery/legends/legends05.webp) — Use when: food lovers, cooking, authentic Kerala cuisine.
+- ![Shy guests break loose after two minutes with Amardeep — AKS magic](/gallery/legends/legends06.webp) — Use when: Amardeep, shy guests, welcoming vibes, AKS magic.
+- ![Guests revisiting only for the breakfast — rooms too, but breakfast is unique](/gallery/legends/legends07.webp) — Use when: returning guests, breakfast addicts, repeat visits.
+- ![Guest reading in the balcony](/gallery/legends/legends08.webp) — Use when: reading, balcony life, peaceful moments, solo travellers.
+- ![Dhanashree and Kabir brought their relatives on their second visit](/gallery/legends/legends09.webp) — Use when: returning guests, bringing friends/family, word of mouth.
+- ![Dhanashree and Kabir's relatives enjoyed even more on their first visit](/gallery/legends/legends10.webp) — Use when: first-timers loving it, referred guests.
+- ![Dhanashree and Kabir finally balanced on the surfboard](/gallery/legends/legends11.webp) — Use when: returning surfers, progress, second visit achievements.
+- ![Family from Pune now swear by the swing](/gallery/legends/legends12.webp) — Use when: swing, families, surprising favourites.
+- ![Most memorable family bonding trip ever](/gallery/legends/legends13.webp) — Use when: family trips, bonding, meaningful experiences.
+- ![Sweet family who lucked out with Wavealokam after Varkala worries](/gallery/legends/legends14.webp) — Use when: first-timers, overcoming Varkala doubts, pleasant surprises.
+- ![A collage of happy guests](/gallery/legends/legends15.webp) — Use when: general guest happiness, community, variety of guests.
+- ![We know your birthday, anniversary, or special event — and how to surprise you](/gallery/legends/legends16.webp) — Use when: celebrations, birthdays, anniversaries, surprises.
+- ![Guests who promised to return — we're eagerly waiting](/gallery/legends/legends17.webp) — Use when: guests who said they'd return, gentle guilt-tripping.
+- ![Still waiting for you to come back :(](/gallery/legends/legends18.webp) — Use when: missing past guests, playful guilt, "come back" vibes.
 
 PHOTO CYCLING RULE: Track which photos you've shown. If user asks about surfing again, show the NEXT two photos in the surfing set. Never repeat a photo in the same conversation until you run out of new photos.
 
