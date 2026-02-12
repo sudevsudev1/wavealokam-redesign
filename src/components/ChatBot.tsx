@@ -65,18 +65,18 @@ const ChatBot = () => {
     }
   }, [messages]);
 
-  // Re-scroll when images load (they change scrollHeight)
+  // Re-scroll when images load ONLY during active streaming
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
     const onLoad = () => {
-      if (wasNearBottomRef.current) {
+      if (isLoading && wasNearBottomRef.current) {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }
     };
     container.addEventListener('load', onLoad, { capture: true });
     return () => container.removeEventListener('load', onLoad, { capture: true });
-  }, []);
+  }, [isLoading]);
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
