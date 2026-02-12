@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import PillarNav from '@/components/pillar/PillarNav';
 import PillarHero from '@/components/pillar/PillarHero';
+import { contactHeroImages } from '@/data/pillarHeroImages';
 import TrustBlock from '@/components/pillar/TrustBlock';
 import PillarFAQ from '@/components/pillar/PillarFAQ';
 import InternalLinks from '@/components/pillar/InternalLinks';
@@ -127,6 +128,7 @@ const Contact = () => {
         <PillarHero
           title="Contact Wavealokam"
           subtitle="Questions? Booking inquiries? Just want to say hi? We're here."
+          heroImages={contactHeroImages}
         />
 
         {/* Quick Contact Options */}
