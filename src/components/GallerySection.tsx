@@ -81,7 +81,7 @@ const galleryFolders: GalleryFolder[] = [
 {
   id: 'king-room',
   title: 'King Room',
-  description: 'Sleep like royalty, wake to waves',
+  description: 'Maximum space, maximum comfort, minimum chance you\'ll want to check out.',
   images: [
   '/rooms/king-room/1.png',
   '/rooms/king-room/2.png',
