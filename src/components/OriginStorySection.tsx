@@ -74,7 +74,7 @@ const storyContent: ContentSegment[] = [
   { text: "That was unforgivable." },
   { text: "", image: "/origin-story/drove_down.webp" },
   {
-    text: "Amardeep packed up from Mumbai, drove down to Varkala, and cleaned house. Took over like she'd been running hospitality her entire life.",
+    text: "Amardeep packed up from Mumbai, drove down to Varkala, Nero Ishtu in tow (they're in the back seat), and cleaned house. Took over like she'd been running hospitality her entire life.",
   },
   { text: "", image: "/origin-story/household_with_three_women_and_a_brother.webp" },
   {
