@@ -30,7 +30,7 @@ const galleryFolders: GalleryFolder[] = [
 {
   id: 'surfing',
   title: 'Surfing',
-  description: 'Catch waves, catch feelings',
+  description: 'Therapy But Wetter - 10-12 sessions till you\'re decent. One session till you\'re hooked.',
   images: [
   '/activities/surfing-new/1.webp',
   '/activities/surfing-new/a09.webp',
