@@ -88,7 +88,7 @@ const storyContent: ContentSegment[] = [
   },
   { text: "It's a system. It works." },
   { text: "", image: "/origin-story/Nobody_s_living_in_a_slum_anymore.webp" },
-  { text: "Nobody's living in a rehab anymore. Progress." },
+  { text: "Nobody's living in a slum rehab anymore. Progress." },
 ];
 
 const OriginStorySection = () => {
