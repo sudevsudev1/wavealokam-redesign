@@ -98,3 +98,12 @@ export const howToReachHeroImages: string[] = [
   '/pillar-heroes/how-to-reach-4.webp',
   '/pillar-heroes/how-to-reach-5.webp',
 ];
+
+// ─── CONTACT ──────────────────────────────────────────────
+export const contactHeroImages: string[] = [
+  '/pillar-heroes/contact-1.webp',
+  '/pillar-heroes/contact-2.webp',
+  '/pillar-heroes/contact-3.webp',
+  '/pillar-heroes/contact-4.webp',
+  '/pillar-heroes/contact-5.webp',
+];

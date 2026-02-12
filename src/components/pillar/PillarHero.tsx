@@ -1,4 +1,5 @@
-import { ReactNode, useRef, useEffect, useState } from 'react';
+import { ReactNode, useRef, useCallback, useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PillarHeroProps {
   title: string;
@@ -9,74 +10,62 @@ interface PillarHeroProps {
 }
 
 const PillarHero = ({ title, subtitle, backgroundImage, heroImages, children }: PillarHeroProps) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const hasGallery = heroImages && heroImages.length > 0;
 
-  // Auto-scroll animation
+  // Parallax: each image gets a slight vertical offset based on scroll
+  const [scrollY, setScrollY] = useState(0);
+
   useEffect(() => {
-    if (!heroImages?.length || !scrollRef.current) return;
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-    let animationId: number;
-    let speed = 0.3; // px per frame
+  const scrollTrack = useCallback((direction: 'left' | 'right') => {
+    if (!trackRef.current) return;
+    const amount = window.innerWidth * 0.4;
+    trackRef.current.scrollBy({
+      left: direction === 'right' ? amount : -amount,
+      behavior: 'smooth',
+    });
+  }, []);
+
+  // Triple images for seamless infinite scroll feel
+  const displayImages = hasGallery ? [...heroImages, ...heroImages, ...heroImages] : [];
+
+  // Auto-scroll using requestAnimationFrame with a ref to avoid stale closure
+  const isPausedRef = useRef(isPaused);
+  isPausedRef.current = isPaused;
+
+  useEffect(() => {
+    if (!hasGallery || !trackRef.current) return;
+
+    let animId: number;
+    const speed = 0.5;
+
+    // Start scrolled to the middle set
+    const el = trackRef.current;
+    const singleSetWidth = el.scrollWidth / 3;
+    el.scrollLeft = singleSetWidth;
 
     const animate = () => {
-      if (!scrollRef.current || isDragging) {
-        animationId = requestAnimationFrame(animate);
-        return;
-      }
-      scrollRef.current.scrollLeft += speed;
+      if (!trackRef.current) return;
+      if (!isPausedRef.current) {
+        trackRef.current.scrollLeft += speed;
 
-      // Loop: if we've scrolled past the midpoint (duplicated content), reset
-      const maxScroll = scrollRef.current.scrollWidth / 2;
-      if (scrollRef.current.scrollLeft >= maxScroll) {
-        scrollRef.current.scrollLeft = 0;
+        // Seamless loop: when past 2nd set, jump back to 1st set
+        if (trackRef.current.scrollLeft >= singleSetWidth * 2) {
+          trackRef.current.scrollLeft -= singleSetWidth;
+        }
       }
-      animationId = requestAnimationFrame(animate);
+      animId = requestAnimationFrame(animate);
     };
 
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
-  }, [heroImages, isDragging]);
-
-  // Drag to scroll handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!scrollRef.current) return;
-    setIsDragging(true);
-    setStartX(e.touches[0].pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || !scrollRef.current) return;
-    const x = e.touches[0].pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const handleTouchEnd = () => setIsDragging(false);
-
-  const hasGallery = heroImages && heroImages.length > 0;
-  // Duplicate images for infinite loop illusion
-  const displayImages = hasGallery ? [...heroImages, ...heroImages] : [];
+    animId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animId);
+  }, [hasGallery, heroImages]);
 
   return (
     <section className="relative min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden">
@@ -86,35 +75,64 @@ const PillarHero = ({ title, subtitle, backgroundImage, heroImages, children }: 
           <>
             {/* Scrollable image gallery background */}
             <div
-              ref={scrollRef}
-              className="absolute inset-0 flex overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing"
+              ref={trackRef}
+              className="absolute inset-0 flex overflow-x-scroll scrollbar-hide"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+              onTouchStart={() => setIsPaused(true)}
+              onTouchEnd={() => {
+                // Resume after a delay so touch scroll finishes
+                setTimeout(() => setIsPaused(false), 3000);
+              }}
             >
-              {displayImages.map((src, i) => (
-                <div
-                  key={`${src}-${i}`}
-                  className="flex-shrink-0 h-full"
-                  style={{ width: 'clamp(280px, 40vw, 500px)' }}
-                >
-                  <img
-                    src={src}
-                    alt=""
-                    className="w-full h-full object-cover pointer-events-none select-none"
-                    draggable={false}
-                    loading={i < 6 ? 'eager' : 'lazy'}
-                  />
-                </div>
-              ))}
+              {displayImages.map((src, i) => {
+                // Parallax: alternate images move at different vertical speeds
+                const parallaxFactor = i % 3 === 0 ? 0.08 : i % 3 === 1 ? -0.04 : 0.12;
+                const yOffset = scrollY * parallaxFactor;
+                // Slight scale variation for depth
+                const scaleBoost = i % 3 === 2 ? 1.08 : i % 3 === 1 ? 1.04 : 1;
+
+                return (
+                  <div
+                    key={`hero-img-${i}`}
+                    className="flex-shrink-0 h-full overflow-hidden"
+                    style={{ width: 'clamp(280px, 40vw, 500px)' }}
+                  >
+                    <img
+                      src={src}
+                      alt=""
+                      className="w-full h-full object-cover pointer-events-none select-none will-change-transform"
+                      draggable={false}
+                      loading={i < 8 ? 'eager' : 'lazy'}
+                      style={{
+                        transform: `translateY(${yOffset}px) scale(${scaleBoost})`,
+                        transition: 'transform 0.1s linear',
+                      }}
+                    />
+                  </div>
+                );
+              })}
             </div>
+
             {/* Dark overlay for text readability */}
-            <div className="absolute inset-0 bg-black/50" />
+            <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+
+            {/* Navigation arrows */}
+            <button
+              onClick={() => scrollTrack('left')}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-all duration-200 backdrop-blur-sm"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => scrollTrack('right')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-all duration-200 backdrop-blur-sm"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </>
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--wave-orange))] via-[hsl(var(--wave-purple))] to-[hsl(var(--wave-blue-ocean))]">
@@ -129,16 +147,18 @@ const PillarHero = ({ title, subtitle, backgroundImage, heroImages, children }: 
       </div>
 
       {/* Content */}
-      <div className="relative z-10 container mx-auto px-6 py-20 text-center">
-        <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight mb-6">
+      <div className="relative z-10 container mx-auto px-6 py-20 text-center pointer-events-none">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight mb-6 drop-shadow-lg">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-lg md:text-xl lg:text-2xl text-white/90 max-w-3xl mx-auto mb-8">
+          <p className="text-lg md:text-xl lg:text-2xl text-white/90 max-w-3xl mx-auto mb-8 drop-shadow-md">
             {subtitle}
           </p>
         )}
-        {children}
+        <div className="pointer-events-auto">
+          {children}
+        </div>
       </div>
     </section>
   );
