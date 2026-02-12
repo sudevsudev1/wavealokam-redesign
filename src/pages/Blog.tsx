@@ -23,7 +23,7 @@ const CATEGORIES = [
   { value: "surfing", label: "Surfing" },
   { value: "travel", label: "Travel" },
   { value: "activities", label: "Activities" },
-  { value: "accommodation", label: "Accommodation" },
+  { value: "stay", label: "Stay" },
 ];
 
 const Blog = () => {
