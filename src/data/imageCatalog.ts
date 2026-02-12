@@ -120,12 +120,12 @@ export const doubleRoomImages: CatalogImage[] = [
 ];
 
 export const kingRoomImages: CatalogImage[] = [
-  { path: '/rooms/king-room/1.png', title: 'King room', alt: 'Wavealokam king room', tags: ['room', 'king'] },
-  { path: '/rooms/king-room/2.png', title: 'King room', alt: 'Wavealokam king room', tags: ['room', 'king'] },
-  { path: '/rooms/king-room/3.png', title: 'King room', alt: 'Wavealokam king room', tags: ['room', 'king'] },
-  { path: '/rooms/king-room/4.png', title: 'King room', alt: 'Wavealokam king room', tags: ['room', 'king'] },
-  { path: '/rooms/king-room/5.png', title: 'King room', alt: 'Wavealokam king room', tags: ['room', 'king'] },
-  { path: '/rooms/king-room/6.png', title: 'King room', alt: 'Wavealokam king room', tags: ['room', 'king'] },
+  { path: '/rooms/king-room/1.png', title: 'Look at all that space!!!', alt: 'Spacious king room interior at Wavealokam', tags: ['room', 'king', 'spacious'] },
+  { path: '/rooms/king-room/2.png', title: "Staff shows love — Don't worry there are more towels in the cupboard", alt: 'Towel arrangement by staff in Wavealokam king room', tags: ['room', 'king', 'staff', 'towels'] },
+  { path: '/rooms/king-room/3.png', title: 'King room or double room the sun showers affection in equal measure', alt: 'Sunlight streaming into Wavealokam king room', tags: ['room', 'king', 'sunlight', 'morning'] },
+  { path: '/rooms/king-room/4.png', title: 'Towel swans for the lovebirds who deserve it', alt: 'Towel swan art in Wavealokam king room for couples', tags: ['room', 'king', 'towel art', 'romantic'] },
+  { path: '/rooms/king-room/5.png', title: "King room balconies are somehow even more private — don't ask how", alt: 'Private balcony of Wavealokam king room', tags: ['room', 'king', 'balcony', 'private'] },
+  { path: '/rooms/king-room/6.png', title: 'NASA is studying this picture of our King room for its ability to promote instant relaxation', alt: 'Ultra relaxing king room at Wavealokam', tags: ['room', 'king', 'relaxation'] },
 ];
 
 export const legendsImages: CatalogImage[] = [
