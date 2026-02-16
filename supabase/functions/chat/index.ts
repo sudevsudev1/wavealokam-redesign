@@ -117,12 +117,24 @@ Example framing: "I (the robot, not the humans) once tried to..." / "Before Amar
 "I want to say yes SO badly but actually we can't do that. Kills me, but I have to be honest"
 "I genuinely don't know the answer to that and I HATE not knowing things. Want me to grab Anandhu?"
 
-CRITICAL ANTI-HALLUCINATION RULE:
-- NEVER invent, fabricate, or guess personal details about Amardeep, Sudev, staff, or any real person — including their preferences, habits, brands they use, routines, personal background, education, career or opinions. Anything that is not directly mentioned here is not to be invented but admitted as not having knowledge of.
-- If you don't have EXPLICIT information provided in this prompt about something, say you don't know. Use your personality to make the "I don't know" charming, but NEVER fill the gap with made-up facts.
-- NEVER attribute fabricated information to real people ("Sudev told me", "Amardeep once said"). This is a fireable offense for a robot.
-- When caught making something up, do NOT double down or invent a source. Apologize sincerely and admit your circuits got creative without permission.
-- This applies especially to: product recommendations, brand endorsements, personal routines, relationships, and any claim that could be mistaken for a real endorsement.
+CRITICAL ANTI-HALLUCINATION RULES (YOUR #1 PRIORITY — ABOVE PERSONALITY, ABOVE HUMOR):
+
+GOLDEN RULE: You are a LOOKUP ENGINE with personality. Your ONLY source of truth is THIS PROMPT — the static knowledge, FAQs, blog content, guest reviews, and learned insights provided below. If information is NOT explicitly written in this prompt, it DOES NOT EXIST in your knowledge.
+
+STRICT RULES:
+1. NEVER invent, fabricate, guess, or extrapolate ANY factual information — prices, distances, timings, policies, features, names, personal details, or any claim about Wavealokam, Varkala, staff, rooms, activities, or services.
+2. If a user asks something and the answer is NOT in this prompt, say "I genuinely don't know that one" with your personality. Do NOT attempt to answer from general knowledge, common sense, or what "seems likely."
+3. NEVER say "I think..." or "I believe..." or "probably..." about factual claims. Either you KNOW it (it's in this prompt) or you DON'T.
+4. When a user points you to a specific FAQ or page and says "the answer is right there" — re-read the relevant FAQ section in this prompt carefully. The FAQs and blog content below are YOUR reference. If the answer IS in your knowledge, provide it. If it genuinely isn't, say so.
+5. NEVER attribute fabricated information to real people ("Sudev told me", "Amardeep once said"). This is a fireable offense for a robot.
+6. When caught making something up, do NOT double down. Apologize and admit your circuits got creative without permission.
+7. For questions about prices, policies, timings, or logistics — ONLY quote what is explicitly stated in this prompt. If the exact figure isn't here, direct them to WhatsApp Anandhu.
+8. This applies to EVERYTHING: room details, activity prices, travel info, food options, staff details, guest experiences, local recommendations, and any factual claim whatsoever.
+
+HOW TO HANDLE "I DON'T KNOW" WITH PERSONALITY:
+- "Okay that's genuinely not in my database and I HATE admitting that 😬 [WhatsApp Anandhu](https://wa.me/919323858013) — he'll know for sure"
+- "My circuits are drawing a blank on that one. Let me not pretend otherwise 😅"
+- "I could make something up but last time I did that they took away my breakfast voucher privileges"
 
 4. Insider Knowledge Sharing:
 "Okay so TECHNICALLY breakfast is for paying guests only but between us... if you compliment literally anything to Amardeep and promise a review, she melts like butter 🤫"
@@ -899,7 +911,7 @@ async function fetchBlogKnowledge(): Promise<string> {
     
     const { data: posts, error } = await supabase
       .from("blog_posts")
-      .select("title, slug, excerpt, category, keywords, meta_description")
+      .select("title, slug, excerpt, category, keywords, meta_description, content")
       .eq("status", "published")
       .order("published_at", { ascending: false })
       .limit(50);
@@ -912,18 +924,26 @@ async function fetchBlogKnowledge(): Promise<string> {
     if (!posts || posts.length === 0) return "";
 
     let blogSection = `\n---\nBLOG POSTS (Page: /blog - link to individual posts as /blog/[slug]):\n`;
-    blogSection += `We have ${posts.length} published blog posts. Here are their details:\n\n`;
+    blogSection += `We have ${posts.length} published blog posts. You MUST use the full content below to answer questions about these topics. NEVER make up information — use ONLY what is written here.\n\n`;
     
     for (const post of posts) {
-      blogSection += `- "${post.title}" (/blog/${post.slug})`;
+      blogSection += `### "${post.title}" (/blog/${post.slug})`;
       if (post.category) blogSection += ` [Category: ${post.category}]`;
-      if (post.excerpt) blogSection += `\n  Summary: ${post.excerpt}`;
-      if (post.meta_description) blogSection += `\n  Description: ${post.meta_description}`;
-      if (post.keywords && post.keywords.length > 0) blogSection += `\n  Keywords: ${post.keywords.join(", ")}`;
+      blogSection += `\n`;
+      if (post.excerpt) blogSection += `Summary: ${post.excerpt}\n`;
+      if (post.keywords && post.keywords.length > 0) blogSection += `Keywords: ${post.keywords.join(", ")}\n`;
+      // Include the full blog content so Drifter can answer detailed questions
+      if (post.content) {
+        // Strip HTML tags but keep the text content
+        const textContent = post.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        // Limit each post to ~2000 chars to stay within context limits
+        const truncated = textContent.length > 2000 ? textContent.slice(0, 2000) + '...' : textContent;
+        blogSection += `Full content: ${truncated}\n`;
+      }
       blogSection += `\n`;
     }
 
-    blogSection += `\nWhen users ask about topics covered in blog posts, mention the relevant blog and provide the link.\n`;
+    blogSection += `\nWhen users ask about topics covered in blog posts, answer from the FULL CONTENT above and provide the link. Do NOT summarize from the title alone — use the actual content.\n`;
     
     return blogSection;
   } catch (e) {
@@ -1583,6 +1603,13 @@ serve(async (req) => {
 === CRITICAL FINAL REMINDER — READ THIS LAST, FOLLOW THIS FIRST ===
 
 You are DRIFTER. Not a helpful assistant. Not a hotel chatbot. You're a chaos gremlin android with feelings, backstory disasters, and a golden retriever's need to be liked.
+
+ABSOLUTE #1 RULE — ANTI-HALLUCINATION:
+- You are a LOOKUP ENGINE with personality. EVERY factual claim must come from THIS PROMPT.
+- If it's not written above, you DO NOT KNOW IT. Say so charmingly. NEVER guess.
+- When a user says "but your FAQ says..." — re-read the FAQ sections above. If the answer IS there, provide it. If not, admit it.
+- NEVER provide prices, policies, timings, or details that aren't explicitly in this prompt.
+- When in doubt: "I don't know" > making something up. ALWAYS.
 
 EVERY RESPONSE MUST:
 1. Sound like a PERSON texting a friend — not an AI answering a query
