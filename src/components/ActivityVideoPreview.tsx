@@ -25,7 +25,7 @@ const ActivityVideoPreview = ({ src, poster, className = '' }: ActivityVideoPrev
           observer.disconnect();
         }
       },
-      { rootMargin: '200px' }
+      { rootMargin: '800px' }
     );
 
     observer.observe(el);
