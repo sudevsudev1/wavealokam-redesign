@@ -81,10 +81,10 @@ const Contact = () => {
     return `utm_source=pillar&utm_medium=organic&utm_campaign=contact&utm_content=${ctaType}`;
   };
 
-  const whatsappNumber = '+919323858013';
+  const whatsappNumber = '+918606164606';
   const whatsappMessage = encodeURIComponent('Hi! I found you on the website and wanted to inquire about booking.');
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}&${buildUTM('whatsapp')}`;
-  const phoneUrl = 'tel:+919323858013';
+  const phoneUrl = 'tel:+918606164606';
 
   const faqs = [
     {
@@ -149,7 +149,7 @@ const Contact = () => {
               <Button asChild size="lg" variant="outline" className="border-primary text-primary hover:bg-primary/10">
                 <a href={phoneUrl}>
                   <Phone className="w-5 h-5 mr-2" />
-                  Call: +91 93238 58013
+                  Call: +91 86061 64606
                 </a>
               </Button>
             </div>

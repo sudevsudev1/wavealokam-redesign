@@ -86,11 +86,11 @@ const PillarFooter = () => {
               </li>
               <li>
                 <a
-                  href="tel:+919323858013"
+                  href="tel:+918606164606"
                   className="flex items-center gap-3 text-background/70 hover:text-[hsl(var(--wave-orange))] transition-colors"
                 >
                   <Phone className="w-5 h-5 text-[hsl(var(--wave-orange))]" />
-                  +91 93238 58013
+                  +91 86061 64606
                 </a>
               </li>
               <li>

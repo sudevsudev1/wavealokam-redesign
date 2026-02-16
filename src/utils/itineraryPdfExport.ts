@@ -368,7 +368,7 @@ export const exportItineraryPdf = (bookingState: BookingState, breakdown: PriceB
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
   doc.text('Prices are estimates. Final rates may vary seasonally.', margin, y);
-  doc.text('WhatsApp: +91 9323858013 | wavealokam.com', pageWidth - margin, y, { align: 'right' });
+  doc.text('WhatsApp: +91 8606164606 | wavealokam.com', pageWidth - margin, y, { align: 'right' });
 
   // Generate filename
   const dateStr = bookingState.checkIn ? format(bookingState.checkIn, 'ddMMMyyyy') : 'draft';

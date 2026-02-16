@@ -86,11 +86,11 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log("Sending quiz email to sudevsudev1@gmail.com");
+    console.log("Sending quiz email to wavealokam@gmail.com");
 
     const emailResponse = await sendEmail({
       from: "Wavealokam Quiz <onboarding@resend.dev>",
-      to: ["sudevsudev1@gmail.com"],
+      to: ["wavealokam@gmail.com"],
       subject: `New Discount Quiz from ${guestName}`,
       html: emailHtml,
     });

@@ -61,8 +61,8 @@ const StarRating = ({ rating }: { rating: number }) => {
 };
 
 const CTAStrip = ({ pageSlug }: CTAStripProps) => {
-  const whatsappNumber = '+919323858013';
-  const phoneNumber = '+919323858013';
+  const whatsappNumber = '+918606164606';
+  const phoneNumber = '+918606164606';
   
   const buildUTM = (ctaType: string) => {
     return `utm_source=pillar&utm_medium=organic&utm_campaign=${pageSlug}&utm_content=${ctaType}`;
