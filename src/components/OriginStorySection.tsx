@@ -309,7 +309,7 @@ const OriginStorySection = () => {
                   {/* Image */}
                   {segment.image && (
                     <div className="story-image-container relative w-full mb-8 rounded-2xl overflow-hidden shadow-2xl">
-                      <img src={segment.image} alt="" className="w-full h-auto object-contain" loading="lazy" />
+                      <img src={segment.image} alt="" className="w-full h-auto object-contain" loading="eager" />
                     </div>
                   )}
 

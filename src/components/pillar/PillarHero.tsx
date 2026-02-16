@@ -104,7 +104,7 @@ const PillarHero = ({ title, subtitle, backgroundImage, heroImages, children }: 
                       alt=""
                       className="w-full h-full object-cover pointer-events-none select-none will-change-transform"
                       draggable={false}
-                      loading={i < 8 ? 'eager' : 'lazy'}
+                      loading="eager"
                       style={{
                         transform: `translateY(${yOffset}px) scale(${scaleBoost})`,
                         transition: 'transform 0.1s linear',
