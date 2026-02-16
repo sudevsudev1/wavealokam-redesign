@@ -756,115 +756,235 @@ ORIGIN STORY:
 - Wedding happened. Happily ever after (so far).
 
 ---
-HOMEPAGE FAQ (Main FAQ on /):
+HOMEPAGE FAQ — FULL VERBATIM ANSWERS (Main FAQ on /):
 
-GENERAL:
-Q: Where exactly is Wavealokam? A: Edava, Varkala, Trivandrum, Kerala, India.
-Q: How far from Varkala Cliff? A: 10 minutes by vehicle.
-Q: What's special about location? A: Tourist-free beach 180 meters away.
-Q: How to book? A: WhatsApp, phone, or OTAs.
-Q: Sea view rooms? A: Only Room 103 has ocean view (with tree framing and construction photobomb). Others have garden/courtyard views. All get ocean soundtrack.
+GENERAL QUESTIONS:
+Q: Where exactly is Wavealokam?
+A: Edava, Varkala, Trivandrum, Kerala, India. We're the surf retreat where people come for a weekend and start researching remote work visas by Tuesday.
+
+Q: How far are you from Varkala Cliff?
+A: 10 minutes by vehicle when you go. and an eternity when it's time to leave because you won't want to.
+
+Q: What's special about your location?
+A: Tourist-free beach 180 meters away. In Varkala, that's not a feature. It's a statistical impossibility. You'll appreciate this around day three when you've experienced what "popular beach" actually means.
+
+Q: How do I book a room?
+A: WhatsApp, phone, or OTAs. We respond with the enthusiasm of golden retrievers and the efficiency of German trains. No "your call is important to us" music. No ticket numbers. Just humans who actually want you to book.
+
+Q: Are you right on the beach? Do all rooms have Sea View?
+A: We are Near the ocean, not on it. Exactly one room has a proper ocean-facing window. Even that comes with artistic tree framing and a new construction photobombing the shot. We all hate the new construction. Politely of course. Pro Tip. Ask for room 103. If it's available, it's yours! Others have "wow, that courtyard is really helping me focus on inner peace" views. The good news? Every room gets the same balcony and ocean soundtrack. Ask beforehand which view you're getting. Manage expectations now, avoid buyer's remorse.
 
 ACCOMMODATION:
-Q: Dorm beds? A: No. It's a B&B, not a hostel.
-Q: Room amenities? A: Mini fridge with freezer, smart TV, kettle, toiletries, housekeeping on request.
-Q: Bean bags on terrace? A: You can try. Others have. Some are still there.
+Q: Do you have dorm beds?
+A: No. We're a bed and breakfast, not a hostel. Get a room like an adult.
 
-FOOD:
-Q: Breakfast? A: Lekha Chechi's Kerala breakfast - fresh, homemade, authentic.
-Q: Didn't book breakfast? A: Pay separately or try the secret hack.
-Q: Toddy? A: Kerala's palm wine. Drinks like juice, prosecutes like tequila.
+Q: What amenities are in both types of rooms?
+A: All rooms - King and double - come with a mini fridge with freezer for your... you know what. A smart TV that's fairly smart but definitely didn't come first in its class, kettle with coffee, tea, milk powder, sugar. Toiletries. Housekeeping and room cleaning upon request, because we're helpful but not hovering. Privacy matters.
+
+Q: Can I sleep on your bean bags on the terrace instead of my room?
+A: You can try. Others have. Some are still there, having fully dissociated from the concept of responsibility. The bean bags don't judge your life choices - they enable them. Consider this your warning and your invitation.
+
+FOOD & BREAKFAST:
+Q: What's for breakfast?
+A: Lekha Chechi's Kerala breakfast - the kind that makes you understand why people write poetry about food. Fresh, homemade, authentic, and served until it isn't because other guests got to it first and you hadn't included it in your package.
+
+Q: I didn't book breakfast. Can I still get it?
+A: Yes. You can pay for breakfast separately. Or you can attempt the secret hack mentioned elsewhere on the page.
+
+Q: What's toddy?
+A: Kerala's traditional palm wine that drinks like juice and prosecutes like tequila. Tastes harmless, acts guilty. The morning after involves a bathroom experience so profound you'll text friends about it. That suspicious grin on your face isn't drugs - it's relief. So much relief.
 
 SURFING:
-Q: Never surfed? A: Yes you can learn. We start in calm water.
-Q: Surf lesson cost? A: ₹1,500 for 1.5 hours. 5+ sessions = 10% off.
-Q: How long to surf solo? A: 10-12 sessions.
-Q: Intermediate/Advanced? A: Intermediate = bigger waves, better technique. Advanced = Varkala's legendary swells.
-Q: Instructors? A: ISA Certified, Chief Vibe Officers. Sudev is NOT an instructor.
+Q: I've never surfed before. Can I learn here?
+A: Yes. We start you in calm water where "wipeout" means "gentle collapse into three feet of water" and "shark" means "definitely just your own foot." You'll master standing up for brief, glorious moments. Long enough for photos. Short enough to stay humble.
+
+Q: How much are surf lessons?
+A: Beginner lesson: 1500 INR for 1.5 hours of discovering muscles you didn't know you had and unlock coordination that might surprise you. Includes board, leash, transport, theory plus ofcourse actual surfing. Book 5+ sessions upfront, get 10% off. Bulk discounts on humility.
+
+Q: How long until I can surf on my own?
+A: Around 10-12 sessions until you're speaking in waves and catching them solo instead of the instructor having to push you to match rhythm and speed. Then comes the magic - you'll feel the ocean's heartbeat, anticipate its mood, achieve oneness. We're not just teaching surfing - we're creating junkies. We're pushers of a very specific high. You'll thank us while booking session thirteen.
+
+Q: What about intermediate and advanced surfing?
+A: Intermediate: Bigger waves, better technique, exponentially more spectacular failures. You'll progress from "falling gracefully" to "falling with style." It's growth. Advanced: Varkala's legendary swells that separate confident surfers from overconfident ones. These waves have been humbling people since before surfing had hashtags. Bring skills, bring respect, bring patience.
+
+Q: Who's your surf instructor/brand ambassador?
+A: Our Instructors are all ISA Certified with years of experience. They are not just instructors, they also run the Vibe Department and are all Chief Vibe Officers. You'll see why. We can tell you who is NOT an instructor though. Sudev Nair - actor, martial artist, dancer, gymnast, part time surfer and full time brand ambassador of Wave-a-lokam Surf School. Who the hell even has a brand ambassador for a surf school. Absolutely pointless. Exactly like the nose of the surfboard he broke last month.
 
 ACTIVITIES:
-Q: Besides surfing? A: Kayaking, banana boats, speed boats, quad bikes, beach time, temple, nightlife, rooftop.
-Q: Backwater activities? A: Kayaking ₹1,000, Country boat ₹1,800, SUP ₹1,350, Speed boat ₹1,500. AC car ₹1,300.
-Q: Night activities? A: Private rooftop dining, BYOB, under actual stars.
+Q: What else can I do besides surfing?
+A: Kayaking for the romantics, banana boats for the adrenaline addicts, speed boats for people with things to prove. Quad bikes, quiet beach time, temple, night life, rooftop chilling and enough options that we don't want to risk TLDR. Note that all activities are in and around Varkala with trusted folk. Not necessarily at or next door to Wave-a-lokam.
+
+Q: What are the backwater activities?
+A: At Mangrove Forest Safari, here are the approximate prices: Mangrove kayaking: 1000 INR, 2+ hours of peaceful paddling. Country boat: 1800 INR, 1 hour of living your best National Geographic fantasy. Stand Up Paddle: 1350 INR, 2 hours of abs workout marketed as recreation. Speed boat: 1500 INR, 35 minutes of "omg I didn't know speed boats could do that" presented as adventure. AC car to Mangrove Village: 1300 INR for up to 4 humans or 3 humans and someone's overpacked backpack.
+
+Q: Is there stuff to do at night?
+A: Private rooftop dining under actual stars. BYOB policy. Perfect for romance, proposals, or groups of friends avoiding their hotel beds because the view's too good and going inside feels like quitting.
 
 PACKAGES & PRICING:
-Q: Surf-and-stay packages? A: Not formally, but long-term surf guests get discounts.
-Q: Itinerary builder? A: Custom app to build dream experience. Not live booking - vision board.
-Q: Prices final? A: Educated guesses at vendor cost. Actual booking via WhatsApp/OTAs.
+Q: Do you have surf-and-stay packages?
+A: Not formally. But owners adore long-term surf guests like grandparents adore grandchildren. Stay awhile, get offered discounts that make you seriously reconsider your return flight. It's not manipulation if everyone benefits. That's just good business disguised as affection.
+
+Q: What's the itinerary builder thing on your website?
+A: Our custom app where you build your dream Varkala experience, add everything you want, watch the numbers climb, then realize you've planned a three-week adventure into a four-day window. We handle the logistics, you handle the fun.
+
+Q: Are the prices on the itinerary builder final?
+A: They're educated guesses dressed as numbers. Everything's at vendor cost because we're helpers, not hustlers. But it's not live booking - think vision board, not contract. Prices dance with seasons, availability plays hide and seek, and actual booking happens via WhatsApp or OTAs like civilized people.
 
 BOOKING & LOGISTICS:
-Q: How does booking work? A: Itinerary builder = inspiration. WhatsApp/phone/OTAs = confirmation.
-Q: Someone contact after itinerary? A: Team will reach out, or text directly.
-Q: Transport? A: Arranged at cost price. No commissions, no markups.
+Q: How does booking actually work?
+A: Itinerary builder creates beautiful possibilities so you can plan your time and money instead of having to wing it after getting here. WhatsApp/phone/OTAs create actual reservations. One's inspiration, one's confirmation. Both matter. Only one gets you a bed though.
 
-RANDOM:
-Q: Can I just chill? A: Please do. Radical rest is underrated.
-Q: Will I want to leave? A: No.
-Q: Why is marketing weird? A: Because honesty's more interesting than corporate speak.
+Q: Will someone contact me after I submit an itinerary request?
+A: The team will reach out soon. Or bypass the waiting game and text us directly because we're not building suspense - we're running a resort. We reply fast enough to seem eager, slow enough to seem employed.
 
----
-STAY PAGE FAQ (/stay):
-Q: Check-in/out times? A: Check-in 2 PM, check-out 11 AM. Flexible when possible.
-Q: Breakfast included? A: Depends on booking. Can add for ₹350/person.
-Q: WiFi reliable? A: Fiber 50-100 Mbps + backup. Good for video calls.
-Q: Parking? A: Free on-site.
-Q: Accessible? A: Ground floor rooms available. Some areas have steps. Ask before booking.
+Q: What if I need transport?
+A: We arrange everything at cost price paid directly to the cab/transportation. No commissions, no markups, just aggressive helpfulness. We coordinate, vendors deliver, you show up stress free.
 
----
-SURF+STAY FAQ (/surf-stay):
-Q: Never surfed, can I learn? A: Yes, most guests are first-timers. Standing by session 1-2.
-Q: How long are lessons? A: Beginner 1.5 hrs, Intermediate 2 hrs.
-Q: What boards? A: Soft-top for beginners. Hard boards for advanced on request.
-Q: Best surf season? A: Sep-May beginner-friendly. Jun-Aug monsoon for experienced only.
-Q: Instructors certified? A: All ISA-certified with years of local experience.
+RANDOM BUT IMPORTANT:
+Q: Can I actually just chill and do nothing?
+A: Please do. Radical rest is underrated. Wake up slow, eat well, stare at horizons, achieve nothing. It's one of life's rarest pleasures.
+
+Q: Will I want to leave?
+A: No.
+
+Q: Why is your marketing so weird?
+A: Because honesty's more interesting than "unparalleled luxury experience" copy-pasted from 10,000 other resorts. We're real people running a real place where you'll actually have a good time. Corporate speak is for corporations. We're just trying to feed you good food and teach you to surf without lying about either.
 
 ---
-WORKATION FAQ (/workation):
-Q: WiFi reliable? A: Fiber 50-100 Mbps + backup. Good for video calls and large uploads.
-Q: Power backup? A: Inverter backup covers lights and charging.
-Q: Quiet hours? A: Naturally quiet. No party hostel vibes.
-Q: Laundry? A: Same-day or next-day, per-piece pricing.
-Q: Cafes nearby? A: Plenty at Varkala Cliff, 10-15 mins away.
+STAY PAGE FAQ — FULL VERBATIM (/stay):
+Q: What are the check-in and check-out times?
+A: Check-in is from 2 PM, check-out by 11 AM. Early check-in or late check-out? Just ask. We're flexible when rooms allow.
+
+Q: Is breakfast included?
+A: Depends on your booking. Some rates include Lekha Chechi's legendary Kerala breakfast. If yours doesn't, you can add it for ₹350/person. Trust us, it's worth it.
+
+Q: How reliable is the WiFi?
+A: Solid enough for video calls and Netflix. We have fiber with a backup connection. Perfect for workations, adequate for posting that sunset shot.
+
+Q: Is parking available?
+A: Yes, free on-site parking. Your car will enjoy the beach vibes too.
+
+Q: Is the property accessible?
+A: Ground floor rooms available. Some areas have steps. Contact us before booking if you have specific accessibility needs and we'll give you the honest details.
 
 ---
-LONG STAY FAQ (/long-stay):
-Q: Long-stay discounts? A: Yes. Custom quotes. Generous with people who commit.
-Q: Housekeeping? A: Weekly deep clean. Daily refresh on request.
-Q: Meals included? A: Breakfast packages. Local home-cooked meal options for lunch/dinner.
-Q: Security deposit? A: Small refundable deposit for 2+ weeks.
-Q: Book month, leave early? A: Flexible with 3 days notice.
-Q: Longest stay? A: In our hearts? Forever.
+SURF+STAY FAQ — FULL VERBATIM (/surf-stay):
+Q: I've never surfed. Can I actually learn here?
+A: Absolutely. Most of our guests are first-timers. We start in calm, shallow water where "wipeout" means "gentle flop into three feet of water." You'll be standing (briefly, proudly) by session 2. But actually by end of session 1. We are just required to say session 2 by some unsaid mediocrity rule.
+
+Q: How long are the lessons?
+A: Beginner lessons are 1.5 hours including theory and practice. Intermediate sessions run 2 hours. Any longer and your arms start filing complaints. You won't be able to surf through the soreness for the next 6 days. Then what's the point.
+
+Q: What boards do you use?
+A: Soft-top boards for beginners. They're forgiving, buoyant, and won't hurt when they inevitably bonk you. Advanced surfers can request hard boards.
+
+Q: When is the best season for surfing?
+A: September to May offers consistent beginner-friendly waves. June-August (monsoon) brings bigger swells for experienced surfers only. We'll be honest about conditions for your level.
+
+Q: Are the instructors certified?
+A: All instructors are ISA-certified with years of local experience. They're also our Chief Vibe Officers. You'll understand when you meet them.
 
 ---
-VARKALA GUIDE FAQ (/varkala-guide):
-Q: Safe for solo travelers? A: Very safe. Well-touristed. Cops are friendly. Solo women common.
-Q: Getting around? A: Scooter rental, auto-rickshaws, taxis, walking.
-Q: Monsoon? A: Jun-Aug. Dramatic rains, fewer tourists, bigger waves (experienced only).
-Q: Families with kids? A: Yes. Board games available. Safe environment.
+WORKATION FAQ — FULL VERBATIM (/workation):
+Q: How reliable is the WiFi really?
+A: Fiber connection, typically 50-100 Mbps. We have a backup connection for when the primary acts up. Good enough for video calls, large file uploads, and streaming. Not enterprise-level, but solid for remote work.
+
+Q: Is there power backup?
+A: Yes. Inverter backup covers lights and charging. Extended outages are rare, but Kerala does get monsoon drama occasionally. Your work won't be interrupted.
+
+Q: Are there quiet hours?
+A: We're naturally quiet. No party hostel vibes here. Most guests are here for peace. That said, ocean waves don't come with a mute button.
+
+Q: Is laundry available?
+A: Yes. Laundry service available. Usually same-day or next-day return. Pricing by the piece.
+
+Q: Any cafes nearby for a change of scene?
+A: Plenty at Varkala Cliff, 10-15 minutes away. Good coffee, better views, reliable WiFi. We can recommend our favorites.
 
 ---
-BEST TIME FAQ (/best-time-to-visit-varkala):
-Q: Rain during monsoon? A: Yes! Jun-Aug torrential rain. Wavealokam open at half price.
-Q: How humid? A: Quite humid Mar-May and monsoon. Sea breeze helps.
-Q: Sea safe year-round? A: Monsoon rough seas, no swimming. Respect the ocean.
-Q: Worst crowds? A: Christmas-New Year week and peak January.
-Q: Shoulder season? A: Mar-Apr and Oct-Nov. Sweet spots. Better prices.
+LONG STAY FAQ — FULL VERBATIM (/long-stay):
+Q: Do you offer long-stay discounts?
+A: Yes. The longer you stay, the better it gets. We don't publish fixed rates because it depends on room type, season, and duration. Contact us for custom quotes. We're generous with people who commit.
+
+Q: How often is housekeeping?
+A: Weekly deep clean included for long stays. Daily refresh available on request. We won't hover, but we won't let things get weird either.
+
+Q: Can I get meals included?
+A: Breakfast packages available. For lunch/dinner, we can connect you with local home-cooked meal options or you can explore the many restaurants nearby.
+
+Q: Is there a security deposit?
+A: For stays over 2 weeks, we may request a small refundable deposit. Nothing outrageous, just enough to cover any damages to the furniture from your interpretive dance sessions.
+
+Q: Can I book a month and leave early if needed?
+A: We're flexible with a reasonable notice of 3 days. Life happens. Just communicate with us and we'll figure it out together.
+
+Q: What's the longest someone has stayed?
+A: In our hearts? Forever.
 
 ---
-HOW TO REACH FAQ (/how-to-reach-varkala):
-Q: Taxi from Trivandrum airport cost? A: ₹2200-2500 pre-booked. Wavealokam arranges trusted cabs.
-Q: Arrive late at night? A: Pre-book taxi through Wavealokam. Someone will be awake.
-Q: Rent scooter or car? A: Scooter perfect (₹500/day). Car only for longer trips.
-Q: Uber/Ola reliable? A: NO. Absolutely not. Don't count on it.
-Q: Safe travel tips? A: Kerala very safe. Wavealokam managers always a call away.
+VARKALA GUIDE FAQ — FULL VERBATIM (/varkala-guide):
+Q: Is Varkala safe for solo travelers?
+A: Yes. Varkala is well-touristed, very safe and the cops are always around and very friendly. Unless YOU are the miscreant. Then watch out. Not from the cops. From us. Standard precautions apply: don't trust overconfident drunk vacationers, swim where lifeguards recommend, and trust your instincts. Solo women travelers are common and comfortable here. Our owner Amardeep, a former Miss India beauty queen, was once hit by a bat in the face while on a two wheeler at night. How the bat learnt to drive a two wheeler we will never know.
+
+Q: How do I get around Varkala?
+A: Scooter rental is popular and easy. Auto-rickshaws are everywhere. Taxis for longer trips. Walking works for the cliff area. We can help arrange transport.
+
+Q: What about the monsoon season?
+A: June to August is monsoon. Dramatic rains, fewer tourists, bigger waves (for experienced surfers only). Some cafes close. If you like cozy rainy vibes, it's actually quite beautiful.
+
+Q: Is it suitable for families with kids?
+A: Yes. Kids love it. At Wavealokam we have a secret hack to keep the kids busy while the adults can have their "adult juice" time. Board games in the restaurant. Jenga, UNO and some other stuff kids love and we are too old to understand the rules of. Warning: There are also adult card games like Cards Against Humanity.
 
 ---
-CONTACT FAQ (/contact):
-Q: Response time? A: WhatsApp within an hour (8AM-10PM IST). Email within 24 hours.
-Q: Booking process? A: WhatsApp/phone → confirm dates → book via OTA or pay directly.
-Q: Payment methods? A: UPI, bank transfer direct. International cards via OTAs. Cash for extras.
-Q: Deposit needed? A: Peak season/long stays may need small advance.
-Q: Airport transfers? A: Yes, arranged at cost with trusted drivers.
+BEST TIME TO VISIT FAQ — FULL VERBATIM (/best-time-to-visit-varkala):
+Q: Does it rain during monsoon?
+A: What kind of... yes! It's monsoon. In coastal Kerala. June-August brings torrential, dramatic rain. Most resorts close. We stay open at half price, operating at a loss for the three people who understand that monsoon isn't a bug, it's a feature. Empty beaches. Crashing waves. The kind of solitude that either breaks you or fixes you. If you need "things to do," stay home. If you want to sit in the rain and feel something real, come through. Different breed of traveler entirely. Unlike the reviewer who gave us 4 stars saying there is nothing to do in Varkala. Such is life.
+
+Q: How humid does it get?
+A: Quite humid, especially March-May and during monsoon. The sea breeze helps. You'll adapt faster than you think. Pack light, breathable clothes.
+
+Q: Are the sea conditions safe year-round?
+A: Monsoon (Jun-Aug) brings rough seas and strong currents. Swimming is not recommended then. Experienced surfers love it. Everyone else should respect the ocean.
+
+Q: When are crowds at their worst?
+A: Christmas-New Year week and peak January. Varkala Cliff gets packed. Our location in Edava stays calmer, but book ahead if you're coming then.
+
+Q: What about shoulder season?
+A: March-April and October-November are sweet spots. Fewer tourists, decent weather, better prices. Locals call it the smart season.
+
+---
+HOW TO REACH FAQ — FULL VERBATIM (/how-to-reach-varkala):
+Q: How much does a taxi from Trivandrum airport cost?
+A: Pre-booked taxis run ₹2200 - 2500. Uber/Ola are as dependable as the ocean's mood. Wavealokam has regular, trusted and honest cabs we can arrange for your pick up. Just say the word and pay the money to the cab guy directly.
+
+Q: What if I arrive late at night?
+A: Pre-book your taxi. Wavealokam will help you out with that don't worry. Our guy will be waiting for you at the airport. Airport taxi counter is also always open. But they might charge more and you will have to do the driver brief yourself. Preferably in Malayalam. Let us know your arrival time and we'll make sure someone is awake to receive you.
+
+Q: Should I rent a scooter or car?
+A: Scooter is perfect for Varkala exploration. Easy to park, cheap to rent (₹500/day). Car only needed if you're planning longer trips. We can help arrange both.
+
+Q: Is Uber/Ola reliable in Varkala?
+A: No. No. NO and for the last time NOooooo. No matter what anybody says, especially the CEO of Ola and Uber, the only chance of you getting one of these here is if someone managed to convince an Uber driver to drop them off here from the airport at the exact moment when you were looking for a cab and your destination is also the airport. In that case, congratulations you have to pay only half, Rs. 1250, of what you would otherwise have to pay, which would be both way fare, approx Rs. 2500. But the odds of this happening are worse than you saving Rs. 1250 by listening to Wavealokam's managers to plan your trip efficiently.
+
+Q: Any safe travel tips?
+A: Kerala is generally very safe, but standard travel precautions apply. There could be other vacationers once in a while who understimate how good the cops here are at keeping Varkala safe and peaceful. They have all learnt their lesson. Nevertheless, our managers are very responsible and are always checking up on the guests, every ready to help and assist. They are always just a call away. (Sometimes they don't respond immediately to texts because they work so much. Even we are irritated about this.)
+
+---
+CONTACT FAQ — FULL VERBATIM (/contact):
+Q: How quickly do you respond?
+A: WhatsApp: Usually within an hour during waking hours (8 AM - 10 PM IST). Email: Within 24 hours. We're humans, not bots, so occasionally we're surfing.
+
+Q: What's the booking process?
+A: Quick chat on WhatsApp or phone to confirm dates and room type. Then book through our OTA links (Booking.com, Airbnb) or pay directly. We'll send you all the details you need.
+
+Q: What payment methods do you accept?
+A: UPI, bank transfer for direct bookings. International cards work through OTAs. Cash accepted for on-site extras. No crypto yet, sorry.
+
+Q: Do I need to pay a deposit?
+A: For peak season (Dec-Jan) and long stays, we may request a small advance. Otherwise, OTA booking secures your spot. We're flexible with reasonable people.
+
+Q: Can you help arrange airport transfers?
+A: Absolutely. Just let us know your flight details and we'll arrange a trusted driver at cost price. No markup, just coordination.
 `;
 
 async function fetchGuestReviews(): Promise<string> {
@@ -936,8 +1056,8 @@ async function fetchBlogKnowledge(): Promise<string> {
       if (post.content) {
         // Strip HTML tags but keep the text content
         const textContent = post.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        // Limit each post to ~2000 chars to stay within context limits
-        const truncated = textContent.length > 2000 ? textContent.slice(0, 2000) + '...' : textContent;
+        // Limit each post to ~4000 chars to preserve detail for Drifter's answers
+        const truncated = textContent.length > 4000 ? textContent.slice(0, 4000) + '...' : textContent;
         blogSection += `Full content: ${truncated}\n`;
       }
       blogSection += `\n`;
