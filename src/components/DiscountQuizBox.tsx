@@ -148,10 +148,8 @@ const DiscountQuizBox = () => {
   }, [checkOverlap]);
 
   const getOpacityClass = () => {
-    if (position) return isExpanded || isHovered ? 'opacity-100' : 'opacity-50 hover:opacity-100';
-    if (!isExpanded && !isHovered && isOverHiddenSection) return 'opacity-0 pointer-events-none';
     if (isExpanded || isHovered) return 'opacity-100';
-    if (isOverlappingText) return 'opacity-0 pointer-events-none';
+    if (!isExpanded && !isHovered && isOverHiddenSection) return 'opacity-20 hover:opacity-80';
     return 'opacity-50 hover:opacity-100';
   };
 
