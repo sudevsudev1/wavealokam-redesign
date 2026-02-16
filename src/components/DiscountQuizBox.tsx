@@ -221,7 +221,7 @@ A2 : ${answer2 || '(Not answered)'}`;
 
   const positionStyle: React.CSSProperties = position
     ? { left: position.x, top: position.y, right: 'auto' }
-    : { top: '33vh', right: '1rem' };
+    : { bottom: '6.5rem', right: '0.5rem', top: 'auto' };
 
   return (
     <>
@@ -232,7 +232,7 @@ A2 : ${answer2 || '(Not answered)'}`;
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className={`bg-gradient-to-br from-wave-orange/90 to-wave-orange rounded-xl shadow-2xl backdrop-blur-sm border border-white/20 overflow-hidden transition-all duration-300 ${isExpanded ? 'w-80' : 'w-64'}`}>
+        <div className={`bg-gradient-to-br from-wave-orange/95 to-wave-orange rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.3)] backdrop-blur-sm border-2 border-white/40 overflow-hidden transition-all duration-300 ${isExpanded ? 'w-80' : 'w-56 sm:w-64'}`}>
           {/* Drag handle + Close button row */}
           <div className="flex items-center justify-between px-2 pt-1">
             <div
