@@ -133,7 +133,7 @@ const MangroveAdventureVideo = () => {
           muted
           loop
           playsInline
-          preload="none"
+          preload="metadata"
           className="min-w-full min-h-full w-auto h-auto object-contain"
           style={{
             // For vertical video: fit to height on all devices, center horizontally
