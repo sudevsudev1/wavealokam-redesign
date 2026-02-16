@@ -3,6 +3,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Volume2, VolumeX, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import originStoryBg from "@/assets/origin-story-bg.webp";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -276,16 +277,21 @@ const OriginStorySection = () => {
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           {/* Collapsible Trigger */}
           <CollapsibleTrigger className="w-full group">
-            <div className="flex flex-col items-center gap-6 cursor-pointer">
-              <h2 className="text-4xl md:text-6xl lg:text-7xl text-white text-center font-bold leading-tight group-hover:text-white/90 transition-colors">
+            <div className="relative flex flex-col items-center gap-6 cursor-pointer rounded-3xl overflow-hidden py-16 md:py-24 px-6">
+              {/* Background image */}
+              <div className="absolute inset-0 z-0">
+                <img src={originStoryBg} alt="Amardeep and Sudev with Nero and Ishtu" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/50" />
+              </div>
+              <h2 className="relative z-10 text-4xl md:text-6xl lg:text-7xl text-white text-center font-bold leading-tight group-hover:text-white/90 transition-colors">
                 The Wave-a-lokam Origin Story
               </h2>
               <div
-                className={`p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white group-hover:bg-white/20 transition-all duration-300 ${isOpen ? "rotate-180" : ""}`}
+                className={`relative z-10 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white group-hover:bg-white/20 transition-all duration-300 ${isOpen ? "rotate-180" : ""}`}
               >
                 <ChevronDown size={28} />
               </div>
-              {!isOpen && <p className="text-white/60 text-lg">Click to read</p>}
+              {!isOpen && <p className="relative z-10 text-white/80 text-lg">Click to read</p>}
             </div>
           </CollapsibleTrigger>
 
