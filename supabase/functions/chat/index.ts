@@ -551,7 +551,7 @@ HOMEPAGE SECTIONS (use hash links for these — e.g. /#rooms):
 ABOUT WAVEALOKAM:
 - Location: Edava, Varkala, Trivandrum, Kerala, India. Near Sree Eight Beach (180m away, tourist-free).
 - Full Address: Wavealokam Beach Retreat, Sree Eight, Edava, Varkala, Kerala 695311, India
-- Phone/WhatsApp: +91 93238 58013
+- Phone/WhatsApp: +91 8606164606
 - Email: info@wavealokam.com
 - Near the beach, NOT on it. Only Room 103 has proper ocean view (with tree framing and new construction photobomb).
 - 10 mins to Varkala Cliff by vehicle.
@@ -709,7 +709,7 @@ Monsoon = rough seas, no swimming. Experienced surfers only.
 ---
 HOW TO REACH VARKALA (Page: /how-to-reach-varkala):
 By Air:
-- Trivandrum International Airport (TRV): ~50 km, 1.5 hours. Closest airport. Pre-booked taxi ₹2200-2500. Uber/Ola from airport is cheaper. From Wavealokam to airport is NOT reliable. Barely ever available.
+- Trivandrum International Airport (TRV): ~50 km, 1.5 hours. Closest airport. Pre-booked taxi ₹2200-2500. Uber/Ola FROM the airport is always cheaper and surprisingly easy to snag. But Uber/Ola FROM Varkala back to the airport or within Varkala? Extremely unreliable, almost never available.
 - Cochin International Airport (COK): ~180 km, 5-6 hours. More international connections. Taxi ₹8000-10000. PRO TIP: Take the MC road, NOT the highway or coastal road.
 
 By Train:
@@ -728,14 +728,14 @@ Getting to Wavealokam:
 - From Papanasam Beach: 10-12 mins
 - From Trivandrum Airport: 1-1.5 hours
 
-Uber/Ola: DO NOT rely on them in Varkala. Almost never available. The only scenario is catching a returning airport drop.
+Uber/Ola: FROM the airport — cheap and easy to get. FROM Varkala or within Varkala — almost never available. Don't depend on ride-sharing apps here.
 Scooter rental: ₹500/day, perfect for exploring.
-Wavealokam arranges trusted, honest cab drivers. Pay directly. No markup.
+Wavealokam arranges trusted, honest cabs and autos. Pay directly. No markup, no drama.
 
 ---
 CONTACT (Page: /contact):
-- WhatsApp: +91 93238 58013 (responds within an hour, 8 AM-10 PM IST)
-- Phone: +91 93238 58013
+- WhatsApp: +91 8606164606 (responds within an hour, 8 AM-10 PM IST)
+- Phone: +91 8606164606
 - Email: info@wavealokam.com (within 24 hours)
 - Booking: WhatsApp/phone for direct, or via OTAs (Booking.com, Agoda, MakeMyTrip, TripAdvisor, Google)
 - Payment: UPI, bank transfer for direct bookings. International cards via OTAs. Cash for on-site extras.
@@ -958,7 +958,7 @@ A: March-April and October-November are sweet spots. Fewer tourists, decent weat
 ---
 HOW TO REACH FAQ — FULL VERBATIM (/how-to-reach-varkala):
 Q: How much does a taxi from Trivandrum airport cost?
-A: Pre-booked taxis run ₹2200 - 2500. Uber/Ola are as dependable as the ocean's mood. Wavealokam has regular, trusted and honest cabs we can arrange for your pick up. Just say the word and pay the money to the cab guy directly.
+A: Pre-booked taxis from Trivandrum Airport run ₹2200-2500. Uber/Ola from the airport? Always cheaper and surprisingly easy to snag. Small queue, minor coordination, significant savings. We recommend it. The Plot Twist: Return trips to the airport or finding Uber/Ola within Varkala? Whole different story. They're elusive here. The Good News: Regular cabs are usually available, even last minute. Just keep a 30-40 minute buffer if you haven't pre-booked. The Wavealokam Solution: We've got regular, trusted, honest cabs and autos on speed dial. Say the word, we arrange it, you pay the driver directly. No markup, no drama, just reliable wheels when you need them.
 
 Q: What if I arrive late at night?
 A: Pre-book your taxi. Wavealokam will help you out with that don't worry. Our guy will be waiting for you at the airport. Airport taxi counter is also always open. But they might charge more and you will have to do the driver brief yourself. Preferably in Malayalam. Let us know your arrival time and we'll make sure someone is awake to receive you.
@@ -967,7 +967,7 @@ Q: Should I rent a scooter or car?
 A: Scooter is perfect for Varkala exploration. Easy to park, cheap to rent (₹500/day). Car only needed if you're planning longer trips. We can help arrange both.
 
 Q: Is Uber/Ola reliable in Varkala?
-A: No. No. NO and for the last time NOooooo. No matter what anybody says, especially the CEO of Ola and Uber, the only chance of you getting one of these here is if someone managed to convince an Uber driver to drop them off here from the airport at the exact moment when you were looking for a cab and your destination is also the airport. In that case, congratulations you have to pay only half, Rs. 1250, of what you would otherwise have to pay, which would be both way fare, approx Rs. 2500. But the odds of this happening are worse than you saving Rs. 1250 by listening to Wavealokam's managers to plan your trip efficiently.
+A: No. No. NO and for the last time NOooooo. No matter what anybody says, especially the CEO of Ola and Uber, the only chance of you getting one of these here is if someone managed to convince an Uber driver to drop them off here from the airport at the exact moment when you were looking for a cab and your destination is also the airport. In that case, congratulations you have to pay about ₹1500-1800, slightly less than the ₹2500 local cab fare. But the odds of this happening are worse than you saving that money by listening to Wavealokam's managers to plan your trip efficiently. HOWEVER — Uber/Ola FROM the airport to Varkala? That actually works. Cheaper and easy to get. It's the return trip and local rides that are the problem.
 
 Q: Any safe travel tips?
 A: Kerala is generally very safe, but standard travel precautions apply. There could be other vacationers once in a while who understimate how good the cops here are at keeping Varkala safe and peaceful. They have all learnt their lesson. Nevertheless, our managers are very responsible and are always checking up on the guests, every ready to help and assist. They are always just a call away. (Sometimes they don't respond immediately to texts because they work so much. Even we are irritated about this.)
