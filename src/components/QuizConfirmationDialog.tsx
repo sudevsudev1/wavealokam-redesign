@@ -42,7 +42,7 @@ A2 : ${answer2 || '(Not answered)'}`;
   };
 
   const handleWhatsApp = () => {
-    window.open(`https://wa.me/+919323858013?text=${getWhatsAppMessage()}`, '_blank');
+    window.open(`https://wa.me/+918606164606?text=${getWhatsAppMessage()}`, '_blank');
     onOpenChange(false);
   };
 
@@ -88,7 +88,7 @@ A2 : ${answer2 || '(Not answered)'}`;
             </div>
             
             <p className="text-sm text-foreground/80 leading-relaxed">
-              Someone from the booking team will get back to you soon-ish. But if you are getting impatient, text us directly. <strong className="text-wave-orange">+919323858013</strong>. We don't do "allow 5-7 business days". We're here, we're keen, we're borderline desperate for human contact. Zero dignity, maximum efficiency.
+              Someone from the booking team will get back to you soon-ish. But if you are getting impatient, text us directly. <strong className="text-wave-orange">+918606164606</strong>. We don't do "allow 5-7 business days". We're here, we're keen, we're borderline desperate for human contact. Zero dignity, maximum efficiency.
             </p>
             
             <div className="flex gap-3 pt-2">

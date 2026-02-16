@@ -175,7 +175,7 @@ const ChatBot = () => {
       console.error('Chat error:', error);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: "Oops, my brain just did a backflip and landed badly. Try again, or just WhatsApp us at +91 93238 58013 - humans are more reliable anyway! 😅"
+        content: "Oops, my brain just did a backflip and landed badly. Try again, or just WhatsApp us at +91 8606164606 - humans are more reliable anyway! 😅"
       }]);
     } finally {
       setIsLoading(false);

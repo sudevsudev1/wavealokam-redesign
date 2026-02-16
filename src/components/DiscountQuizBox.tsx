@@ -101,7 +101,7 @@ const DiscountQuizBox = () => {
   const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isValidPhone = (phone: string) => /^[+]?[\d\s-]{8,}$/.test(phone);
   const isFormValid = guestName.trim() && isValidEmail(guestEmail) && isValidPhone(guestPhone);
-  const whatsappNumber = '+919323858013';
+  const whatsappNumber = '+918606164606';
   const getWhatsAppMessage = () => {
     const message = `Hey Wavealokam! I answered your two stupid questions. Now give me my discount 😂
 

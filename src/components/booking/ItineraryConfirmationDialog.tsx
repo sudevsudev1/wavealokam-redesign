@@ -18,7 +18,7 @@ const ItineraryConfirmationDialog = ({ open, onOpenChange, itineraryMessage }: I
     const message = itineraryMessage 
       ? encodeURIComponent(itineraryMessage)
       : '';
-    window.open(`https://wa.me/+919323858013${message ? `?text=${message}` : ''}`, '_blank');
+    window.open(`https://wa.me/+918606164606${message ? `?text=${message}` : ''}`, '_blank');
     onOpenChange(false);
   };
 
@@ -38,7 +38,7 @@ const ItineraryConfirmationDialog = ({ open, onOpenChange, itineraryMessage }: I
             </p>
             
             <p className="text-sm text-foreground/80 leading-relaxed">
-              Want to skip the existential uncertainty? Message us on <strong className="text-wave-orange">+91 9323858013</strong>.
+              Want to skip the existential uncertainty? Message us on <strong className="text-wave-orange">+91 8606164606</strong>.
             </p>
             
             <p className="text-xs text-muted-foreground italic">
