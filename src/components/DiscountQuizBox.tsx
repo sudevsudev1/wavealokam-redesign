@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, ChevronUp, MessageCircle, Mail, Loader2, X, GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronUp, MessageCircle, Mail, Loader2, X } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -148,9 +148,10 @@ const DiscountQuizBox = () => {
   }, [checkOverlap]);
 
   const getOpacityClass = () => {
-    if (isExpanded || isHovered) return 'opacity-100';
-    if (!isExpanded && !isHovered && isOverHiddenSection) return 'opacity-20 hover:opacity-80';
-    return 'opacity-50 hover:opacity-100';
+    if (isExpanded) return 'opacity-100';
+    if (isHovered) return 'opacity-50 sm:opacity-100';
+    if (isOverHiddenSection) return 'opacity-0 sm:opacity-20 sm:hover:opacity-80';
+    return 'opacity-0 sm:opacity-50 hover:opacity-50 sm:hover:opacity-100';
   };
 
   // Validation
@@ -232,34 +233,23 @@ A2 : ${answer2 || '(Not answered)'}`;
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className={`bg-gradient-to-br from-wave-orange/95 to-wave-orange rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.3)] backdrop-blur-sm border-2 border-white/40 overflow-hidden transition-all duration-300 ${isExpanded ? 'w-80' : 'w-56 sm:w-64'}`}>
-          {/* Drag handle + Close button row */}
-          <div className="flex items-center justify-between px-2 pt-1">
-            <div
-              className="cursor-grab active:cursor-grabbing p-1 text-white/50 hover:text-white/80 touch-none"
-              onMouseDown={(e) => { e.preventDefault(); handleDragStart(e.clientX, e.clientY); }}
-              onTouchStart={(e) => { handleDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
-            >
-              <GripVertical className="w-4 h-4" />
-            </div>
-            <button
-              onClick={handleClose}
-              className="p-1 text-white/50 hover:text-white/80 transition-colors"
-              aria-label="Close quiz box"
-            >
-              <X className="w-4 h-4" />
+        <div
+          className={`bg-gradient-to-br from-wave-orange/95 to-wave-orange rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.3)] backdrop-blur-sm border-2 border-white/40 overflow-hidden transition-all duration-300 cursor-grab active:cursor-grabbing ${isExpanded ? 'w-80' : 'w-56 sm:w-64'}`}
+          onMouseDown={(e) => { if (!(e.target as HTMLElement).closest('input, textarea, button')) { e.preventDefault(); handleDragStart(e.clientX, e.clientY); } }}
+          onTouchStart={(e) => { if (!(e.target as HTMLElement).closest('input, textarea, button')) { handleDragStart(e.touches[0].clientX, e.touches[0].clientY); } }}
+        >
+          {/* Header - Always visible */}
+          <div className="w-full p-3 flex items-center justify-between gap-2 text-white">
+            <button onClick={() => setIsExpanded(!isExpanded)} className="flex-1 flex items-center justify-between gap-2 text-left hover:bg-white/10 transition-colors rounded">
+              <span className="text-xs font-medium leading-tight text-left">
+                Answer 2 simple questions to get an additional <span className="font-bold">10% off</span> on your total bill
+              </span>
+              {isExpanded ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+            </button>
+            <button onClick={handleClose} className="p-1 text-white/50 hover:text-white/80 transition-colors flex-shrink-0" aria-label="Close quiz box">
+              <X className="w-3 h-3" />
             </button>
           </div>
-
-          {/* Header - Always visible */}
-          <button onClick={() => setIsExpanded(!isExpanded)} className="w-full p-3 pt-0 flex items-center justify-between gap-2 text-white hover:bg-white/10 transition-colors">
-            <span className="text-xs font-medium leading-tight text-left">
-              Answer 2 simple questions to get an additional <span className="font-bold">10% off</span> on your total bill
-            </span>
-            {isExpanded ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
-          </button>
-
-          {/* Expandable content */}
           <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="p-4 pt-0 space-y-3">
               {/* Guest Details */}
