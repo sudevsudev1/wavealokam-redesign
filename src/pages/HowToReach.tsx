@@ -73,7 +73,7 @@ const HowToReach = () => {
   const faqs = [
     {
       question: 'How much does a taxi from Trivandrum airport cost?',
-      answer: 'Pre-booked taxis run ₹2200 - 2500. Uber/Ola are as dependable as the ocean\'s mood. Wavealokam has regular, trusted and honest cabs we can arrange for your pick up. Just say the word and pay the money to the cab guy directly.',
+      answer: 'Pre-booked taxis from Trivandrum Airport run ₹2200-2500. Uber/Ola from the airport? Always cheaper and surprisingly easy to snag. Small queue, minor coordination, significant savings. We recommend it.\nThe Plot Twist: Return trips to the airport or finding Uber/Ola within Varkala? Whole different story. If your mobility plan depends on ride-sharing apps, prepare to reevaluate some life choices. They\'re... elusive here.\nThe Good News: Regular cabs are usually available, even last minute. Just keep a 30-40 minute buffer if you haven\'t pre-booked (aka don\'t cut it close for your flight like a maniac).\nThe Wavealokam Solution: We\'ve got regular, trusted, honest cabs and autos on speed dial. Say the word, we arrange it, you pay the driver directly. No markup, no drama, just reliable wheels when you need them.\nSimple? Simple. 🚗',
     },
     {
       question: 'What if I arrive late at night?',
