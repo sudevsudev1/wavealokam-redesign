@@ -11,26 +11,8 @@ const ActivityVideoPreview = ({ src, poster, className = '' }: ActivityVideoPrev
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isNearViewport, setIsNearViewport] = useState(false);
-
-  // Lazy-load: only set video src when near viewport
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsNearViewport(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '800px' }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  // Always load videos eagerly - no intersection observer needed
+  const isNearViewport = true;
 
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);

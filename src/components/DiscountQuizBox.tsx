@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, ChevronUp, MessageCircle, Mail, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, MessageCircle, Mail, Loader2, X, GripVertical } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import QuizConfirmationDialog from './QuizConfirmationDialog';
+
 const DiscountQuizBox = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isClosed, setIsClosed] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
@@ -18,16 +20,82 @@ const DiscountQuizBox = () => {
   const [isOverHiddenSection, setIsOverHiddenSection] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  
+  // Dragging state
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
+  
   const boxRef = useRef<HTMLDivElement>(null);
-  const checkOverlap = useCallback(() => {
+
+  // Close handler
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsClosed(true);
+  };
+
+  // Drag handlers
+  const handleDragStart = useCallback((clientX: number, clientY: number) => {
     if (!boxRef.current) return;
+    const rect = boxRef.current.getBoundingClientRect();
+    const currentX = position?.x ?? rect.left;
+    const currentY = position?.y ?? rect.top;
+    dragStartRef.current = { startX: clientX, startY: clientY, posX: currentX, posY: currentY };
+    setIsDragging(true);
+  }, [position]);
+
+  const handleDragMove = useCallback((clientX: number, clientY: number) => {
+    if (!isDragging || !dragStartRef.current) return;
+    const dx = clientX - dragStartRef.current.startX;
+    const dy = clientY - dragStartRef.current.startY;
+    const newX = Math.max(0, Math.min(window.innerWidth - 280, dragStartRef.current.posX + dx));
+    const newY = Math.max(0, Math.min(window.innerHeight - 60, dragStartRef.current.posY + dy));
+    setPosition({ x: newX, y: newY });
+  }, [isDragging]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+  }, []);
+
+  // Mouse drag
+  useEffect(() => {
+    if (!isDragging) return;
+    const onMouseMove = (e: MouseEvent) => handleDragMove(e.clientX, e.clientY);
+    const onMouseUp = () => handleDragEnd();
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isDragging, handleDragMove, handleDragEnd]);
+
+  // Touch drag
+  useEffect(() => {
+    if (!isDragging) return;
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    const onTouchEnd = () => handleDragEnd();
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    return () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isDragging, handleDragMove, handleDragEnd]);
+
+  const checkOverlap = useCallback(() => {
+    if (!boxRef.current || position) return; // Skip overlap checks when manually positioned
     const boxRect = boxRef.current.getBoundingClientRect();
     const boxTop = boxRect.top;
     const boxBottom = boxRect.bottom;
     const boxLeft = boxRect.left;
     const boxRight = boxRect.right;
 
-    // Check if overlapping with hidden sections (scroll video, surf.feast.explore, activities)
+    // Check if overlapping with hidden sections
     const hiddenSectionSelectors = ['#scroll-video-section', '#surfboard-scroll-section', '#activities'];
     let overHiddenSection = false;
     hiddenSectionSelectors.forEach(selector => {
@@ -42,26 +110,20 @@ const DiscountQuizBox = () => {
     });
     setIsOverHiddenSection(overHiddenSection);
 
-    // Skip text overlap check if expanded or hovered
     if (isExpanded || isHovered) {
       setIsOverlappingText(false);
       return;
     }
 
-    // Get all text-containing elements
     const textSelectors = 'h1, h2, h3, h4, h5, h6, p, span, a, li, label, button';
     const textElements = document.querySelectorAll(textSelectors);
     let hasOverlap = false;
     textElements.forEach(element => {
-      if (boxRef.current?.contains(element)) return; // Skip elements inside the quiz box
-
+      if (boxRef.current?.contains(element)) return;
       const rect = element.getBoundingClientRect();
       const elementText = element.textContent?.trim();
-
-      // Check if element has visible text and overlaps both vertically AND horizontally
       if (elementText && rect.width > 0 && rect.height > 0) {
         const verticalOverlap = !(rect.bottom < boxTop || rect.top > boxBottom);
-        // Only count as overlap if text actually extends INTO the box area (not just near it)
         const horizontalOverlap = rect.right > boxLeft && rect.left < boxRight;
         if (verticalOverlap && horizontalOverlap) {
           hasOverlap = true;
@@ -69,17 +131,14 @@ const DiscountQuizBox = () => {
       }
     });
     setIsOverlappingText(hasOverlap);
-  }, [isExpanded, isHovered]);
+  }, [isExpanded, isHovered, position]);
+
   useEffect(() => {
     checkOverlap();
     const handleScroll = () => checkOverlap();
     const handleResize = () => checkOverlap();
-    window.addEventListener('scroll', handleScroll, {
-      passive: true
-    });
+    window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', handleResize);
-
-    // Check periodically in case of dynamic content
     const interval = setInterval(checkOverlap, 500);
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -88,12 +147,11 @@ const DiscountQuizBox = () => {
     };
   }, [checkOverlap]);
 
-  // Determine opacity based on state
   const getOpacityClass = () => {
-    // Always hide over specific sections (unless expanded/hovered)
-    if (!isExpanded && !isHovered && isOverHiddenSection) return 'opacity-0';
+    if (position) return isExpanded || isHovered ? 'opacity-100' : 'opacity-50 hover:opacity-100';
+    if (!isExpanded && !isHovered && isOverHiddenSection) return 'opacity-0 pointer-events-none';
     if (isExpanded || isHovered) return 'opacity-100';
-    if (isOverlappingText) return 'opacity-0';
+    if (isOverlappingText) return 'opacity-0 pointer-events-none';
     return 'opacity-50 hover:opacity-100';
   };
 
@@ -102,6 +160,7 @@ const DiscountQuizBox = () => {
   const isValidPhone = (phone: string) => /^[+]?[\d\s-]{8,}$/.test(phone);
   const isFormValid = guestName.trim() && isValidEmail(guestEmail) && isValidPhone(guestPhone);
   const whatsappNumber = '+918606164606';
+
   const getWhatsAppMessage = () => {
     const message = `Hey Wavealokam! I answered your two stupid questions. Now give me my discount 😂
 
@@ -116,6 +175,7 @@ Q2 : What is the easiest way to get free breakfast from the owner Amardeep?
 A2 : ${answer2 || '(Not answered)'}`;
     return encodeURIComponent(message);
   };
+
   const handleWhatsAppClick = () => {
     if (!isFormValid) {
       toast.error('Please fill in your name, email, and phone number');
@@ -123,6 +183,7 @@ A2 : ${answer2 || '(Not answered)'}`;
     }
     window.open(`https://wa.me/${whatsappNumber}?text=${getWhatsAppMessage()}`, '_blank');
   };
+
   const handleEmailClick = async () => {
     if (!isFormValid) {
       toast.error('Please fill in your name, email, and phone number');
@@ -130,10 +191,7 @@ A2 : ${answer2 || '(Not answered)'}`;
     }
     setIsSendingEmail(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('send-quiz-email', {
+      const { data, error } = await supabase.functions.invoke('send-quiz-email', {
         body: {
           guestName: guestName.trim(),
           guestEmail: guestEmail.trim(),
@@ -152,8 +210,6 @@ A2 : ${answer2 || '(Not answered)'}`;
         toast.error(data?.error || 'Failed to send email');
         return;
       }
-
-      // Show confirmation dialog
       setShowConfirmationDialog(true);
     } catch (err) {
       console.error('Error invoking edge function:', err);
@@ -162,14 +218,43 @@ A2 : ${answer2 || '(Not answered)'}`;
       setIsSendingEmail(false);
     }
   };
-  return <>
-      <div ref={boxRef} className={`fixed right-4 transition-all duration-300 ease-in-out z-[70] ${getOpacityClass()}
-        `} style={{
-      top: '33vh'
-    }} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+
+  if (isClosed) return null;
+
+  const positionStyle: React.CSSProperties = position
+    ? { left: position.x, top: position.y, right: 'auto' }
+    : { top: '33vh', right: '1rem' };
+
+  return (
+    <>
+      <div
+        ref={boxRef}
+        className={`fixed transition-all duration-300 ease-in-out z-[70] ${getOpacityClass()} ${isDragging ? 'cursor-grabbing' : ''}`}
+        style={positionStyle}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <div className={`bg-gradient-to-br from-wave-orange/90 to-wave-orange rounded-xl shadow-2xl backdrop-blur-sm border border-white/20 overflow-hidden transition-all duration-300 ${isExpanded ? 'w-80' : 'w-64'}`}>
+          {/* Drag handle + Close button row */}
+          <div className="flex items-center justify-between px-2 pt-1">
+            <div
+              className="cursor-grab active:cursor-grabbing p-1 text-white/50 hover:text-white/80 touch-none"
+              onMouseDown={(e) => { e.preventDefault(); handleDragStart(e.clientX, e.clientY); }}
+              onTouchStart={(e) => { handleDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
+            >
+              <GripVertical className="w-4 h-4" />
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-1 text-white/50 hover:text-white/80 transition-colors"
+              aria-label="Close quiz box"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Header - Always visible */}
-          <button onClick={() => setIsExpanded(!isExpanded)} className="w-full p-3 flex items-center justify-between gap-2 text-white hover:bg-white/10 transition-colors">
+          <button onClick={() => setIsExpanded(!isExpanded)} className="w-full p-3 pt-0 flex items-center justify-between gap-2 text-white hover:bg-white/10 transition-colors">
             <span className="text-xs font-medium leading-tight text-left">
               Answer 2 simple questions to get an additional <span className="font-bold">10% off</span> on your total bill
             </span>
@@ -225,6 +310,8 @@ A2 : ${answer2 || '(Not answered)'}`;
 
       {/* Confirmation Dialog */}
       <QuizConfirmationDialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog} answer1={answer1} answer2={answer2} guestName={guestName} guestEmail={guestEmail} guestPhone={guestPhone} />
-    </>;
+    </>
+  );
 };
+
 export default DiscountQuizBox;
