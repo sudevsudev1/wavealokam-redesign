@@ -144,7 +144,7 @@ const SreeEightBeachVideo = ({ scrollProgress, activeIndex, totalActivities }: S
         muted
         loop
         playsInline
-        preload="auto"
+        preload="none"
         className="absolute inset-0 w-full h-full object-cover
           lg:object-center
           md:object-[left_center]

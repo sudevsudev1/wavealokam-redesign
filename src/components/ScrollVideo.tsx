@@ -64,60 +64,63 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
     ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
   }, []);
 
-  // Preload and DECODE all images before allowing interaction
+  // Progressive loading: show frame 1 ASAP, load rest in background
   useEffect(() => {
     let isMounted = true;
-    const images: HTMLImageElement[] = [];
     
-    const loadAllImages = async () => {
-      let loadedCount = 0;
-      
-      // Create all image elements
-      const loadPromises = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
-        return new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new Image();
-          img.src = getFramePath(i + 1);
-          
-          img.onload = async () => {
-            try {
-              // CRITICAL: decode() ensures the image is fully decoded and ready for instant drawing
-              await img.decode();
-              loadedCount++;
-              if (isMounted) {
-                setLoadProgress(Math.round((loadedCount / TOTAL_FRAMES) * 100));
-              }
-              resolve(img);
-            } catch (e) {
-              // Fallback if decode() fails
-              loadedCount++;
-              if (isMounted) {
-                setLoadProgress(Math.round((loadedCount / TOTAL_FRAMES) * 100));
-              }
-              resolve(img);
-            }
-          };
-          
-          img.onerror = () => {
-            console.error(`Failed to load frame ${i + 1}`);
-            reject(new Error(`Failed to load frame ${i + 1}`));
-          };
-        });
+    const loadSingleImage = (index: number): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = getFramePath(index + 1);
+        img.onload = async () => {
+          try { await img.decode(); } catch {}
+          resolve(img);
+        };
+        img.onerror = () => reject(new Error(`Failed to load frame ${index + 1}`));
       });
+    };
+
+    const loadProgressively = async () => {
+      // Initialize array with nulls
+      const images: (HTMLImageElement | null)[] = new Array(TOTAL_FRAMES).fill(null);
       
+      // Load frame 1 first and show immediately
       try {
-        const loadedImages = await Promise.all(loadPromises);
+        const firstFrame = await loadSingleImage(0);
+        if (!isMounted) return;
+        images[0] = firstFrame;
+        imagesRef.current = images as HTMLImageElement[];
+        setIsLoaded(true);
+        setLoadProgress(1);
+        requestAnimationFrame(() => drawFrame(1));
+      } catch {
+        return;
+      }
+
+      // Load remaining frames in small batches for smooth background loading
+      const BATCH_SIZE = 10;
+      let loaded = 1;
+      for (let start = 1; start < TOTAL_FRAMES; start += BATCH_SIZE) {
+        if (!isMounted) return;
+        const end = Math.min(start + BATCH_SIZE, TOTAL_FRAMES);
+        const batch = Array.from({ length: end - start }, (_, i) => loadSingleImage(start + i));
+        const results = await Promise.allSettled(batch);
+        
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            images[start + i] = result.value;
+            loaded++;
+          }
+        });
+        
         if (isMounted) {
-          imagesRef.current = loadedImages;
-          setIsLoaded(true);
-          // Draw first frame immediately
-          requestAnimationFrame(() => drawFrame(1));
+          imagesRef.current = images as HTMLImageElement[];
+          setLoadProgress(Math.round((loaded / TOTAL_FRAMES) * 100));
         }
-      } catch (error) {
-        console.error('Failed to load all frames:', error);
       }
     };
-    
-    loadAllImages();
+
+    loadProgressively();
     
     return () => {
       isMounted = false;
