@@ -68,12 +68,14 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
   useEffect(() => {
     let isMounted = true;
     
-    const loadSingleImage = (index: number): Promise<HTMLImageElement> => {
+    const loadSingleImage = (index: number, priority: boolean = false): Promise<HTMLImageElement> => {
       return new Promise((resolve, reject) => {
         const img = new Image();
+        if (priority) {
+          (img as any).fetchPriority = 'high';
+        }
         img.src = getFramePath(index + 1);
-        img.onload = async () => {
-          try { await img.decode(); } catch {}
+        img.onload = () => {
           resolve(img);
         };
         img.onerror = () => reject(new Error(`Failed to load frame ${index + 1}`));
@@ -81,12 +83,11 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
     };
 
     const loadProgressively = async () => {
-      // Initialize array with nulls
       const images: (HTMLImageElement | null)[] = new Array(TOTAL_FRAMES).fill(null);
       
-      // Load frame 1 first and show immediately
+      // Load frame 1 with highest priority
       try {
-        const firstFrame = await loadSingleImage(0);
+        const firstFrame = await loadSingleImage(0, true);
         if (!isMounted) return;
         images[0] = firstFrame;
         imagesRef.current = images as HTMLImageElement[];
@@ -97,27 +98,23 @@ const ScrollVideo = ({ className = '' }: ScrollVideoProps) => {
         return;
       }
 
-      // Load remaining frames in small batches for smooth background loading
-      const BATCH_SIZE = 10;
+      // Load all remaining frames in parallel (they're small webp files)
       let loaded = 1;
-      for (let start = 1; start < TOTAL_FRAMES; start += BATCH_SIZE) {
-        if (!isMounted) return;
-        const end = Math.min(start + BATCH_SIZE, TOTAL_FRAMES);
-        const batch = Array.from({ length: end - start }, (_, i) => loadSingleImage(start + i));
-        const results = await Promise.allSettled(batch);
-        
-        results.forEach((result, i) => {
-          if (result.status === 'fulfilled') {
-            images[start + i] = result.value;
+      const remaining = Array.from({ length: TOTAL_FRAMES - 1 }, (_, i) => i + 1);
+      
+      // Fire all requests at once, update progress as each completes
+      await Promise.allSettled(
+        remaining.map(async (index) => {
+          try {
+            const img = await loadSingleImage(index);
+            if (!isMounted) return;
+            images[index] = img;
             loaded++;
-          }
-        });
-        
-        if (isMounted) {
-          imagesRef.current = images as HTMLImageElement[];
-          setLoadProgress(Math.round((loaded / TOTAL_FRAMES) * 100));
-        }
-      }
+            imagesRef.current = images as HTMLImageElement[];
+            setLoadProgress(Math.round((loaded / TOTAL_FRAMES) * 100));
+          } catch {}
+        })
+      );
     };
 
     loadProgressively();
