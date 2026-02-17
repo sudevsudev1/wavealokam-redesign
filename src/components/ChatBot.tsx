@@ -214,8 +214,8 @@ const ChatBot = () => {
         {/* Messages */}
         <div ref={messagesContainerRef} className="h-80 overflow-y-auto p-4 space-y-4 bg-muted/30">
           {messages.map((message, index) => <div key={index} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
-              <div className={cn('max-w-[85%] rounded-2xl px-4 py-2 text-sm', message.role === 'user' ? 'bg-wave-orange text-white rounded-br-md' : 'bg-card text-foreground border border-border rounded-bl-md')}>
-               {message.role === 'assistant' ? <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-0 [&>p:last-child]:mb-0 [&>p>img]:rounded-xl [&>p>img]:my-2 [&>p>img]:max-w-[200px] [&_a]:font-bold [&_a]:underline [&_a]:text-[hsl(var(--wave-orange))] [&_a:hover]:opacity-80">
+              <div className={cn('max-w-[85%] rounded-2xl px-4 py-2 text-sm overflow-hidden', message.role === 'user' ? 'bg-wave-orange text-white rounded-br-md' : 'bg-card text-foreground border border-border rounded-bl-md')}>
+               {message.role === 'assistant' ? <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden break-words [&>p]:mb-0 [&>p:last-child]:mb-0 [&>p>img]:rounded-xl [&>p>img]:my-2 [&>p>img]:max-w-[200px] [&_a]:font-bold [&_a]:underline [&_a]:text-[hsl(var(--wave-orange))] [&_a:hover]:opacity-80 [&_blockquote]:max-w-full [&_blockquote]:overflow-x-auto [&_pre]:max-w-full [&_pre]:overflow-x-auto">
                     <ReactMarkdown components={{
                       img: ({ src, alt, ...props }) => (
                         <img src={src} alt={alt || 'Drifter'} className="rounded-xl my-2 max-w-[200px] w-auto" loading="lazy" {...props} />
