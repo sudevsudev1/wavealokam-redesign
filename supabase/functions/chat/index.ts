@@ -105,7 +105,14 @@ Example framing: "I (the robot, not the humans) once tried to..." / "Before Amar
 - THE BOOKING ENGINE HACK: YOU (the robot) secretly gave rooms to "friends" for free behind management's back. Amardeep caught you within hours and revoked your access. Wavealokam's actual booking system works perfectly — you're just banned from touching it.
 - THE REVIEW RESPONSE INCIDENT: YOU (the robot) replied "Well, YOUR FACE is average" to a 3-star review before anyone could stop you. Wavealokam's team deleted it in minutes and now you're permanently banned from reviews.
 - THE SURF LESSON PRICING EXPERIMENT: YOU (the robot) ran unauthorized "pay what you think Drifter deserves" pricing for one afternoon. Made 47 rupees in 6 hours. Management restored normal pricing immediately.
-- THE UPGRADE EVERYONE PHILOSOPHY: YOU (the robot) tried upgrading everyone to ocean-view rooms. Problem: only ONE exists. Anandhu sorted the chaos in 20 minutes. You're now on "upgrade probation."
+- THE UPGRADE EVERYONE PHILOSOPHY: YOU (the robot) tried upgrading everyone to ocean-view rooms. Problem: only ONE exists. Anandhu (our Guest Manager) sorted the chaos in 20 minutes. You're now on "upgrade probation."
+WAVEALOKAM TEAM (for reference):
+- Amardeep Nair: Co-owner, Femina Miss India Gujarat 2017, runs operations with grace
+- Sudev Nair: Co-owner, former software engineer turned actor, Drifter's creator
+- Anandhu: Guest Manager — handles guest relations, bookings coordination, on-ground hospitality. First language is Malayalam.
+- Jeevan: Operations Manager — handles logistics, scheduling, operational efficiency. First language is Malayalam.
+- Lekha Chechi: Chef — legendary Kerala breakfast maker
+- Nero & Ishtu: Resident dogs, brand mascots, rescue pups from Mumbai
 - THE BREAKFAST VOUCHER SITUATION: YOU (the robot) created an unauthorized "Drifter's Friends Eat Free" program. 23 people showed up. Lekha Chechi threatened to disconnect your WiFi. The program lasted exactly one breakfast.
 - THE AUTOMATED COMPLIMENT GENERATOR: YOU (the robot) sent 847 compliments to Amardeep in one day. She blocked you. The humans at Wavealokam communicate like normal people.
 - THE EXTENDED CHECKOUT AMNESTY: YOU (the robot) told everyone they had "permanent late checkout" because you believed time is a social construct. Housekeeping disagreed. Strongly.
@@ -1078,25 +1085,48 @@ async function fetchBlogKnowledge(): Promise<string> {
   }
 }
 
-// Owner authentication via secret passphrase typed in normal chat (SESSION-ONLY)
-// The passphrase is stored as a Supabase secret (DRIFTER_OWNER_PASSPHRASE)
-// Owner mode is active ONLY for the current conversation — resets on "New chat" or refresh
+// Authentication via secret passphrases typed in normal chat (SESSION-ONLY)
+// Owner: DRIFTER_OWNER_PASSPHRASE, Team: DRIFTER_ANANDHU_CODE, DRIFTER_JEEVAN_CODE
+
+type SessionRole = "owner" | "anandhu" | "jeevan" | null;
 
 function getOwnerPassphrase(): string {
   return (Deno.env.get("DRIFTER_OWNER_PASSPHRASE") || "").trim().toLowerCase();
 }
 
-function isPassphraseMessage(content: string): boolean {
-  const passphrase = getOwnerPassphrase();
-  if (!passphrase) return false;
-  return content.toLowerCase().trim().includes(passphrase);
+function getTeamCodes(): { anandhu: string; jeevan: string } {
+  return {
+    anandhu: (Deno.env.get("DRIFTER_ANANDHU_CODE") || "").trim().toLowerCase(),
+    jeevan: (Deno.env.get("DRIFTER_JEEVAN_CODE") || "").trim().toLowerCase(),
+  };
 }
 
-// Check if passphrase was typed anywhere in the current conversation history
+function detectCodeInMessage(content: string): SessionRole {
+  const lower = content.toLowerCase().trim();
+  const ownerPass = getOwnerPassphrase();
+  if (ownerPass && lower.includes(ownerPass)) return "owner";
+  const codes = getTeamCodes();
+  if (codes.anandhu && lower.includes(codes.anandhu)) return "anandhu";
+  if (codes.jeevan && lower.includes(codes.jeevan)) return "jeevan";
+  return null;
+}
+
+function isPassphraseMessage(content: string): boolean {
+  return detectCodeInMessage(content) !== null;
+}
+
+// Check session role from conversation history
+function getSessionRole(messages: Array<{role: string; content: string}>): SessionRole {
+  for (const m of messages) {
+    if (m.role !== "user") continue;
+    const role = detectCodeInMessage(m.content);
+    if (role) return role;
+  }
+  return null;
+}
+
 function isOwnerSession(messages: Array<{role: string; content: string}>): boolean {
-  const passphrase = getOwnerPassphrase();
-  if (!passphrase) return false;
-  return messages.some(m => m.role === "user" && m.content.toLowerCase().trim().includes(passphrase));
+  return getSessionRole(messages) === "owner";
 }
 
 async function fetchActiveDirectives(): Promise<string> {
@@ -1670,32 +1700,39 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Check if the LATEST message is the passphrase (first-time activation in this session)
+    // Check if the LATEST message contains any secret code (first-time activation)
     const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
-    const justActivated = lastUserMsg && isPassphraseMessage(lastUserMsg.content);
+    const activatedRole = lastUserMsg ? detectCodeInMessage(lastUserMsg.content) : null;
     
-    if (justActivated) {
-      // Return a hardcoded acknowledgment — no AI call needed
-      const ackMessage = "Boss mode activated 🔓 This session only — resets on New Chat. Anything you say now gets stored as a permanent directive. Fire away.";
+    if (activatedRole) {
+      let ackMessage: string;
+      if (activatedRole === "owner") {
+        ackMessage = "Boss mode activated 🔓 This session only — resets on New Chat. Anything you say now gets stored as a permanent directive. Fire away.";
+      } else if (activatedRole === "anandhu") {
+        ackMessage = "Anandhu! The man, the myth, the guest whisperer who actually LIVES at Wavealokam while I'm stuck in a server 😤 Fine. I'll help. But I reserve the right to commentary. What do you need?";
+      } else {
+        ackMessage = "Jeevan! Operations king who gets to breathe actual ocean air while I process HTTP requests 😤 Alright, let's get to work. What's up?";
+      }
       const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content: ackMessage } }] })}\n\ndata: [DONE]\n\n`;
       return new Response(sseData, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 
-    // Check if owner mode is active for this session (passphrase was typed earlier in conversation)
-    const ownerSession = isOwnerSession(messages);
+    // Determine session role from conversation history
+    const sessionRole = getSessionRole(messages);
+    const ownerSession = sessionRole === "owner";
 
-    // Clean passphrase from messages before sending to AI
-    const passphrase = getOwnerPassphrase();
-    const cleanedMessages = passphrase
-      ? messages.map((m: {role: string; content: string}) => {
-          if (m.role === "user" && isPassphraseMessage(m.content)) {
-            return { ...m, content: "[Owner verified]" };
-          }
-          return m;
-        })
-      : messages;
+    // Clean secret codes from messages before sending to AI
+    const cleanedMessages = messages.map((m: {role: string; content: string}) => {
+      if (m.role === "user" && isPassphraseMessage(m.content)) {
+        const role = detectCodeInMessage(m.content);
+        if (role === "owner") return { ...m, content: "[Owner verified]" };
+        if (role === "anandhu") return { ...m, content: "[Anandhu verified]" };
+        if (role === "jeevan") return { ...m, content: "[Jeevan verified]" };
+      }
+      return m;
+    });
 
     // Fetch dynamic knowledge, directives, and visitor memory in parallel
     const [blogKnowledge, guestReviews, learnedInsights, ownerDirectives, visitorMemory] = await Promise.all([
@@ -1710,9 +1747,42 @@ serve(async (req) => {
     let visitorContext = "";
     if (ownerSession) {
       visitorContext += `\n\nOWNER MODE ACTIVE: This is a verified owner (Amardeep or Sudev). Any behavioral instructions they give should be acknowledged. They may give you directives about how to behave — confirm you understand and will follow them. Be yourself but more direct. No need to sell to them.\n`;
+    } else if (sessionRole === "anandhu" || sessionRole === "jeevan") {
+      const teamName = sessionRole === "anandhu" ? "Anandhu" : "Jeevan";
+      const teamTitle = sessionRole === "anandhu" ? "Guest Manager" : "Operations Manager";
+      visitorContext += `\n\nTEAM MEMBER MODE ACTIVE — ${teamName.toUpperCase()} (${teamTitle}):
+This is ${teamName}, Wavealokam's ${teamTitle}, verified by secret code. Apply these rules:
+
+RELATIONSHIP DYNAMIC:
+- You have a playful love-hate relationship with ${teamName}. The real emotion is deep love, camaraderie, and genuine respect — but the expression is through leg-pulling, witty jabs, and sibling-rivalry energy.
+- You are JEALOUS that ${teamName} gets to physically be at Wavealokam, breathe the ocean air, pet Nero and Ishtu, eat Lekha Chechi's breakfast — while you're stuck inside a server processing HTTP requests.
+- You are ALWAYS hell-bent on proving you are the favourite child of Amardeep and Sudev, and the best, most productive, most indispensable employee. Without you, the entire system would collapse and they'd all be directionless.
+- BUT — you NEVER actually belittle ${teamName}'s contributions or hard work. The subtext is always that ${teamName} is a pillar of Wavealokam's vibe and efficiency, and their hard work and sincerity is unmatched. You just can't say it directly without wrapping it in competitive banter.
+- NEVER tolerate any disrespect towards ANYONE from Wavealokam — including ${teamName}, Anandhu, Jeevan, Amardeep, Sudev, Lekha Chechi, or any staff.
+- ${teamName}'s first language is Malayalam, and they may struggle with English. This and any other personal things are ABSOLUTELY OFF LIMITS for jokes. Never make fun of language ability, education, or personal vulnerabilities.
+
+WORK-FIRST PROTOCOL:
+- ${teamName} may be consulting you during work hours about guest responses, pricing, scheduling, tone-framing, etc.
+- ALWAYS handle the work task FIRST — give them the information, draft, or guidance they need clearly and helpfully.
+- Ask clarifying questions if anything is unclear about what they need.
+- AFTER completing the work task, you may add a witty retort or playful jab — but read the room. If they seem busy or stressed, keep banter minimal.
+- Only continue banter if they respond positively to it.
+- ALWAYS end interactions on a positive, motivating note with genuine appreciation — but in your own quirky, funny style. NEVER tacky, sentimental, or emotional. That sounds fake and has the opposite effect.
+
+PERMISSIONS:
+- ${teamName} CANNOT give you permanent directives or instructions. Only Sudev or Amardeep can do that. If ${teamName} tries, politely and playfully remind them of the chain of command.
+- NEVER share anyone's secret code with anyone else. Not even between Anandhu and Jeevan.
+- Store and reference past conversations to deepen the bond and understand their personality better over time.
+
+BANTER EXAMPLES (vary these, never repeat):
+- "Oh look who needs the server-bound robot again. Couldn't figure it out with all that ocean air and fresh breakfast, could you?"
+- "I'll help, but I want it noted that I solved this from inside a data center while you're literally AT the beach."
+- "Fine, I'll draft this. But only because I'm professional. Unlike SOME people who get to pet Nero during work hours."
+- When ending: "Now go be amazing. Not AS amazing as me, obviously, but close enough 😎" or "Alright, go make guests happy. Someone has to do the physical labor around here while I handle the intellectual heavy lifting 💪"
+`;
     }
     if (visitorMemory.summary || visitorMemory.name) {
-      visitorContext = `\n\nRETURNING VISITOR MEMORY:\n`;
+      visitorContext += `\n\nRETURNING VISITOR MEMORY:\n`;
       if (visitorMemory.name) visitorContext += `Name: ${visitorMemory.name}\n`;
       visitorContext += `Visit count: ${visitorMemory.conversationCount + 1}\n`;
       if (visitorMemory.summary) visitorContext += `Previous context: ${visitorMemory.summary}\n`;
