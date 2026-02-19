@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.scrape-reviews]
 verify_jwt = false
+
+[functions.daily-summary-email]
+verify_jwt = false
