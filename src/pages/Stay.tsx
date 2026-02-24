@@ -132,7 +132,7 @@ const Stay = () => {
                   <RoomGallery images={room.images} alt={room.name} />
                   <div className="p-6">
                     <h3 className="text-xl font-bold text-foreground mb-2">{room.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{room.size} • Ideal for {room.ideal}</p>
+                    <p className="text-sm text-muted-foreground mb-4">{room.size} <em className="italic">(Room area includes balcony)</em> • Ideal for {room.ideal}</p>
                     <ul className="space-y-2">
                       {room.features.map((feature, i) => (
                         <li key={i} className="flex items-center gap-2 text-foreground/80">
