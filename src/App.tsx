@@ -19,6 +19,7 @@ import VarkalaGuide from "./pages/VarkalaGuide";
 import BestTimeToVisit from "./pages/BestTimeToVisit";
 import HowToReach from "./pages/HowToReach";
 import Contact from "./pages/Contact";
+import EvidenceImage from "./pages/EvidenceImage";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/best-time-to-visit-varkala" element={<BestTimeToVisit />} />
             <Route path="/how-to-reach-varkala" element={<HowToReach />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/:filename" element={<EvidenceImage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
