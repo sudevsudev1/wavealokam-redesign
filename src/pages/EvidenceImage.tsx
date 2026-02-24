@@ -20,7 +20,7 @@ const EvidenceImage = () => {
   return (
     <>
       <Helmet>
-        <title>Wavealokam – Evidence</title>
+        <title>Wavealokam – Screenshots</title>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
