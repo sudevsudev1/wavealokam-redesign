@@ -165,7 +165,7 @@ const RoomsSection = () => {
                     <Users className="w-4 h-4" />
                     {room.capacity}
                   </span>
-                  <span>{room.size}</span>
+                  <span>{room.size} <em className="text-xs italic">(Room area includes balcony)</em></span>
                 </div>
 
                 {/* Amenities */}
