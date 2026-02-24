@@ -23,14 +23,14 @@ const RoomSelector = ({ rooms, guests, onRoomsChange }: RoomSelectorProps) => {
       name: 'King Room with Balcony',
       price: ROOM_PRICES.kingRoom,
       capacity: 2,
-      description: '45 m² • Garden view',
+      description: '45 m² (Room area includes balcony) • Garden view',
     },
     {
       key: 'doubleRooms' as keyof RoomSelection,
       name: 'Double Room with Balcony',
       price: ROOM_PRICES.doubleRoom,
       capacity: 2,
-      description: '28 m² • Garden view',
+      description: '28 m² (Room area includes balcony) • Garden view',
     },
     {
       key: 'extraBeds' as keyof RoomSelection,
