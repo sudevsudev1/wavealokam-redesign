@@ -5,6 +5,7 @@ const VALID_IMAGES: Record<string, string> = {
   email_with_Agoda: '/evidence/email_with_Agoda.jpeg',
   room_area_details: '/evidence/room_area_details.jpeg',
   room_without_breakfast_details: '/evidence/room_without_breakfast_details.jpeg',
+  swati_garg_initial_booking: '/evidence/swati_garg_initial_booking.jpeg',
 };
 
 const EvidenceImage = () => {
