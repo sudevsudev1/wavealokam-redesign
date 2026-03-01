@@ -6,6 +6,7 @@ const VALID_IMAGES: Record<string, string> = {
   room_area_details: '/evidence/room_area_details.jpeg',
   room_without_breakfast_details: '/evidence/room_without_breakfast_details.jpeg',
   swati_garg_initial_booking: '/evidence/swati_garg_initial_booking.jpeg',
+  swati_garg_amended_booking: '/evidence/swati_garg_amended_booking.jpeg',
 };
 
 const EvidenceImage = () => {
