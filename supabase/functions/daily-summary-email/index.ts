@@ -120,6 +120,7 @@ interface GA4Stats {
   pageviews: number;
   topPages: Array<{ page: string; views: number }>;
   topSources: Array<{ source: string; sessions: number }>;
+  topLocations: Array<{ country: string; city: string; sessions: number }>;
 }
 
 async function fetchGA4Stats(token: string): Promise<GA4Stats> {
@@ -181,10 +182,29 @@ async function fetchGA4Stats(token: string): Promise<GA4Stats> {
     }
   );
 
-  const [overview, topPagesData, topSourcesData] = await Promise.all([
+  const topLocationsRes = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
+        metrics: [{ name: "sessions" }],
+        dimensions: [{ name: "country" }, { name: "city" }],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        limit: 8,
+      }),
+    }
+  );
+
+  const [overview, topPagesData, topSourcesData, topLocationsData] = await Promise.all([
     res.json(),
     topPagesRes.json(),
     topSourcesRes.json(),
+    topLocationsRes.json(),
   ]);
 
   const row = overview?.rows?.[0]?.metricValues || [];
@@ -202,7 +222,13 @@ async function fetchGA4Stats(token: string): Promise<GA4Stats> {
     sessions: parseInt(r.metricValues[0].value),
   }));
 
-  return { sessions, users, pageviews, topPages, topSources };
+  const topLocations = (topLocationsData?.rows || []).map((r: any) => ({
+    country: r.dimensionValues[0].value,
+    city: r.dimensionValues[1].value === "(not set)" ? "" : r.dimensionValues[1].value,
+    sessions: parseInt(r.metricValues[0].value),
+  }));
+
+  return { sessions, users, pageviews, topPages, topSources, topLocations };
 }
 
 // ── Search Console API ──────────────────────────────────────────────────────
@@ -441,6 +467,27 @@ Deno.serve(async (req) => {
           </td>
         </tr>
       </table>
+
+      <!-- Visitor Locations -->
+      ${ga4.topLocations.length > 0 ? `
+      <div style="margin-top:20px;">
+        <p style="font-size:12px;font-weight:700;color:#2d2926;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.5px;">📍 Visitor Locations</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #f0ede8;border-radius:8px;overflow:hidden;">
+          <thead>
+            <tr style="background:#f7f4ef;">
+              <th style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;text-align:left;font-weight:600;">Location</th>
+              <th style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;text-align:right;font-weight:600;">Sessions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ga4.topLocations.map((l) => `
+            <tr style="border-bottom:1px solid #f0ede8;">
+              <td style="padding:6px 12px;font-size:12px;color:#555;">${l.city ? `${l.city}, ` : ""}${l.country}</td>
+              <td style="padding:6px 12px;font-size:12px;color:#9b7fd4;text-align:right;font-weight:600;">${l.sessions}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>` : ""}
     </div>`
       : "";
 
