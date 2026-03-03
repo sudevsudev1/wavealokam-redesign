@@ -5,6 +5,7 @@ import { OpsOfflineProvider } from './contexts/OpsOfflineContext';
 import OpsLogin from './components/OpsLogin';
 import OpsLayout from './components/OpsLayout';
 import OpsHome from './pages/OpsHome';
+import TasksPage from './pages/TasksPage';
 import OpsPlaceholder from './pages/OpsPlaceholder';
 
 function OpsLoginGuard() {
@@ -31,7 +32,7 @@ export default function OpsApp() {
             <Route index element={<OpsLoginGuard />} />
             <Route element={<OpsLayout />}>
               <Route path="home" element={<OpsHome />} />
-              <Route path="tasks" element={<OpsPlaceholder titleKey="nav.tasks" />} />
+              <Route path="tasks" element={<TasksPage />} />
               <Route path="inventory" element={<OpsPlaceholder titleKey="nav.inventory" />} />
               <Route path="purchase" element={<OpsPlaceholder titleKey="nav.purchase" />} />
               <Route path="guest-log" element={<OpsPlaceholder titleKey="nav.guestLog" />} />
