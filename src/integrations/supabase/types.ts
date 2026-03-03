@@ -341,6 +341,191 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_audit_log: {
+        Row: {
+          action: string
+          after_json: Json | null
+          before_json: Json | null
+          branch_id: string
+          entity_id: string
+          entity_type: string
+          id: string
+          performed_at: string
+          performed_by: string
+        }
+        Insert: {
+          action: string
+          after_json?: Json | null
+          before_json?: Json | null
+          branch_id: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          performed_at?: string
+          performed_by: string
+        }
+        Update: {
+          action?: string
+          after_json?: Json | null
+          before_json?: Json | null
+          branch_id?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          performed_at?: string
+          performed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_audit_log_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_branches: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          location: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_config_registry: {
+        Row: {
+          branch_id: string
+          created_at: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value_json: Json
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json?: Json
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_config_registry_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_rooms: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          room_type: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id: string
+          is_active?: boolean
+          room_type: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          room_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_rooms_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_user_profiles: {
+        Row: {
+          branch_id: string
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          preferred_language: string
+          role: Database["public"]["Enums"]["ops_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          preferred_language?: string
+          role?: Database["public"]["Enums"]["ops_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          preferred_language?: string
+          role?: Database["public"]["Enums"]["ops_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_user_profiles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_history: {
         Row: {
           blog_post_id: string | null
@@ -558,10 +743,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      ops_has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["ops_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      ops_user_branch_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      ops_role: "manager" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -688,6 +880,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      ops_role: ["manager", "admin"],
+    },
   },
 } as const
