@@ -16,18 +16,18 @@ import { format } from 'date-fns';
 import EditTaskDialog from './EditTaskDialog';
 
 const priorityColors: Record<string, string> = {
-  'Low': 'bg-muted text-muted-foreground',
-  'Medium': 'bg-blue-100 text-blue-800',
-  'High': 'bg-orange-100 text-orange-800',
-  'Urgent': 'bg-destructive/10 text-destructive',
+  'Low': 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  'Medium': 'bg-blue-100 text-blue-700 border border-blue-200',
+  'High': 'bg-amber-100 text-amber-700 border border-amber-200',
+  'Urgent': 'bg-red-100 text-red-700 border border-red-200 animate-pulse',
 };
 
 const statusColors: Record<string, string> = {
-  'To Do': 'bg-muted text-muted-foreground',
-  'Doing': 'bg-blue-100 text-blue-800',
-  'Blocked': 'bg-destructive/10 text-destructive',
-  'Done': 'bg-green-100 text-green-800',
-  'Cancelled': 'bg-muted text-muted-foreground line-through',
+  'To Do': 'bg-slate-100 text-slate-600',
+  'Doing': 'bg-sky-100 text-sky-700',
+  'Blocked': 'bg-red-100 text-red-700',
+  'Done': 'bg-emerald-100 text-emerald-700',
+  'Cancelled': 'bg-slate-100 text-slate-400 line-through',
 };
 
 export default function TaskRow({ task }: { task: OpsTask }) {
@@ -81,7 +81,7 @@ export default function TaskRow({ task }: { task: OpsTask }) {
     : TASK_STATUSES.filter(s => s !== 'Cancelled');
 
   return (
-    <div className={`border rounded-lg p-2.5 space-y-1.5 ${isOverdue ? 'border-destructive/50 bg-destructive/5' : 'border-border'}`}>
+    <div className={`border rounded-xl p-2.5 space-y-1.5 transition-all shadow-sm hover:shadow-md ${isOverdue ? 'border-red-300 bg-gradient-to-r from-red-50 to-orange-50' : 'border-border bg-card'}`}>
       {/* Top row */}
       <div className="flex items-start gap-1.5">
         <button onClick={() => setExpanded(!expanded)} className="mt-1 shrink-0">
