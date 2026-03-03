@@ -1061,9 +1061,15 @@ export type Database = {
           branch_id: string
           file_url: string
           id: string
+          metadata_json: Json | null
+          photo_device: string | null
+          photo_lat: number | null
+          photo_lng: number | null
+          photo_taken_at: string | null
           tags: string[] | null
           task_id: string
           type: string
+          upload_timestamp: string | null
           uploaded_at: string
           uploaded_by: string
           vendor: string | null
@@ -1074,9 +1080,15 @@ export type Database = {
           branch_id: string
           file_url: string
           id?: string
+          metadata_json?: Json | null
+          photo_device?: string | null
+          photo_lat?: number | null
+          photo_lng?: number | null
+          photo_taken_at?: string | null
           tags?: string[] | null
           task_id: string
           type?: string
+          upload_timestamp?: string | null
           uploaded_at?: string
           uploaded_by: string
           vendor?: string | null
@@ -1087,9 +1099,15 @@ export type Database = {
           branch_id?: string
           file_url?: string
           id?: string
+          metadata_json?: Json | null
+          photo_device?: string | null
+          photo_lat?: number | null
+          photo_lng?: number | null
+          photo_taken_at?: string | null
           tags?: string[] | null
           task_id?: string
           type?: string
+          upload_timestamp?: string | null
           uploaded_at?: string
           uploaded_by?: string
           vendor?: string | null

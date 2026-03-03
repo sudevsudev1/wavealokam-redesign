@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { translateText } from '../lib/translate';
 import { useEffect } from 'react';
+import { extractPhotoMetadata } from '../lib/exifExtractor';
 
 export interface OpsTask {
   id: string;
@@ -48,6 +49,12 @@ export interface OpsTaskAttachment {
   bill_date: string | null;
   tags: string[];
   branch_id: string;
+  photo_taken_at: string | null;
+  photo_lat: number | null;
+  photo_lng: number | null;
+  photo_device: string | null;
+  upload_timestamp: string | null;
+  metadata_json: Record<string, unknown> | null;
 }
 
 export function useTasks(filters?: { assignedTo?: string; status?: string }) {
@@ -233,6 +240,9 @@ export function useUploadAttachment() {
         .from('ops-attachments')
         .getPublicUrl(filePath);
 
+      // Extract EXIF metadata from image files
+      const meta = file.type.startsWith('image/') ? await extractPhotoMetadata(file) : null;
+
       const { error: insertError } = await supabase.from('ops_task_attachments').insert({
         task_id: taskId,
         type,
@@ -242,6 +252,12 @@ export function useUploadAttachment() {
         vendor: vendor || null,
         amount: amount || null,
         bill_date: billDate || null,
+        photo_taken_at: meta?.takenAt || null,
+        photo_lat: meta?.lat || null,
+        photo_lng: meta?.lng || null,
+        photo_device: meta?.device || null,
+        upload_timestamp: new Date().toISOString(),
+        metadata_json: meta?.raw || {},
       } as any);
       if (insertError) throw insertError;
     },
