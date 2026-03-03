@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Paperclip, ChevronDown, ChevronUp, Clock, AlertTriangle, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import EditTaskDialog from './EditTaskDialog';
 
 const priorityColors: Record<string, string> = {
   'Low': 'bg-muted text-muted-foreground',
@@ -103,18 +104,21 @@ export default function TaskRow({ task }: { task: OpsTask }) {
             <span>→ {assigneeNames.join(', ') || '—'}</span>
           </div>
         </div>
-        <Select value={task.status} onValueChange={handleStatusChange}>
-          <SelectTrigger className="w-24 h-7 text-[10px] shrink-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {availableStatuses.map(s => (
-              <SelectItem key={s} value={s}>
-                <Badge className={statusColors[s] || ''} variant="secondary">{s}</Badge>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1 shrink-0">
+          {isAdmin && <EditTaskDialog task={task} />}
+          <Select value={task.status} onValueChange={handleStatusChange}>
+            <SelectTrigger className="w-24 h-7 text-[10px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availableStatuses.map(s => (
+                <SelectItem key={s} value={s}>
+                  <Badge className={statusColors[s] || ''} variant="secondary">{s}</Badge>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Expanded section */}
