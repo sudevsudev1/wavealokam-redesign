@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Paperclip, ChevronDown, ChevronUp, Clock, AlertTriangle, Upload } from 'lucide-react';
+import { Paperclip, ChevronDown, ChevronUp, Clock, AlertTriangle, Upload, MapPin, Camera, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import EditTaskDialog from './EditTaskDialog';
@@ -239,12 +239,59 @@ function TaskAttachments({ taskId }: { taskId: string }) {
         </Dialog>
       </div>
       {attachments && attachments.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="space-y-2">
           {attachments.map(a => (
-            <a key={a.id} href={a.file_url} target="_blank" rel="noreferrer"
-              className="text-xs text-primary underline">
-              {a.type}
-            </a>
+            <div key={a.id} className="border border-border rounded-lg p-2 space-y-1 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <a href={a.file_url} target="_blank" rel="noreferrer"
+                  className="text-xs font-medium text-primary underline">
+                  {a.type}
+                </a>
+                <span className="text-[10px] text-foreground/50">
+                  Uploaded {format(new Date(a.upload_timestamp || a.uploaded_at), 'MMM d, HH:mm')}
+                </span>
+              </div>
+              {/* Photo metadata */}
+              {(a.photo_taken_at || a.photo_lat || a.photo_device) && (
+                <div className="bg-background rounded p-1.5 space-y-0.5 border border-border">
+                  <p className="text-[10px] font-semibold text-foreground/70 flex items-center gap-1">
+                    <Camera className="h-3 w-3" /> Photo Verification
+                  </p>
+                  {a.photo_taken_at && (
+                    <p className="text-[10px] text-foreground/60 flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5" />
+                      Taken: {format(new Date(a.photo_taken_at), 'MMM d, yyyy HH:mm:ss')}
+                    </p>
+                  )}
+                  {a.photo_lat && a.photo_lng && (
+                    <a
+                      href={`https://maps.google.com/?q=${a.photo_lat},${a.photo_lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] text-primary flex items-center gap-1 underline"
+                    >
+                      <MapPin className="h-2.5 w-2.5" />
+                      GPS: {Number(a.photo_lat).toFixed(5)}, {Number(a.photo_lng).toFixed(5)}
+                    </a>
+                  )}
+                  {a.photo_device && (
+                    <p className="text-[10px] text-foreground/60 flex items-center gap-1">
+                      <Smartphone className="h-2.5 w-2.5" />
+                      {a.photo_device}
+                    </p>
+                  )}
+                  {!a.photo_taken_at && !a.photo_lat && (
+                    <p className="text-[10px] text-destructive">⚠ No timestamp/GPS in photo — verify manually</p>
+                  )}
+                </div>
+              )}
+              {/* No metadata warning for image files */}
+              {!a.photo_taken_at && !a.photo_lat && !a.photo_device && a.file_url?.match(/\.(jpg|jpeg|png|heic|webp)/i) && (
+                <p className="text-[10px] text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="h-2.5 w-2.5" /> No EXIF metadata found — photo may have been stripped or is a screenshot
+                </p>
+              )}
+            </div>
           ))}
         </div>
       )}
