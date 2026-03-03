@@ -20,6 +20,9 @@ import BestTimeToVisit from "./pages/BestTimeToVisit";
 import HowToReach from "./pages/HowToReach";
 import Contact from "./pages/Contact";
 import EvidenceImage from "./pages/EvidenceImage";
+import { lazy, Suspense } from "react";
+
+const OpsApp = lazy(() => import("./ops/OpsApp"));
 
 const queryClient = new QueryClient();
 
@@ -43,6 +46,11 @@ const App = () => (
             <Route path="/best-time-to-visit-varkala" element={<BestTimeToVisit />} />
             <Route path="/how-to-reach-varkala" element={<HowToReach />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/ops/*" element={
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+                <OpsApp />
+              </Suspense>
+            } />
             <Route path="/:filename" element={<EvidenceImage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
