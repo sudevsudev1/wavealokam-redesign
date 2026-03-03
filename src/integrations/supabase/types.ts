@@ -447,6 +447,327 @@ export type Database = {
           },
         ]
       }
+      ops_inventory_expiry: {
+        Row: {
+          batch_label: string | null
+          branch_id: string
+          created_at: string
+          disposed_at: string | null
+          disposed_by: string | null
+          expiry_date: string
+          id: string
+          is_disposed: boolean
+          item_id: string
+          quantity: number
+        }
+        Insert: {
+          batch_label?: string | null
+          branch_id: string
+          created_at?: string
+          disposed_at?: string | null
+          disposed_by?: string | null
+          expiry_date: string
+          id?: string
+          is_disposed?: boolean
+          item_id: string
+          quantity?: number
+        }
+        Update: {
+          batch_label?: string | null
+          branch_id?: string
+          created_at?: string
+          disposed_at?: string | null
+          disposed_by?: string | null
+          expiry_date?: string
+          id?: string
+          is_disposed?: boolean
+          item_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_inventory_expiry_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_inventory_expiry_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "ops_inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_inventory_items: {
+        Row: {
+          branch_id: string
+          category: string
+          created_at: string
+          current_stock: number
+          expiry_warn_days: number | null
+          id: string
+          is_active: boolean
+          name_en: string
+          name_ml: string | null
+          par_level: number
+          reorder_point: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          category?: string
+          created_at?: string
+          current_stock?: number
+          expiry_warn_days?: number | null
+          id?: string
+          is_active?: boolean
+          name_en: string
+          name_ml?: string | null
+          par_level?: number
+          reorder_point?: number
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          category?: string
+          created_at?: string
+          current_stock?: number
+          expiry_warn_days?: number | null
+          id?: string
+          is_active?: boolean
+          name_en?: string
+          name_ml?: string | null
+          par_level?: number
+          reorder_point?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_inventory_items_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_inventory_transactions: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          item_id: string
+          notes: string | null
+          performed_by: string
+          quantity: number
+          related_order_id: string | null
+          type: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          performed_by: string
+          quantity: number
+          related_order_id?: string | null
+          type?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          performed_by?: string
+          quantity?: number
+          related_order_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_inventory_transactions_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "ops_inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_inventory_transactions_order_fkey"
+            columns: ["related_order_id"]
+            isOneToOne: false
+            referencedRelation: "ops_purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_purchase_order_items: {
+        Row: {
+          branch_id: string
+          id: string
+          item_id: string
+          order_id: string
+          quantity: number
+          received_quantity: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          branch_id: string
+          id?: string
+          item_id: string
+          order_id: string
+          quantity?: number
+          received_quantity?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          branch_id?: string
+          id?: string
+          item_id?: string
+          order_id?: string
+          quantity?: number
+          received_quantity?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_purchase_order_items_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_purchase_order_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "ops_inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_purchase_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "ops_purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_purchase_orders: {
+        Row: {
+          approved_by: string | null
+          branch_id: string
+          created_at: string
+          id: string
+          ordered_at: string | null
+          receive_notes: string | null
+          receive_proof_url: string | null
+          received_at: string | null
+          requested_by: string
+          status: string
+          total_amount: number | null
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          branch_id: string
+          created_at?: string
+          id?: string
+          ordered_at?: string | null
+          receive_notes?: string | null
+          receive_proof_url?: string | null
+          received_at?: string | null
+          requested_by: string
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          branch_id?: string
+          created_at?: string
+          id?: string
+          ordered_at?: string | null
+          receive_notes?: string | null
+          receive_proof_url?: string | null
+          received_at?: string | null
+          requested_by?: string
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_purchase_orders_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_room_refill_templates: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          item_id: string
+          quantity: number
+          room_type: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_id: string
+          quantity?: number
+          room_type: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_id?: string
+          quantity?: number
+          room_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_room_refill_templates_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_room_refill_templates_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "ops_inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_rooms: {
         Row: {
           branch_id: string

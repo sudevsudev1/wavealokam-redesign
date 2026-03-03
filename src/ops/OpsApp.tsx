@@ -7,6 +7,8 @@ import OpsLayout from './components/OpsLayout';
 import OpsHome from './pages/OpsHome';
 import TasksPage from './pages/TasksPage';
 import OpsPlaceholder from './pages/OpsPlaceholder';
+import InventoryPage from './pages/InventoryPage';
+import PurchasePage from './pages/PurchasePage';
 
 function OpsLoginGuard() {
   const { session, profile, loading } = useOpsAuth();
@@ -33,8 +35,8 @@ export default function OpsApp() {
             <Route element={<OpsLayout />}>
               <Route path="home" element={<OpsHome />} />
               <Route path="tasks" element={<TasksPage />} />
-              <Route path="inventory" element={<OpsPlaceholder titleKey="nav.inventory" />} />
-              <Route path="purchase" element={<OpsPlaceholder titleKey="nav.purchase" />} />
+              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="purchase" element={<PurchasePage />} />
               <Route path="guest-log" element={<OpsPlaceholder titleKey="nav.guestLog" />} />
               <Route path="shift-punch" element={<OpsPlaceholder titleKey="nav.shiftPunch" />} />
               <Route path="daily-report" element={<OpsPlaceholder titleKey="nav.dailyReport" />} />
