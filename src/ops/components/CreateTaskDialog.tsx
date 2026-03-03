@@ -40,7 +40,11 @@ export default function CreateTaskDialog() {
       return;
     }
 
-    const dueDatetime = dueDate ? `${dueDate}T${dueTime || '23:59'}:00` : undefined;
+    let dueDatetime: string | undefined;
+    if (dueDate) {
+      const localDate = new Date(`${dueDate}T${dueTime || '23:59'}:00`);
+      dueDatetime = localDate.toISOString();
+    }
 
     try {
       await createTask.mutateAsync({

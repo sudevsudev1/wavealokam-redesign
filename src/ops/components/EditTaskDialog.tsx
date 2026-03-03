@@ -21,8 +21,16 @@ export default function EditTaskDialog({ task }: { task: OpsTask }) {
   const [description, setDescription] = useState(task.description_en || task.description_original || '');
   const [category, setCategory] = useState(task.category);
   const [priority, setPriority] = useState(task.priority);
-  const [dueDate, setDueDate] = useState(task.due_datetime ? task.due_datetime.slice(0, 10) : '');
-  const [dueTime, setDueTime] = useState(task.due_datetime ? task.due_datetime.slice(11, 16) : '');
+  const [dueDate, setDueDate] = useState(() => {
+    if (!task.due_datetime) return '';
+    const d = new Date(task.due_datetime);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [dueTime, setDueTime] = useState(() => {
+    if (!task.due_datetime) return '';
+    const d = new Date(task.due_datetime);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
   const [assignedTo, setAssignedTo] = useState<string[]>(task.assigned_to);
   const [proofRequired, setProofRequired] = useState(task.proof_required);
   const [receiptRequired, setReceiptRequired] = useState(task.receipt_required);
@@ -32,8 +40,14 @@ export default function EditTaskDialog({ task }: { task: OpsTask }) {
     setDescription(task.description_en || task.description_original || '');
     setCategory(task.category);
     setPriority(task.priority);
-    setDueDate(task.due_datetime ? task.due_datetime.slice(0, 10) : '');
-    setDueTime(task.due_datetime ? task.due_datetime.slice(11, 16) : '');
+    if (task.due_datetime) {
+      const d = new Date(task.due_datetime);
+      setDueDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      setDueTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+    } else {
+      setDueDate('');
+      setDueTime('');
+    }
     setAssignedTo(task.assigned_to);
     setProofRequired(task.proof_required);
     setReceiptRequired(task.receipt_required);
@@ -46,7 +60,11 @@ export default function EditTaskDialog({ task }: { task: OpsTask }) {
       return;
     }
 
-    const dueDatetime = dueDate ? `${dueDate}T${dueTime || '23:59'}:00` : null;
+    let dueDatetime: string | null = null;
+    if (dueDate) {
+      const localDate = new Date(`${dueDate}T${dueTime || '23:59'}:00`);
+      dueDatetime = localDate.toISOString();
+    }
 
     // Re-translate title/description if changed
     const titleMl = await translateText(title.trim(), 'en', 'ml');
