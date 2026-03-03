@@ -13,6 +13,7 @@ import GuestLogPage from './pages/GuestLogPage';
 import GuestSelfCheckIn from './pages/GuestSelfCheckIn';
 import ShiftPunchPage from './pages/ShiftPunchPage';
 import DailyReportPage from './pages/DailyReportPage';
+import AdminConsolePage from './pages/AdminConsolePage';
 
 function OpsLoginGuard() {
   const { session, profile, loading } = useOpsAuth();
@@ -45,7 +46,7 @@ export default function OpsApp() {
               <Route path="guest-log" element={<GuestLogPage />} />
               <Route path="shift-punch" element={<ShiftPunchPage />} />
               <Route path="daily-report" element={<DailyReportPage />} />
-              <Route path="admin" element={<OpsPlaceholder titleKey="nav.adminConsole" />} />
+              <Route path="admin" element={<AdminConsolePage />} />
             </Route>
           </Routes>
         </OpsOfflineProvider>
