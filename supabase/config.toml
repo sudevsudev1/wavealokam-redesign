@@ -35,3 +35,12 @@ verify_jwt = false
 
 [functions.ops-translate]
 verify_jwt = false
+
+[functions.ops-vector]
+verify_jwt = false
+
+[functions.ops-create-staff]
+verify_jwt = false
+
+[functions.ops-vector-daily-report]
+verify_jwt = false

@@ -4,6 +4,7 @@ import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import LanguageToggle from './LanguageToggle';
 import NetworkStatus from './NetworkStatus';
+import VectorDock from './VectorDock';
 import { Button } from '@/components/ui/button';
 import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
@@ -105,6 +106,9 @@ export default function OpsLayout() {
       <main className="flex-1 p-3 max-w-7xl w-full mx-auto overflow-x-hidden">
         <Outlet />
       </main>
+
+      {/* Vector AI Dock */}
+      <VectorDock />
     </div>
   );
 }
