@@ -89,11 +89,11 @@ export default function TaskRow({ task }: { task: OpsTask }) {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={`text-[10px] ${priorityColors[task.priority] || ''}`} variant="secondary">{task.priority}</Badge>
-            {isOverdue && <AlertTriangle className="h-3 w-3 text-destructive" />}
-            <span className="font-medium text-xs truncate">{title}</span>
+            <Badge className={`text-xs ${priorityColors[task.priority] || ''}`} variant="secondary">{task.priority}</Badge>
+            {isOverdue && <AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
+            <span className="font-semibold text-sm truncate">{title}</span>
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-foreground/60 flex-wrap">
             <span>{task.category}</span>
             {task.due_datetime && (
               <span className="flex items-center gap-0.5">
