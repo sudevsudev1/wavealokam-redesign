@@ -482,6 +482,243 @@ export type Database = {
           },
         ]
       }
+      ops_task_attachments: {
+        Row: {
+          amount: number | null
+          bill_date: string | null
+          branch_id: string
+          file_url: string
+          id: string
+          tags: string[] | null
+          task_id: string
+          type: string
+          uploaded_at: string
+          uploaded_by: string
+          vendor: string | null
+        }
+        Insert: {
+          amount?: number | null
+          bill_date?: string | null
+          branch_id: string
+          file_url: string
+          id?: string
+          tags?: string[] | null
+          task_id: string
+          type?: string
+          uploaded_at?: string
+          uploaded_by: string
+          vendor?: string | null
+        }
+        Update: {
+          amount?: number | null
+          bill_date?: string | null
+          branch_id?: string
+          file_url?: string
+          id?: string
+          tags?: string[] | null
+          task_id?: string
+          type?: string
+          uploaded_at?: string
+          uploaded_by?: string
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_task_attachments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_task_library: {
+        Row: {
+          branch_id: string
+          category: string
+          created_at: string
+          created_by: string
+          default_assignees: string[] | null
+          default_due_rule_json: Json | null
+          default_priority: string
+          description_en: string | null
+          id: string
+          is_active: boolean
+          proof_required_default: boolean
+          receipt_required_default: boolean
+          title_en: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          category?: string
+          created_at?: string
+          created_by: string
+          default_assignees?: string[] | null
+          default_due_rule_json?: Json | null
+          default_priority?: string
+          description_en?: string | null
+          id?: string
+          is_active?: boolean
+          proof_required_default?: boolean
+          receipt_required_default?: boolean
+          title_en: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          default_assignees?: string[] | null
+          default_due_rule_json?: Json | null
+          default_priority?: string
+          description_en?: string | null
+          id?: string
+          is_active?: boolean
+          proof_required_default?: boolean
+          receipt_required_default?: boolean
+          title_en?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_task_library_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_tasks: {
+        Row: {
+          assigned_to: string[]
+          blocked_reason_code: string | null
+          blocked_reason_text_en: string | null
+          blocked_reason_text_ml: string | null
+          blocked_reason_text_original: string | null
+          branch_id: string
+          category: string
+          completion_notes_en: string | null
+          completion_notes_ml: string | null
+          completion_notes_original: string | null
+          created_at: string
+          created_by: string
+          description_en: string | null
+          description_ml: string | null
+          description_original: string | null
+          due_datetime: string | null
+          id: string
+          original_language: string
+          priority: string
+          proof_required: boolean
+          receipt_required: boolean
+          related_inventory_item_id: string | null
+          related_room_id: string | null
+          status: string
+          tags: string[] | null
+          template_id: string | null
+          title_en: string | null
+          title_ml: string | null
+          title_original: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string[]
+          blocked_reason_code?: string | null
+          blocked_reason_text_en?: string | null
+          blocked_reason_text_ml?: string | null
+          blocked_reason_text_original?: string | null
+          branch_id: string
+          category?: string
+          completion_notes_en?: string | null
+          completion_notes_ml?: string | null
+          completion_notes_original?: string | null
+          created_at?: string
+          created_by: string
+          description_en?: string | null
+          description_ml?: string | null
+          description_original?: string | null
+          due_datetime?: string | null
+          id?: string
+          original_language?: string
+          priority?: string
+          proof_required?: boolean
+          receipt_required?: boolean
+          related_inventory_item_id?: string | null
+          related_room_id?: string | null
+          status?: string
+          tags?: string[] | null
+          template_id?: string | null
+          title_en?: string | null
+          title_ml?: string | null
+          title_original: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string[]
+          blocked_reason_code?: string | null
+          blocked_reason_text_en?: string | null
+          blocked_reason_text_ml?: string | null
+          blocked_reason_text_original?: string | null
+          branch_id?: string
+          category?: string
+          completion_notes_en?: string | null
+          completion_notes_ml?: string | null
+          completion_notes_original?: string | null
+          created_at?: string
+          created_by?: string
+          description_en?: string | null
+          description_ml?: string | null
+          description_original?: string | null
+          due_datetime?: string | null
+          id?: string
+          original_language?: string
+          priority?: string
+          proof_required?: boolean
+          receipt_required?: boolean
+          related_inventory_item_id?: string | null
+          related_room_id?: string | null
+          status?: string
+          tags?: string[] | null
+          template_id?: string | null
+          title_en?: string | null
+          title_ml?: string | null
+          title_original?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tasks_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tasks_related_room_id_fkey"
+            columns: ["related_room_id"]
+            isOneToOne: false
+            referencedRelation: "ops_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tasks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ops_task_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_user_profiles: {
         Row: {
           branch_id: string
