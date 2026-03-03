@@ -14,6 +14,7 @@ import GuestSelfCheckIn from './pages/GuestSelfCheckIn';
 import ShiftPunchPage from './pages/ShiftPunchPage';
 import DailyReportPage from './pages/DailyReportPage';
 import AdminConsolePage from './pages/AdminConsolePage';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 function OpsLoginGuard() {
   const { session, profile, loading } = useOpsAuth();
@@ -49,6 +50,7 @@ export default function OpsApp() {
               <Route path="admin" element={<AdminConsolePage />} />
             </Route>
           </Routes>
+          <PwaInstallPrompt />
         </OpsOfflineProvider>
       </OpsLanguageProvider>
     </OpsAuthProvider>
