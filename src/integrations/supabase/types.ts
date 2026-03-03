@@ -947,6 +947,113 @@ export type Database = {
           },
         ]
       }
+      ops_shift_breaks: {
+        Row: {
+          branch_id: string
+          break_end: string | null
+          break_start: string
+          break_type: string
+          id: string
+          shift_id: string
+        }
+        Insert: {
+          branch_id: string
+          break_end?: string | null
+          break_start?: string
+          break_type?: string
+          id?: string
+          shift_id: string
+        }
+        Update: {
+          branch_id?: string
+          break_end?: string | null
+          break_start?: string
+          break_type?: string
+          id?: string
+          shift_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_shift_breaks_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_shift_breaks_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "ops_shift_punches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_shift_punches: {
+        Row: {
+          branch_id: string
+          clock_in_at: string
+          clock_in_lat: number | null
+          clock_in_lng: number | null
+          clock_out_at: string | null
+          clock_out_lat: number | null
+          clock_out_lng: number | null
+          created_at: string
+          flag_reason: string | null
+          flag_type: string | null
+          id: string
+          notes: string | null
+          status: string
+          total_break_minutes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branch_id: string
+          clock_in_at?: string
+          clock_in_lat?: number | null
+          clock_in_lng?: number | null
+          clock_out_at?: string | null
+          clock_out_lat?: number | null
+          clock_out_lng?: number | null
+          created_at?: string
+          flag_reason?: string | null
+          flag_type?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          total_break_minutes?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branch_id?: string
+          clock_in_at?: string
+          clock_in_lat?: number | null
+          clock_in_lng?: number | null
+          clock_out_at?: string | null
+          clock_out_lat?: number | null
+          clock_out_lng?: number | null
+          created_at?: string
+          flag_reason?: string | null
+          flag_type?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          total_break_minutes?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_shift_punches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_task_attachments: {
         Row: {
           amount: number | null
