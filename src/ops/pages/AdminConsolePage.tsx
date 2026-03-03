@@ -17,11 +17,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import {
   Settings, Users, MapPin, FileText, ScrollText,
-  Loader2, Edit, Save, Shield, ShieldCheck, ChevronDown, ChevronUp,
+  Loader2, Edit, Save, Shield, ShieldCheck, ChevronDown, ChevronUp, UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Navigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function AdminConsolePage() {
   const { isAdmin } = useOpsAuth();
@@ -53,13 +54,14 @@ export default function AdminConsolePage() {
 
 /* ─── User Management ─── */
 function UserManagement() {
-  const { data: profiles, isLoading } = useOpsProfiles();
+  const { data: profiles, isLoading, refetch } = useOpsProfiles();
   const updateProfile = useUpdateProfile();
 
   if (isLoading) return <LoadingCard />;
 
   return (
     <div className="space-y-2 mt-3">
+      <CreateStaffDialog onCreated={refetch} />
       {(profiles || []).map(p => (
         <UserCard key={p.id} profile={p} onUpdate={updateProfile} />
       ))}
@@ -67,6 +69,105 @@ function UserManagement() {
         <Card><CardContent className="py-6 text-center text-xs text-foreground/50">No user profiles</CardContent></Card>
       )}
     </div>
+  );
+}
+
+function CreateStaffDialog({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [role, setRole] = useState<string>('manager');
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = async () => {
+    if (!userId.trim() || !password.trim() || !displayName.trim()) {
+      toast.error('All fields are required');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ops-create-staff', {
+        body: { userId: userId.trim(), password, displayName: displayName.trim(), role },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Staff account created: ${data.email}`);
+      setOpen(false);
+      setUserId('');
+      setPassword('');
+      setDisplayName('');
+      setRole('manager');
+      onCreated();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to create staff account');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="w-full gap-1.5">
+          <UserPlus className="h-3.5 w-3.5" /> Add Staff Member
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm">Create Staff Account</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-foreground/60 mb-1 block">User ID</label>
+            <Input
+              value={userId}
+              onChange={e => setUserId(e.target.value)}
+              placeholder="e.g. john_ops"
+              className="text-sm"
+            />
+            <p className="text-[10px] text-foreground/40 mt-0.5">Will become john_ops@ops.wavealokam.com</p>
+          </div>
+          <div>
+            <label className="text-xs text-foreground/60 mb-1 block">Display Name</label>
+            <Input
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              placeholder="e.g. John"
+              className="text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-foreground/60 mb-1 block">Initial Password</label>
+            <Input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Min 6 characters"
+              className="text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-foreground/60 mb-1 block">Role</label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button className="w-full gap-1.5" onClick={handleCreate} disabled={creating}>
+            {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+            Create Account
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
