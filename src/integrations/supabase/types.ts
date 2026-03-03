@@ -449,87 +449,129 @@ export type Database = {
       }
       ops_guest_log: {
         Row: {
+          address: string | null
           adults: number
           approval_status: string | null
           approved_at: string | null
           approved_by: string | null
+          arriving_from: string | null
           branch_id: string
           check_in_at: string
           check_out_at: string | null
           check_out_by: string | null
           checked_in_by: string
           children: number
+          city: string | null
           created_at: string
+          date_of_birth: string | null
           email: string | null
+          evisa_number: string | null
           expected_check_out: string | null
           guest_name: string
+          guest_type: string
+          heading_to: string | null
           id: string
           id_proof_type: string | null
           id_proof_url: string | null
+          nationality: string | null
           notes: string | null
+          number_of_nights: number | null
+          passport_number: string | null
+          payment_mode: string | null
           phone: string | null
+          pincode: string | null
           purpose: string | null
           room_id: string | null
           share_token: string | null
           source: string | null
+          state: string | null
           status: string
           submission_source: string
+          transaction_id: string | null
           updated_at: string
         }
         Insert: {
+          address?: string | null
           adults?: number
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          arriving_from?: string | null
           branch_id: string
           check_in_at?: string
           check_out_at?: string | null
           check_out_by?: string | null
           checked_in_by: string
           children?: number
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email?: string | null
+          evisa_number?: string | null
           expected_check_out?: string | null
           guest_name: string
+          guest_type?: string
+          heading_to?: string | null
           id?: string
           id_proof_type?: string | null
           id_proof_url?: string | null
+          nationality?: string | null
           notes?: string | null
+          number_of_nights?: number | null
+          passport_number?: string | null
+          payment_mode?: string | null
           phone?: string | null
+          pincode?: string | null
           purpose?: string | null
           room_id?: string | null
           share_token?: string | null
           source?: string | null
+          state?: string | null
           status?: string
           submission_source?: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Update: {
+          address?: string | null
           adults?: number
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          arriving_from?: string | null
           branch_id?: string
           check_in_at?: string
           check_out_at?: string | null
           check_out_by?: string | null
           checked_in_by?: string
           children?: number
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email?: string | null
+          evisa_number?: string | null
           expected_check_out?: string | null
           guest_name?: string
+          guest_type?: string
+          heading_to?: string | null
           id?: string
           id_proof_type?: string | null
           id_proof_url?: string | null
+          nationality?: string | null
           notes?: string | null
+          number_of_nights?: number | null
+          passport_number?: string | null
+          payment_mode?: string | null
           phone?: string | null
+          pincode?: string | null
           purpose?: string | null
           room_id?: string | null
           share_token?: string | null
           source?: string | null
+          state?: string | null
           status?: string
           submission_source?: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
