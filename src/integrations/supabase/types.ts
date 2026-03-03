@@ -450,6 +450,9 @@ export type Database = {
       ops_guest_log: {
         Row: {
           adults: number
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
           branch_id: string
           check_in_at: string
           check_out_at: string | null
@@ -467,12 +470,17 @@ export type Database = {
           phone: string | null
           purpose: string | null
           room_id: string | null
+          share_token: string | null
           source: string | null
           status: string
+          submission_source: string
           updated_at: string
         }
         Insert: {
           adults?: number
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           branch_id: string
           check_in_at?: string
           check_out_at?: string | null
@@ -490,12 +498,17 @@ export type Database = {
           phone?: string | null
           purpose?: string | null
           room_id?: string | null
+          share_token?: string | null
           source?: string | null
           status?: string
+          submission_source?: string
           updated_at?: string
         }
         Update: {
           adults?: number
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           branch_id?: string
           check_in_at?: string
           check_out_at?: string | null
@@ -513,8 +526,10 @@ export type Database = {
           phone?: string | null
           purpose?: string | null
           room_id?: string | null
+          share_token?: string | null
           source?: string | null
           status?: string
+          submission_source?: string
           updated_at?: string
         }
         Relationships: [

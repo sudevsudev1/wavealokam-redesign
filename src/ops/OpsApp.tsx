@@ -10,6 +10,7 @@ import OpsPlaceholder from './pages/OpsPlaceholder';
 import InventoryPage from './pages/InventoryPage';
 import PurchasePage from './pages/PurchasePage';
 import GuestLogPage from './pages/GuestLogPage';
+import GuestSelfCheckIn from './pages/GuestSelfCheckIn';
 
 function OpsLoginGuard() {
   const { session, profile, loading } = useOpsAuth();
@@ -33,6 +34,7 @@ export default function OpsApp() {
         <OpsOfflineProvider>
           <Routes>
             <Route index element={<OpsLoginGuard />} />
+            <Route path="guest-form" element={<GuestSelfCheckIn />} />
             <Route element={<OpsLayout />}>
               <Route path="home" element={<OpsHome />} />
               <Route path="tasks" element={<TasksPage />} />
