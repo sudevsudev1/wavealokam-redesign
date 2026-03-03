@@ -447,6 +447,93 @@ export type Database = {
           },
         ]
       }
+      ops_guest_log: {
+        Row: {
+          adults: number
+          branch_id: string
+          check_in_at: string
+          check_out_at: string | null
+          check_out_by: string | null
+          checked_in_by: string
+          children: number
+          created_at: string
+          email: string | null
+          expected_check_out: string | null
+          guest_name: string
+          id: string
+          id_proof_type: string | null
+          id_proof_url: string | null
+          notes: string | null
+          phone: string | null
+          purpose: string | null
+          room_id: string | null
+          source: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          adults?: number
+          branch_id: string
+          check_in_at?: string
+          check_out_at?: string | null
+          check_out_by?: string | null
+          checked_in_by: string
+          children?: number
+          created_at?: string
+          email?: string | null
+          expected_check_out?: string | null
+          guest_name: string
+          id?: string
+          id_proof_type?: string | null
+          id_proof_url?: string | null
+          notes?: string | null
+          phone?: string | null
+          purpose?: string | null
+          room_id?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          adults?: number
+          branch_id?: string
+          check_in_at?: string
+          check_out_at?: string | null
+          check_out_by?: string | null
+          checked_in_by?: string
+          children?: number
+          created_at?: string
+          email?: string | null
+          expected_check_out?: string | null
+          guest_name?: string
+          id?: string
+          id_proof_type?: string | null
+          id_proof_url?: string | null
+          notes?: string | null
+          phone?: string | null
+          purpose?: string | null
+          room_id?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_guest_log_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_guest_log_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "ops_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_inventory_expiry: {
         Row: {
           batch_label: string | null
