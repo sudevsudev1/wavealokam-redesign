@@ -25,6 +25,23 @@ export interface GuestEntry {
   status: string;
   created_at: string;
   updated_at: string;
+  guest_type: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
+  arriving_from: string | null;
+  heading_to: string | null;
+  date_of_birth: string | null;
+  passport_number: string | null;
+  evisa_number: string | null;
+  nationality: string | null;
+  payment_mode: string | null;
+  transaction_id: string | null;
+  number_of_nights: number | null;
+  submission_source: string;
+  approval_status: string | null;
+  share_token: string | null;
 }
 
 export function useGuestLog(statusFilter?: string) {
@@ -59,25 +76,41 @@ export function useGuestLog(statusFilter?: string) {
   return query;
 }
 
+export interface CheckInPayload {
+  guest_name: string;
+  guest_type: string;
+  phone?: string;
+  email?: string;
+  adults: number;
+  children: number;
+  room_id?: string;
+  id_proof_type?: string;
+  id_proof_file?: File;
+  purpose?: string;
+  source?: string;
+  expected_check_out?: string;
+  notes?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  arriving_from?: string;
+  heading_to?: string;
+  date_of_birth?: string;
+  passport_number?: string;
+  evisa_number?: string;
+  nationality?: string;
+  payment_mode?: string;
+  transaction_id?: string;
+  number_of_nights?: number;
+}
+
 export function useCheckIn() {
   const queryClient = useQueryClient();
   const { profile } = useOpsAuth();
 
   return useMutation({
-    mutationFn: async (guest: {
-      guest_name: string;
-      phone?: string;
-      email?: string;
-      adults: number;
-      children: number;
-      room_id?: string;
-      id_proof_type?: string;
-      id_proof_file?: File;
-      purpose?: string;
-      source?: string;
-      expected_check_out?: string;
-      notes?: string;
-    }) => {
+    mutationFn: async (guest: CheckInPayload) => {
       if (!profile) throw new Error('Not authenticated');
 
       let idProofUrl: string | null = null;
@@ -94,6 +127,7 @@ export function useCheckIn() {
       const { data, error } = await supabase.from('ops_guest_log').insert({
         branch_id: profile.branchId,
         guest_name: guest.guest_name,
+        guest_type: guest.guest_type,
         phone: guest.phone || null,
         email: guest.email || null,
         adults: guest.adults,
@@ -106,6 +140,19 @@ export function useCheckIn() {
         expected_check_out: guest.expected_check_out || null,
         notes: guest.notes || null,
         checked_in_by: profile.userId,
+        address: guest.address || null,
+        city: guest.city || null,
+        state: guest.state || null,
+        pincode: guest.pincode || null,
+        arriving_from: guest.arriving_from || null,
+        heading_to: guest.heading_to || null,
+        date_of_birth: guest.date_of_birth || null,
+        passport_number: guest.passport_number || null,
+        evisa_number: guest.evisa_number || null,
+        nationality: guest.nationality || null,
+        payment_mode: guest.payment_mode || null,
+        transaction_id: guest.transaction_id || null,
+        number_of_nights: guest.number_of_nights || null,
       } as any).select().single();
 
       if (error) throw error;
