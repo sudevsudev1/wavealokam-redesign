@@ -80,19 +80,19 @@ export default function TaskRow({ task }: { task: OpsTask }) {
     : TASK_STATUSES.filter(s => s !== 'Cancelled');
 
   return (
-    <div className={`border rounded-lg p-3 space-y-2 ${isOverdue ? 'border-destructive/50 bg-destructive/5' : 'border-border'}`}>
+    <div className={`border rounded-lg p-2.5 space-y-1.5 ${isOverdue ? 'border-destructive/50 bg-destructive/5' : 'border-border'}`}>
       {/* Top row */}
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-1.5">
         <button onClick={() => setExpanded(!expanded)} className="mt-1 shrink-0">
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={priorityColors[task.priority] || ''} variant="secondary">{task.priority}</Badge>
-            {isOverdue && <AlertTriangle className="h-4 w-4 text-destructive" />}
-            <span className="font-medium text-sm truncate">{title}</span>
+            <Badge className={`text-[10px] ${priorityColors[task.priority] || ''}`} variant="secondary">{task.priority}</Badge>
+            {isOverdue && <AlertTriangle className="h-3 w-3 text-destructive" />}
+            <span className="font-medium text-xs truncate">{title}</span>
           </div>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
             <span>{task.category}</span>
             {task.due_datetime && (
               <span className="flex items-center gap-0.5">
@@ -104,7 +104,7 @@ export default function TaskRow({ task }: { task: OpsTask }) {
           </div>
         </div>
         <Select value={task.status} onValueChange={handleStatusChange}>
-          <SelectTrigger className="w-28 h-8 text-xs">
+          <SelectTrigger className="w-24 h-7 text-[10px] shrink-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
