@@ -257,12 +257,26 @@ function TaskAttachments({ taskId }: { taskId: string }) {
                   <p className="text-[10px] font-semibold text-foreground/70 flex items-center gap-1">
                     <Camera className="h-3 w-3" /> Photo Verification
                   </p>
-                  {a.photo_taken_at && (
-                    <p className="text-[10px] text-foreground/60 flex items-center gap-1">
-                      <Clock className="h-2.5 w-2.5" />
-                      Taken: {format(new Date(a.photo_taken_at), 'MMM d, yyyy HH:mm:ss')}
-                    </p>
-                  )}
+                  {a.photo_taken_at && (() => {
+                    const takenDate = new Date(a.photo_taken_at!);
+                    const uploadDate = new Date(a.upload_timestamp || a.uploaded_at);
+                    const hoursDiff = (uploadDate.getTime() - takenDate.getTime()) / (1000 * 60 * 60);
+                    const isStale = hoursDiff > 24;
+                    return (
+                      <>
+                        <p className={`text-[10px] flex items-center gap-1 ${isStale ? 'text-destructive font-semibold' : 'text-foreground/60'}`}>
+                          <Clock className="h-2.5 w-2.5" />
+                          Taken: {format(takenDate, 'MMM d, yyyy HH:mm:ss')}
+                        </p>
+                        {isStale && (
+                          <p className="text-[10px] text-destructive bg-destructive/10 rounded px-1.5 py-1 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            ⚠ Photo taken {Math.round(hoursDiff)}h before upload — possible old photo reuse
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                   {a.photo_lat && a.photo_lng && (
                     <a
                       href={`https://maps.google.com/?q=${a.photo_lat},${a.photo_lng}`}
