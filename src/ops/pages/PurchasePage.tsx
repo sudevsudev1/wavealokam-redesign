@@ -1,13 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
-import { useInventoryItems, usePurchaseOrders, usePurchaseOrderItems, useCreatePurchaseOrder, useUpdatePurchaseOrder } from '../hooks/useInventory';
+import { useInventoryItems, usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
 import { ORDER_STATUS_COLORS } from '../lib/inventoryConstants';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -113,7 +112,6 @@ export default function PurchasePage() {
     }
   };
 
-  // Items needing reorder
   const reorderItems = items.filter((i) => i.current_stock <= i.reorder_point);
 
   if (isLoading) {
@@ -125,26 +123,25 @@ export default function PurchasePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">{t('purchase.title')}</h1>
+        <h1 className="text-base font-bold">{t('purchase.title')}</h1>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button size="sm"><Plus className="h-4 w-4 mr-1" />{t('purchase.newOrder')}</Button>
+            <Button size="sm" className="text-xs"><Plus className="h-3.5 w-3.5 mr-1" />{t('purchase.newOrder')}</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{t('purchase.newOrder')}</DialogTitle></DialogHeader>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader><DialogTitle className="text-sm">{t('purchase.newOrder')}</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              {/* Quick add from reorder items */}
               {reorderItems.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">{t('purchase.suggestedItems')}</p>
+                  <p className="text-[10px] font-medium text-muted-foreground mb-1">{t('purchase.suggestedItems')}</p>
                   <div className="space-y-1">
                     {reorderItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between text-sm p-2 rounded bg-orange-50 border border-orange-200">
-                        <span>{getName(item.id)} <span className="text-xs text-muted-foreground">({item.current_stock}/{item.par_level})</span></span>
-                        <Button size="sm" variant="outline" onClick={() => addToCart(item.id)} className="h-7">
+                      <div key={item.id} className="flex items-center justify-between text-xs p-2 rounded bg-orange-50 border border-orange-200">
+                        <span className="truncate mr-2">{getName(item.id)} <span className="text-muted-foreground">({item.current_stock}/{item.par_level})</span></span>
+                        <Button size="sm" variant="outline" onClick={() => addToCart(item.id)} className="h-6 w-6 p-0 shrink-0">
                           <Plus className="h-3 w-3" />
                         </Button>
                       </div>
@@ -153,9 +150,8 @@ export default function PurchasePage() {
                 </div>
               )}
 
-              {/* All items select */}
               <Select onValueChange={(val) => addToCart(val)}>
-                <SelectTrigger><SelectValue placeholder={t('purchase.addItem')} /></SelectTrigger>
+                <SelectTrigger className="text-xs"><SelectValue placeholder={t('purchase.addItem')} /></SelectTrigger>
                 <SelectContent>
                   {items.map((i) => (
                     <SelectItem key={i.id} value={i.id}>
@@ -165,21 +161,20 @@ export default function PurchasePage() {
                 </SelectContent>
               </Select>
 
-              {/* Cart */}
               {cart.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-xs font-medium">{t('purchase.cart')} ({cart.length})</p>
+                  <p className="text-[10px] font-medium">{t('purchase.cart')} ({cart.length})</p>
                   {cart.map((c) => (
-                    <div key={c.item_id} className="flex items-center justify-between text-sm p-2 border rounded">
-                      <span>{getName(c.item_id)}</span>
-                      <div className="flex items-center gap-2">
+                    <div key={c.item_id} className="flex items-center justify-between text-xs p-2 border rounded">
+                      <span className="truncate mr-2">{getName(c.item_id)}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <Input
                           type="number" min="1" value={c.quantity}
                           onChange={(e) => setCart(cart.map((x) => x.item_id === c.item_id ? { ...x, quantity: parseInt(e.target.value) || 1 } : x))}
-                          className="w-16 h-7 text-center"
+                          className="w-14 h-7 text-center text-xs"
                         />
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeFromCart(c.item_id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.item_id)}>
+                          <Trash2 className="h-3 w-3 text-destructive" />
                         </Button>
                       </div>
                     </div>
@@ -187,7 +182,7 @@ export default function PurchasePage() {
                 </div>
               )}
 
-              <Button onClick={handleCreateOrder} disabled={cart.length === 0 || createOrder.isPending} className="w-full">
+              <Button onClick={handleCreateOrder} disabled={cart.length === 0 || createOrder.isPending} className="w-full text-xs">
                 {createOrder.isPending ? '...' : t('purchase.submitOrder')}
               </Button>
             </div>
@@ -195,102 +190,90 @@ export default function PurchasePage() {
         </Dialog>
       </div>
 
-      {/* Orders list */}
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('purchase.orderId')}</TableHead>
-              <TableHead>{t('purchase.requestedBy')}</TableHead>
-              <TableHead>{t('purchase.date')}</TableHead>
-              <TableHead className="text-center">{t('purchase.status')}</TableHead>
-              <TableHead className="text-right">{t('inv.actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-mono text-xs">{order.id.slice(0, 8)}</TableCell>
-                <TableCell className="text-sm">{getProfileName(order.requested_by)}</TableCell>
-                <TableCell className="text-sm">{format(parseISO(order.created_at), 'dd MMM')}</TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="outline" className={`text-xs ${ORDER_STATUS_COLORS[order.status] || ''}`}>
-                    {order.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1 flex-wrap">
-                    {isAdmin && order.status === 'Requested' && (
-                      <>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleStatusChange(order.id, 'Approved')}>
-                          {t('purchase.approve')}
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => handleStatusChange(order.id, 'Cancelled')}>
-                          {t('purchase.cancel')}
-                        </Button>
-                      </>
-                    )}
-                    {isAdmin && order.status === 'Approved' && (
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleStatusChange(order.id, 'Ordered')}>
-                        {t('purchase.markOrdered')}
-                      </Button>
-                    )}
-                    {order.status === 'Ordered' && (
-                      <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => setSelectedOrder(order.id)}>
-                        <Camera className="h-3 w-3 mr-1" />{t('purchase.receive')}
-                      </Button>
-                    )}
-                    {order.status === 'Received' && order.receive_proof_url && (
-                      <Button size="sm" variant="ghost" className="h-7 text-xs" asChild>
-                        <a href={order.receive_proof_url} target="_blank" rel="noopener noreferrer">
-                          <CheckCircle className="h-3 w-3 mr-1" />{t('purchase.viewProof')}
-                        </a>
-                      </Button>
-                    )}
+      {/* Orders list - mobile card layout */}
+      <div className="space-y-2">
+        {orders.map((order) => (
+          <Card key={order.id}>
+            <CardContent className="p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono text-[10px] text-muted-foreground">{order.id.slice(0, 8)}</span>
+                    <Badge variant="outline" className={`text-[10px] ${ORDER_STATUS_COLORS[order.status] || ''}`}>
+                      {order.status}
+                    </Badge>
                   </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {orders.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{t('purchase.noOrders')}</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                  <p className="text-xs mt-0.5">{getProfileName(order.requested_by)} · {format(parseISO(order.created_at), 'dd MMM')}</p>
+                </div>
+                <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                  {isAdmin && order.status === 'Requested' && (
+                    <>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleStatusChange(order.id, 'Approved')}>
+                        {t('purchase.approve')}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-destructive" onClick={() => handleStatusChange(order.id, 'Cancelled')}>
+                        ✕
+                      </Button>
+                    </>
+                  )}
+                  {isAdmin && order.status === 'Approved' && (
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleStatusChange(order.id, 'Ordered')}>
+                      {t('purchase.markOrdered')}
+                    </Button>
+                  )}
+                  {order.status === 'Ordered' && (
+                    <Button size="sm" variant="default" className="h-6 text-[10px] px-2" onClick={() => setSelectedOrder(order.id)}>
+                      <Camera className="h-3 w-3 mr-1" />{t('purchase.receive')}
+                    </Button>
+                  )}
+                  {order.status === 'Received' && order.receive_proof_url && (
+                    <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" asChild>
+                      <a href={order.receive_proof_url} target="_blank" rel="noopener noreferrer">
+                        <CheckCircle className="h-3 w-3 mr-1" />Proof
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {orders.length === 0 && (
+          <div className="text-center text-muted-foreground py-8 text-sm">{t('purchase.noOrders')}</div>
+        )}
+      </div>
 
       {/* Receive Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('purchase.receiveOrder')}</DialogTitle>
+            <DialogTitle className="text-sm">{t('purchase.receiveOrder')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium">{t('purchase.proofPhoto')} *</label>
+              <label className="text-xs font-medium">{t('purchase.proofPhoto')} *</label>
               <Input
-                type="file"
-                accept="image/*"
-                capture="environment"
+                type="file" accept="image/*" capture="environment"
                 onChange={(e) => setReceiveProofFile(e.target.files?.[0] || null)}
-                className="mt-1"
+                className="mt-1 text-xs"
               />
               {!receiveProofFile && (
-                <p className="text-xs text-destructive mt-1">{t('purchase.proofRequired')}</p>
+                <p className="text-[10px] text-destructive mt-1">{t('purchase.proofRequired')}</p>
               )}
             </div>
             <div>
-              <label className="text-sm font-medium">{t('purchase.notes')}</label>
+              <label className="text-xs font-medium">{t('purchase.notes')}</label>
               <Input
                 value={receiveNotes}
                 onChange={(e) => setReceiveNotes(e.target.value)}
                 placeholder={t('purchase.notesPlaceholder')}
-                className="mt-1"
+                className="mt-1 text-xs"
               />
             </div>
             <Button
               onClick={() => selectedOrder && handleReceive(selectedOrder)}
               disabled={!receiveProofFile || updateOrder.isPending}
-              className="w-full"
+              className="w-full text-xs"
             >
               {updateOrder.isPending ? '...' : t('purchase.confirmReceive')}
             </Button>

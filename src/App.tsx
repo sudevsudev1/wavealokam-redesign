@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import ScrollToTop from "./components/ScrollToTop";
 import ChatBot from "./components/ChatBot";
@@ -25,6 +25,17 @@ import { lazy, Suspense } from "react";
 const OpsApp = lazy(() => import("./ops/OpsApp"));
 
 const queryClient = new QueryClient();
+
+function ConditionalWidgets() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/ops')) return null;
+  return (
+    <>
+      <WhatsAppButton />
+      <ChatBot />
+    </>
+  );
+}
 
 const App = () => (
   <HelmetProvider>
@@ -55,8 +66,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <WhatsAppButton />
-          <ChatBot />
+          <ConditionalWidgets />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

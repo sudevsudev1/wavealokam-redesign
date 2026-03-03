@@ -3,8 +3,9 @@ import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import CreateTaskDialog from '../components/CreateTaskDialog';
 import TaskRow from '../components/TaskRow';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ClipboardList, Loader2 } from 'lucide-react';
 
 export default function TasksPage() {
@@ -19,10 +20,10 @@ export default function TasksPage() {
   const admins = profiles?.filter(p => p.role === 'admin') || [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <ClipboardList className="h-5 w-5 text-primary" />
+        <h1 className="text-base font-bold flex items-center gap-1.5">
+          <ClipboardList className="h-4 w-4 text-primary" />
           {t('nav.tasks')}
         </h1>
         {isAdmin && <CreateTaskDialog />}
@@ -34,16 +35,19 @@ export default function TasksPage() {
         </div>
       ) : isAdmin ? (
         <Tabs defaultValue="my">
-          <TabsList>
-            <TabsTrigger value="my">My Tasks</TabsTrigger>
-            {managers.map(m => (
-              <TabsTrigger key={m.user_id} value={m.user_id}>{m.display_name}</TabsTrigger>
-            ))}
-            {admins.filter(a => a.user_id !== profile?.userId).map(a => (
-              <TabsTrigger key={a.user_id} value={a.user_id}>{a.display_name}</TabsTrigger>
-            ))}
-            <TabsTrigger value="all">All</TabsTrigger>
-          </TabsList>
+          <ScrollArea className="w-full">
+            <TabsList className="w-max">
+              <TabsTrigger value="my" className="text-xs">My Tasks</TabsTrigger>
+              {managers.map(m => (
+                <TabsTrigger key={m.user_id} value={m.user_id} className="text-xs">{m.display_name}</TabsTrigger>
+              ))}
+              {admins.filter(a => a.user_id !== profile?.userId).map(a => (
+                <TabsTrigger key={a.user_id} value={a.user_id} className="text-xs">{a.display_name}</TabsTrigger>
+              ))}
+              <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+            </TabsList>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
           <TabsContent value="my" className="space-y-2 mt-3">
             <TaskList tasks={myTasks} />
@@ -70,14 +74,13 @@ function TaskList({ tasks }: { tasks: ReturnType<typeof useTasks>['data'] extend
   if (!tasks || tasks.length === 0) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+        <CardContent className="py-8 text-center text-xs text-muted-foreground">
           No tasks found
         </CardContent>
       </Card>
     );
   }
 
-  // Sort: Urgent first, then overdue, then by due date
   const sorted = [...tasks].sort((a, b) => {
     const priorityOrder: Record<string, number> = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
     const aOverdue = a.due_datetime && new Date(a.due_datetime) < new Date() && !['Done', 'Cancelled'].includes(a.status) ? -1 : 0;
