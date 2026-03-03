@@ -21,9 +21,10 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["favicon.ico", "ops-icon-192.png", "ops-icon-512.png"],
       manifest: false, // use public/manifest.json
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+      globPatterns: ["**/*.{js,css,html,ico,svg,woff2}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/, /^\/rest/],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/elnybcgxfjzabmrmhcrr\.supabase\.co\/rest\/v1\/.*/i,
