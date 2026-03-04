@@ -233,11 +233,72 @@ const VECTOR_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "create_reminder",
+      description: "Create a reminder for a user. Supports one-time and recurring. For recurring, provide recurrence_rule with type (daily/weekly/monthly), interval, day_of_month, time (HH:MM 24h IST).",
+      parameters: {
+        type: "object",
+        properties: {
+          user_display_name: { type: "string", description: "Who to remind (display name). Use 'me' or the current user if they say 'remind me'" },
+          title: { type: "string", description: "Short reminder title" },
+          description: { type: "string", description: "Longer description (optional)" },
+          reminder_type: { type: "string", description: "one_time or recurring" },
+          fire_at: { type: "string", description: "ISO datetime for when to fire (for one_time or first fire of recurring). Convert IST to UTC." },
+          recurrence_rule: {
+            type: "object",
+            description: "For recurring: { type: 'daily'|'weekly'|'monthly', interval: 1, day_of_month: 1, time: '09:00' }",
+            properties: {
+              type: { type: "string" },
+              interval: { type: "number" },
+              day_of_month: { type: "number" },
+              time: { type: "string" },
+            },
+          },
+        },
+        required: ["user_display_name", "title", "reminder_type", "fire_at"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_reminders",
+      description: "List active reminders for a user or all users. Shows upcoming, past, and follow-up status.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_display_name: { type: "string", description: "Filter by user name (optional)" },
+          status: { type: "string", description: "Filter: active, completed, snoozed, cancelled" },
+          include_completed: { type: "boolean", description: "Include completed reminders" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_reminder",
+      description: "Update a reminder: reschedule, cancel, mark follow-up status, or snooze.",
+      parameters: {
+        type: "object",
+        properties: {
+          reminder_id: { type: "string", description: "Reminder UUID" },
+          action: { type: "string", description: "reschedule, cancel, complete, snooze" },
+          new_fire_at: { type: "string", description: "New fire time (ISO) for reschedule" },
+          follow_up_response: { type: "string", description: "User's response about why it wasn't done" },
+        },
+        required: ["reminder_id", "action"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
 
-async function executeTool(name: string, args: Record<string, unknown>, branchId: string, isAdmin: boolean): Promise<string> {
+async function executeTool(name: string, args: Record<string, unknown>, branchId: string, isAdmin: boolean, userId?: string): Promise<string> {
   const sb = getSupabase();
   
   try {
@@ -625,6 +686,97 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         if (error) return `Error: ${error.message}`;
         return JSON.stringify((data || []).map(p => ({ id: p.id, user_id: p.user_id, name: p.display_name, role: p.role, language: p.preferred_language })), null, 2);
       }
+
+      case "create_reminder": {
+        const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").eq("branch_id", branchId).eq("is_active", true);
+        
+        const searchName = (args.user_display_name as string || "").toLowerCase();
+        let matched: any = null;
+        
+        if (searchName === "me" && userId) {
+          matched = (profiles || []).find(p => p.user_id === userId);
+        } else {
+          matched = (profiles || []).find(p => p.display_name.toLowerCase().includes(searchName));
+        }
+        
+        if (!matched) return `No user found matching "${args.user_display_name}"`;
+
+        const { data: rem, error } = await sb.from("ops_reminders").insert({
+          branch_id: branchId,
+          user_id: matched.user_id,
+          created_by: matched.user_id,
+          title: args.title as string,
+          description: (args.description as string) || null,
+          reminder_type: (args.reminder_type as string) || "one_time",
+          recurrence_rule: args.recurrence_rule || {},
+          next_fire_at: args.fire_at as string,
+          status: "active",
+        }).select().single();
+
+        if (error) return `Error creating reminder: ${error.message}`;
+        return JSON.stringify({
+          success: true,
+          reminder: { id: rem.id, title: rem.title, for_user: matched.display_name, type: rem.reminder_type, next_fire: rem.next_fire_at },
+        }, null, 2);
+      }
+
+      case "get_reminders": {
+        let q = sb.from("ops_reminders").select("*").eq("branch_id", branchId).order("next_fire_at");
+        if (args.status) q = q.eq("status", args.status as string);
+        else if (!args.include_completed) q = q.in("status", ["active", "snoozed"]);
+        
+        const { data, error } = await q.limit(50);
+        if (error) return `Error: ${error.message}`;
+
+        // Resolve names
+        const userIds = [...new Set((data || []).map(r => r.user_id))];
+        const { data: profs } = await sb.from("ops_user_profiles").select("user_id, display_name").in("user_id", userIds);
+        const nameMap = Object.fromEntries((profs || []).map(p => [p.user_id, p.display_name]));
+
+        let results = (data || []).map(r => ({
+          id: r.id, title: r.title, description: r.description,
+          for_user: nameMap[r.user_id] || r.user_id,
+          type: r.reminder_type, status: r.status,
+          next_fire: r.next_fire_at, last_fired: r.last_fired_at,
+          fire_count: r.fire_count, follow_up_status: r.follow_up_status,
+          follow_up_response: r.follow_up_response,
+          recurrence: r.recurrence_rule,
+        }));
+
+        if (args.user_display_name) {
+          const search = (args.user_display_name as string).toLowerCase();
+          results = results.filter(r => (r.for_user as string).toLowerCase().includes(search));
+        }
+
+        return JSON.stringify(results, null, 2);
+      }
+
+      case "update_reminder": {
+        const remId = args.reminder_id as string;
+        const action = args.action as string;
+        const updates: any = { updated_at: new Date().toISOString() };
+
+        if (action === "cancel") updates.status = "cancelled";
+        else if (action === "complete") { updates.follow_up_status = "done"; }
+        else if (action === "snooze") {
+          updates.status = "snoozed";
+          // Snooze for 1 hour by default
+          updates.next_fire_at = new Date(Date.now() + 3600000).toISOString();
+          updates.status = "active";
+        }
+        else if (action === "reschedule") {
+          if (!args.new_fire_at) return "new_fire_at is required for reschedule";
+          updates.next_fire_at = args.new_fire_at;
+          updates.status = "active";
+          updates.follow_up_status = "rescheduled";
+        }
+
+        if (args.follow_up_response) updates.follow_up_response = args.follow_up_response;
+
+        const { error } = await sb.from("ops_reminders").update(updates).eq("id", remId);
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, action, reminder_id: remId });
+      }
       
       default:
         return `Unknown tool: ${name}`;
@@ -732,7 +884,14 @@ When a team member asks about handling a tough guest — this is absolutely your
 - Admins can add notes to your knowledge: you remember and use them in context.
 
 ═══ REMINDERS ═══
-- You can help set reminders for any user. When asked "remind me to..." — confirm the time, who, and what.
+- You can CREATE, LIST, UPDATE, and RESCHEDULE reminders for any user using your tools.
+- When asked "remind me to..." — use create_reminder tool. Convert IST times to UTC (IST = UTC+5:30).
+- "Tomorrow morning" = next day 9:00 AM IST = 03:30 UTC.
+- "First of every month" = recurring monthly, day_of_month: 1.
+- After creating, confirm: what, who, when, recurring or one-time.
+- For "remind me" requests, the user_display_name should match the person chatting. Since you know the user via context, resolve their name.
+- At end of day, you send follow-up notifications for pending reminders. When a user tells you they didn't do it, ask why and when they can — then use update_reminder to reschedule.
+- If a reminder keeps getting postponed (3+ times), gently call it out: "This one keeps sliding. What's actually in the way?"
 
 ═══ LANGUAGE ═══
 - Respond in the language the user writes in. If they write in Malayalam, respond in Malayalam.
@@ -797,7 +956,16 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT;
+    let systemPrompt = mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT;
+
+    // Inject user context for internal mode
+    if (mode !== "guest") {
+      const sb = getSupabase();
+      const { data: callerProfile } = await sb.from("ops_user_profiles").select("display_name, role").eq("user_id", user_id).single();
+      if (callerProfile) {
+        systemPrompt += `\n\n═══ CURRENT USER ═══\nThe person chatting with you right now is: ${callerProfile.display_name} (role: ${callerProfile.role}, user_id: ${user_id}). When they say "remind me" or "my tasks", they mean themselves.`;
+      }
+    }
 
     // Initial AI call with tools
     const aiMessages = [
@@ -843,7 +1011,7 @@ serve(async (req) => {
       for (const tc of assistantMessage.tool_calls) {
         const toolArgs = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
         console.log(`Tool call: ${tc.function.name}`, toolArgs);
-        const toolResult = await executeTool(tc.function.name, toolArgs, branch_id, is_admin);
+        const toolResult = await executeTool(tc.function.name, toolArgs, branch_id, is_admin, user_id);
         toolResults.push({
           role: "tool",
           tool_call_id: tc.id,

@@ -4,6 +4,7 @@ import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import LanguageToggle from './LanguageToggle';
 import NetworkStatus from './NetworkStatus';
+import NotificationBell from './NotificationBell';
 import VectorDock from './VectorDock';
 import { Button } from '@/components/ui/button';
 import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X } from 'lucide-react';
@@ -55,6 +56,7 @@ export default function OpsLayout() {
             <span className="text-xs text-foreground/70 capitalize shrink-0">({profile.role})</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <NotificationBell />
             <NetworkStatus />
             <LanguageToggle />
             <Button variant="ghost" size="sm" onClick={signOut} className="h-7 px-2 gap-1">
