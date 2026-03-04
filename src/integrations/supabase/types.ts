@@ -759,6 +759,60 @@ export type Database = {
           },
         ]
       }
+      ops_notifications: {
+        Row: {
+          action_url: string | null
+          body: string | null
+          branch_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          related_reminder_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          body?: string | null
+          branch_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          related_reminder_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          body?: string | null
+          branch_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          related_reminder_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_notifications_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_notifications_related_reminder_id_fkey"
+            columns: ["related_reminder_id"]
+            isOneToOne: false
+            referencedRelation: "ops_reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_purchase_order_items: {
         Row: {
           branch_id: string
@@ -860,6 +914,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ops_purchase_orders_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_reminders: {
+        Row: {
+          branch_id: string
+          created_at: string
+          created_by: string
+          description: string | null
+          fire_count: number
+          follow_up_response: string | null
+          follow_up_status: string | null
+          id: string
+          last_fired_at: string | null
+          next_fire_at: string
+          recurrence_rule: Json | null
+          reminder_type: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          fire_count?: number
+          follow_up_response?: string | null
+          follow_up_status?: string | null
+          id?: string
+          last_fired_at?: string | null
+          next_fire_at: string
+          recurrence_rule?: Json | null
+          reminder_type?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          fire_count?: number
+          follow_up_response?: string | null
+          follow_up_status?: string | null
+          id?: string
+          last_fired_at?: string | null
+          next_fire_at?: string
+          recurrence_rule?: Json | null
+          reminder_type?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_reminders_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "ops_branches"
