@@ -328,3 +328,101 @@ export function useDisposeExpiry() {
     },
   });
 }
+
+export interface InventoryTransaction {
+  id: string;
+  branch_id: string;
+  item_id: string;
+  type: string;
+  quantity: number;
+  notes: string | null;
+  performed_by: string;
+  related_order_id: string | null;
+  created_at: string;
+}
+
+export function useInventoryTransactions(itemId?: string) {
+  const { profile } = useOpsAuth();
+
+  return useQuery({
+    queryKey: ['ops_inventory_transactions', itemId],
+    queryFn: async () => {
+      let q = supabase
+        .from('ops_inventory_transactions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (itemId) q = q.eq('item_id', itemId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as unknown as InventoryTransaction[];
+    },
+    enabled: !!profile,
+  });
+}
+
+export function useRooms() {
+  const { profile } = useOpsAuth();
+
+  return useQuery({
+    queryKey: ['ops_rooms'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ops_rooms')
+        .select('*')
+        .eq('is_active', true)
+        .order('id');
+      if (error) throw error;
+      return (data || []) as { id: string; room_type: string; branch_id: string; is_active: boolean }[];
+    },
+    enabled: !!profile,
+  });
+}
+
+export function useApplyRefillTemplate() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async ({ roomType, roomId }: { roomType: string; roomId: string }) => {
+      if (!profile) throw new Error('Not authenticated');
+      // Get templates for this room type
+      const { data: templates, error: tErr } = await supabase
+        .from('ops_room_refill_templates')
+        .select('*')
+        .eq('room_type', roomType)
+        .eq('is_active', true)
+        .eq('branch_id', profile.branchId);
+      if (tErr) throw tErr;
+      if (!templates || templates.length === 0) throw new Error('No refill template for this room type');
+
+      // Create transactions for each template item
+      for (const t of templates) {
+        const { error: txErr } = await supabase.from('ops_inventory_transactions').insert({
+          branch_id: profile.branchId,
+          item_id: (t as any).item_id,
+          type: 'refill',
+          quantity: -Math.abs((t as any).quantity),
+          notes: `Room refill: ${roomId}`,
+          performed_by: profile.userId,
+        } as any);
+        if (txErr) throw txErr;
+
+        // Update stock
+        const { data: item } = await supabase
+          .from('ops_inventory_items')
+          .select('current_stock')
+          .eq('id', (t as any).item_id)
+          .single();
+        if (item) {
+          const newStock = Math.max(0, ((item as any).current_stock as number) - Math.abs((t as any).quantity));
+          await supabase.from('ops_inventory_items').update({ current_stock: newStock } as any).eq('id', (t as any).item_id);
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_transactions'] });
+    },
+  });
+}
