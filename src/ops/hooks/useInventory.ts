@@ -423,7 +423,7 @@ export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Pick<InventoryItem, 'par_level' | 'reorder_point' | 'expiry_warn_days' | 'name_en' | 'category' | 'unit'>> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Pick<InventoryItem, 'par_level' | 'reorder_point' | 'expiry_warn_days' | 'name_en' | 'category' | 'unit' | 'current_stock'>> }) => {
       const { error } = await supabase
         .from('ops_inventory_items')
         .update(updates as any)
@@ -432,6 +432,25 @@ export function useUpdateInventoryItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+    },
+  });
+}
+
+export function useBatchDeleteInventoryItems() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!ids.length) return;
+      const { error } = await supabase
+        .from('ops_inventory_items')
+        .update({ is_active: false } as any)
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_transactions'] });
     },
   });
 }
