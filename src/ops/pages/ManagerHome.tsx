@@ -3,8 +3,9 @@ import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useMyTasks } from '../hooks/useTasks';
 import TaskRow from '../components/TaskRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, MessageSquare, ShoppingCart, Loader2 } from 'lucide-react';
+import { ClipboardList, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import QuickPurchaseDock from '../components/QuickPurchaseDock';
 
 export default function ManagerHome() {
   const { profile } = useOpsAuth();
@@ -48,17 +49,7 @@ export default function ManagerHome() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-1.5 text-xs">
-            <ShoppingCart className="h-3.5 w-3.5 text-primary" />
-            {t('home.purchase')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-6 text-muted-foreground text-[10px]">{t('home.comingSoon')}</div>
-        </CardContent>
-      </Card>
+      <QuickPurchaseDock />
     </div>
   );
 }
