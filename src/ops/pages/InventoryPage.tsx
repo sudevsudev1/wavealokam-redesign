@@ -42,13 +42,73 @@ function computeItemDates(item: InventoryItem) {
   return { mfgDate, expiryDate, daysLeft };
 }
 
-/** Compact date badge row for item cards */
-function ItemDateBadges({ item }: { item: InventoryItem }) {
+/** Compact date badge row for item cards – admin can tap to edit dates */
+function ItemDateBadges({ item, editable = false }: { item: InventoryItem; editable?: boolean }) {
   const dates = computeItemDates(item);
+  const updateItem = useUpdateInventoryItem();
+  const [editing, setEditing] = useState(false);
+  const [editReceived, setEditReceived] = useState('');
+  const [editMfgOffset, setEditMfgOffset] = useState('');
+  const [editShelfLife, setEditShelfLife] = useState('');
+
   if (!dates) return null;
   const { mfgDate, expiryDate, daysLeft } = dates;
+
+  const startEditing = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditReceived(item.last_received_at ? format(parseISO(item.last_received_at), 'yyyy-MM-dd') : '');
+    setEditMfgOffset(String(item.mfg_offset_days ?? 2));
+    setEditShelfLife(String(item.expiry_warn_days ?? ''));
+    setEditing(true);
+  };
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await updateItem.mutateAsync({
+        id: item.id,
+        updates: {
+          last_received_at: editReceived ? new Date(editReceived).toISOString() : null,
+          mfg_offset_days: parseInt(editMfgOffset) || 2,
+          expiry_warn_days: editShelfLife ? parseInt(editShelfLife) : null,
+        },
+      });
+      toast.success('Dates updated');
+      setEditing(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  if (editing && editable) {
+    return (
+      <div className="mt-1 space-y-1 bg-muted/50 rounded p-1.5" onClick={e => e.stopPropagation()}>
+        <div className="grid grid-cols-3 gap-1">
+          <div>
+            <label className="text-[8px] text-muted-foreground block">Rcvd</label>
+            <Input type="date" value={editReceived} onChange={e => setEditReceived(e.target.value)} className="h-6 text-[10px] px-1" />
+          </div>
+          <div>
+            <label className="text-[8px] text-muted-foreground block">Mfg-Off</label>
+            <Input type="number" min="0" value={editMfgOffset} onChange={e => setEditMfgOffset(e.target.value)} className="h-6 text-[10px] px-1" />
+          </div>
+          <div>
+            <label className="text-[8px] text-muted-foreground block">Shelf</label>
+            <Input type="number" min="0" value={editShelfLife} onChange={e => setEditShelfLife(e.target.value)} placeholder="—" className="h-6 text-[10px] px-1" />
+          </div>
+        </div>
+        <div className="flex gap-1 justify-end">
+          <Button size="sm" variant="ghost" className="h-5 text-[9px] px-1.5" onClick={(e) => { e.stopPropagation(); setEditing(false); }}>Cancel</Button>
+          <Button size="sm" className="h-5 text-[9px] px-1.5" onClick={handleSave} disabled={updateItem.isPending}>
+            {updateItem.isPending ? '...' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 items-center">
       <span className="text-[9px] text-muted-foreground">
         Mfg: {format(mfgDate, 'dd MMM')}
       </span>
@@ -58,6 +118,11 @@ function ItemDateBadges({ item }: { item: InventoryItem }) {
         }`}>
           Exp: {format(expiryDate, 'dd MMM')} ({daysLeft}d)
         </span>
+      )}
+      {editable && (
+        <button onClick={startEditing} className="text-[9px] text-primary hover:underline ml-0.5">
+          <Pencil className="h-2.5 w-2.5 inline" />
+        </button>
       )}
     </div>
   );
@@ -334,7 +399,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                     <div className="min-w-0 flex-1">
                       <span className="font-medium text-sm truncate block">{getName(item)}</span>
                       <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                      <ItemDateBadges item={item} />
+                      <ItemDateBadges item={item} editable={isAdmin} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {isAdmin && !editMode && (
@@ -964,7 +1029,18 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [templateRoomType, setTemplateRoomType] = useState('');
   const [templateItemId, setTemplateItemId] = useState('');
+  const [templateItemSearch, setTemplateItemSearch] = useState('');
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all');
   const [templateQty, setTemplateQty] = useState('1');
+
+  const filteredRefillItems = useMemo(() => {
+    return items.filter(i => {
+      const name = getName(i);
+      const matchSearch = !templateItemSearch || name.toLowerCase().includes(templateItemSearch.toLowerCase()) || i.name_en.toLowerCase().includes(templateItemSearch.toLowerCase());
+      const matchCat = templateCategoryFilter === 'all' || i.category === templateCategoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [items, templateItemSearch, templateCategoryFilter, language]);
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -1130,14 +1206,39 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
                 {/* Add item to template */}
                 <div className="border-t pt-2 space-y-2">
                   <p className="text-[10px] font-medium text-muted-foreground">Add item to template</p>
-                  <Select value={templateItemId} onValueChange={setTemplateItemId}>
-                    <SelectTrigger className="text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
+                  {/* Category filter for refill template items */}
+                  <Select value={templateCategoryFilter ?? 'all'} onValueChange={(v) => setTemplateCategoryFilter(v)}>
+                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Category" /></SelectTrigger>
                     <SelectContent>
-                      {items.map(i => (
-                        <SelectItem key={i.id} value={i.id}>{getName(i)} ({i.unit})</SelectItem>
-                      ))}
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {INVENTORY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={templateItemSearch}
+                      onChange={e => setTemplateItemSearch(e.target.value)}
+                      placeholder="Search items..."
+                      className="pl-7 text-xs h-8"
+                    />
+                  </div>
+                  {filteredRefillItems.length > 0 ? (
+                    <div className="max-h-36 overflow-y-auto border rounded-md">
+                      {filteredRefillItems.map(i => (
+                        <button
+                          key={i.id}
+                          onClick={() => { setTemplateItemId(i.id); }}
+                          className={`w-full text-left px-2.5 py-1.5 text-xs flex justify-between hover:bg-muted ${templateItemId === i.id ? 'bg-primary/10 font-medium' : ''}`}
+                        >
+                          <span className="truncate">{getName(i)}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 ml-2">{i.category}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    templateItemSearch && <p className="text-[10px] text-muted-foreground text-center py-1">No items found</p>
+                  )}
                   <div className="flex gap-2">
                     <Input
                       type="number" min="1" value={templateQty}
