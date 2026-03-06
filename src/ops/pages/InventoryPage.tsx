@@ -6,7 +6,7 @@ import {
   useUpdateStock, usePurchaseOrders, usePurchaseOrderItems,
   useUpdatePurchaseOrder, useCreatePurchaseOrder,
   useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
-  useUpdateInventoryItem, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
+  useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
   InventoryItem, InventoryTransaction, PurchaseTemplate,
 } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
