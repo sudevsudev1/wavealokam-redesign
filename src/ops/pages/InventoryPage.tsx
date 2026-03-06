@@ -29,6 +29,40 @@ import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
+
+/** Compute mfg & expiry dates from item config */
+function computeItemDates(item: InventoryItem) {
+  if (!item.last_received_at) return null;
+  const received = parseISO(item.last_received_at);
+  const mfgDate = new Date(received.getTime() - (item.mfg_offset_days ?? 2) * 86400000);
+  const expiryDate = item.expiry_warn_days
+    ? new Date(mfgDate.getTime() + item.expiry_warn_days * 86400000)
+    : null;
+  const daysLeft = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
+  return { mfgDate, expiryDate, daysLeft };
+}
+
+/** Compact date badge row for item cards */
+function ItemDateBadges({ item }: { item: InventoryItem }) {
+  const dates = computeItemDates(item);
+  if (!dates) return null;
+  const { mfgDate, expiryDate, daysLeft } = dates;
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+      <span className="text-[9px] text-muted-foreground">
+        Mfg: {format(mfgDate, 'dd MMM')}
+      </span>
+      {expiryDate && (
+        <span className={`text-[9px] font-medium ${
+          daysLeft! <= 0 ? 'text-destructive' : daysLeft! <= 7 ? 'text-orange-600' : 'text-muted-foreground'
+        }`}>
+          Exp: {format(expiryDate, 'dd MMM')} ({daysLeft}d)
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function InventoryPage() {
   const { t, language } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
