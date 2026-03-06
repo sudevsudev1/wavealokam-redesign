@@ -278,6 +278,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
   const updateItem = useUpdateInventoryItem();
   const [parLevel, setParLevel] = useState(String(item.par_level));
   const [reorderPoint, setReorderPoint] = useState(String(item.reorder_point));
+  const [currentStock, setCurrentStock] = useState(String(item.current_stock));
   const [expiryWarnDays, setExpiryWarnDays] = useState(String(item.expiry_warn_days ?? ''));
   const [category, setCategory] = useState(item.category);
   const [unit, setUnit] = useState(item.unit);
@@ -289,6 +290,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
         updates: {
           par_level: parseInt(parLevel) || 1,
           reorder_point: parseInt(reorderPoint) || 1,
+          current_stock: Math.max(0, parseInt(currentStock) || 0),
           expiry_warn_days: expiryWarnDays ? parseInt(expiryWarnDays) : null,
           category,
           unit,
