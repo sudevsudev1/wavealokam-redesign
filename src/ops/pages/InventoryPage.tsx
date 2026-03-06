@@ -736,25 +736,33 @@ function OrderedOnWayTab() {
         for (const oi of orderItems) {
           const addQty = Math.max(0, Number((oi as any).received_quantity ?? (oi as any).quantity ?? 0));
           if (!addQty) continue;
+          const itemId = (oi as any).item_id;
 
           const { data: inv, error: invError } = await supabase
             .from('ops_inventory_items')
-            .select('current_stock')
-            .eq('id', (oi as any).item_id)
+            .select('current_stock, mfg_offset_days, expiry_warn_days')
+            .eq('id', itemId)
             .single();
           if (invError) throw invError;
 
+          const mfgOffsetDays = (inv as any).mfg_offset_days ?? 2;
+          const shelfLifeDays = (inv as any).expiry_warn_days;
+
+          // Update stock + last_received_at
           const { error: updateStockError } = await supabase
             .from('ops_inventory_items')
-            .update({ current_stock: ((inv as any).current_stock as number) + addQty } as any)
-            .eq('id', (oi as any).item_id);
+            .update({
+              current_stock: ((inv as any).current_stock as number) + addQty,
+              last_received_at: receiveDate.toISOString(),
+            } as any)
+            .eq('id', itemId);
           if (updateStockError) throw updateStockError;
 
           const { error: txError } = await supabase
             .from('ops_inventory_transactions')
             .insert({
               branch_id: profile!.branchId,
-              item_id: (oi as any).item_id,
+              item_id: itemId,
               type: 'in',
               quantity: addQty,
               notes: `PO received: ${orderId.slice(0, 8)}`,
@@ -763,20 +771,31 @@ function OrderedOnWayTab() {
             } as any);
           if (txError) throw txError;
 
-          const item = items.find(i => i.id === (oi as any).item_id);
-          if (item?.expiry_warn_days) {
-            const mfgDate = new Date(receiveDate);
-            mfgDate.setDate(mfgDate.getDate() - 2);
-            const expiryDate = new Date(mfgDate);
-            expiryDate.setDate(expiryDate.getDate() + (item.expiry_warn_days * 3));
+          // Create batch entry with received_date, mfg_date, expiry_date
+          const receiveDateStr = format(receiveDate, 'yyyy-MM-dd');
+          const mfgDate = new Date(receiveDate);
+          mfgDate.setDate(mfgDate.getDate() - mfgOffsetDays);
+          const mfgDateStr = format(mfgDate, 'yyyy-MM-dd');
 
-            await addExpiry.mutateAsync({
-              item_id: item.id,
-              quantity: addQty,
-              expiry_date: format(expiryDate, 'yyyy-MM-dd'),
-              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
-            });
+          let expiryDateStr = format(new Date(mfgDate.getTime() + 365 * 86400000), 'yyyy-MM-dd'); // default 1yr
+          if (shelfLifeDays) {
+            const expiryDate = new Date(mfgDate);
+            expiryDate.setDate(expiryDate.getDate() + shelfLifeDays);
+            expiryDateStr = format(expiryDate, 'yyyy-MM-dd');
           }
+
+          const { error: batchError } = await supabase
+            .from('ops_inventory_expiry')
+            .insert({
+              branch_id: profile!.branchId,
+              item_id: itemId,
+              quantity: addQty,
+              received_date: receiveDateStr,
+              mfg_date: mfgDateStr,
+              expiry_date: expiryDateStr,
+              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
+            } as any);
+          if (batchError) throw batchError;
         }
       }
 
