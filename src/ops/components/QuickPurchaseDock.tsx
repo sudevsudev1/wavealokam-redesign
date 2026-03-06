@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
-import { useInventoryItems, useCreatePurchaseOrder, InventoryItem } from '../hooks/useInventory';
+import { useInventoryItems, useCreatePurchaseOrder, usePurchaseTemplates, InventoryItem, PurchaseTemplate } from '../hooks/useInventory';
 import { useCreateInventoryItem } from '../hooks/useInventory';
 import { MASTER_CATALOG, levenshtein, CatalogEntry, calculateExpiryDate } from '../lib/masterCatalog';
 import { saveDraft, getDraft, deleteDraft } from '../lib/offlineDb';
@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X, AlertTriangle, PlusCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X, AlertTriangle, PlusCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DRAFT_KEY = 'quick_purchase_cart';
@@ -31,16 +32,18 @@ interface TypoSuggestion {
 export default function QuickPurchaseDock() {
   const { t, language } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
+  const { data: templates = [] } = usePurchaseTemplates();
   const createOrder = useCreatePurchaseOrder();
   const createItem = useCreateInventoryItem();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [showAll, setShowAll] = useState(false);
   const [typoSuggestion, setTypoSuggestion] = useState<TypoSuggestion | null>(null);
   const [showAddNew, setShowAddNew] = useState(false);
   const [newItemQty, setNewItemQty] = useState(1);
   const [cartLoaded, setCartLoaded] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [templatePreview, setTemplatePreview] = useState<PurchaseTemplate | null>(null);
+  const [templateQtys, setTemplateQtys] = useState<Record<string, number>>({});
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;

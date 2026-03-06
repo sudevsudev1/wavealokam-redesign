@@ -94,6 +94,41 @@ export default function PurchasePage() {
         .from('ops-attachments')
         .getPublicUrl(filePath);
 
+      // Fetch order items to update inventory stock
+      const { data: orderItems } = await supabase
+        .from('ops_purchase_order_items')
+        .select('item_id, quantity, received_quantity')
+        .eq('order_id', orderId);
+
+      // Update current_stock for each item
+      if (orderItems && orderItems.length > 0) {
+        for (const oi of orderItems) {
+          const addQty = (oi as any).received_quantity ?? (oi as any).quantity;
+          const { data: inv } = await supabase
+            .from('ops_inventory_items')
+            .select('current_stock')
+            .eq('id', (oi as any).item_id)
+            .single();
+          if (inv) {
+            const newStock = ((inv as any).current_stock as number) + addQty;
+            await supabase
+              .from('ops_inventory_items')
+              .update({ current_stock: newStock } as any)
+              .eq('id', (oi as any).item_id);
+          }
+          // Record transaction
+          await supabase.from('ops_inventory_transactions').insert({
+            branch_id: profile!.branchId,
+            item_id: (oi as any).item_id,
+            type: 'in',
+            quantity: addQty,
+            notes: `PO received: ${orderId.slice(0, 8)}`,
+            performed_by: profile!.userId,
+            related_order_id: orderId,
+          } as any);
+        }
+      }
+
       await updateOrder.mutateAsync({
         id: orderId,
         updates: {
