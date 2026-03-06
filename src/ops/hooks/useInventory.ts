@@ -173,12 +173,47 @@ export function useUpdateStock() {
 
       const currentStock = (item as any).current_stock as number;
       let newStock: number;
+      const isDeduction = type === 'out' || type === 'expire' || type === 'refill' || type === 'damage' || type === 'waste';
       if (type === 'adjust') {
         newStock = quantity;
-      } else if (type === 'out' || type === 'expire' || type === 'refill' || type === 'damage' || type === 'waste') {
+      } else if (isDeduction) {
         newStock = Math.max(0, currentStock - Math.abs(quantity));
       } else {
         newStock = currentStock + Math.abs(quantity);
+      }
+
+      // FIFO batch deduction: remove earliest batches when stock is used
+      if (isDeduction) {
+        let remaining = Math.abs(quantity);
+        const { data: batches } = await supabase
+          .from('ops_inventory_expiry')
+          .select('id, quantity, received_date')
+          .eq('item_id', itemId)
+          .eq('is_disposed', false)
+          .order('received_date', { ascending: true, nullsFirst: true })
+          .order('created_at', { ascending: true });
+
+        if (batches) {
+          for (const batch of batches) {
+            if (remaining <= 0) break;
+            const batchQty = (batch as any).quantity as number;
+            if (batchQty <= remaining) {
+              // Fully consume this batch
+              await supabase
+                .from('ops_inventory_expiry')
+                .update({ is_disposed: true, disposed_at: new Date().toISOString(), disposed_by: profile.userId } as any)
+                .eq('id', batch.id);
+              remaining -= batchQty;
+            } else {
+              // Partially consume - reduce quantity
+              await supabase
+                .from('ops_inventory_expiry')
+                .update({ quantity: batchQty - remaining } as any)
+                .eq('id', batch.id);
+              remaining = 0;
+            }
+          }
+        }
       }
 
       const updatePayload: any = { current_stock: newStock };
@@ -192,6 +227,7 @@ export function useUpdateStock() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_expiry'] });
     },
   });
 }

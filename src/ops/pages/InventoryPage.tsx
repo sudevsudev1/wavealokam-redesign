@@ -388,18 +388,51 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
 
   const handleSave = async () => {
     try {
+      const newMfgOffset = parseInt(mfgOffsetDays) || 2;
+      const newShelfLife = expiryWarnDays ? parseInt(expiryWarnDays) : null;
+
       await updateItem.mutateAsync({
         id: item.id,
         updates: {
           par_level: parseInt(parLevel) || 1,
           reorder_point: parseInt(reorderPoint) || 1,
           current_stock: Math.max(0, parseInt(currentStock) || 0),
-          expiry_warn_days: expiryWarnDays ? parseInt(expiryWarnDays) : null,
-          mfg_offset_days: parseInt(mfgOffsetDays) || 2,
+          expiry_warn_days: newShelfLife,
+          mfg_offset_days: newMfgOffset,
           category,
           unit,
         },
       });
+
+      // Recalculate mfg & expiry dates on all active batches based on new offsets
+      const { data: batches } = await supabase
+        .from('ops_inventory_expiry')
+        .select('id, received_date')
+        .eq('item_id', item.id)
+        .eq('is_disposed', false);
+
+      if (batches && batches.length > 0) {
+        for (const batch of batches) {
+          if (batch.received_date) {
+            const rcvd = new Date(batch.received_date);
+            const mfgDate = new Date(rcvd);
+            mfgDate.setDate(mfgDate.getDate() - newMfgOffset);
+            const updates: Record<string, unknown> = {
+              mfg_date: mfgDate.toISOString().split('T')[0],
+            };
+            if (newShelfLife) {
+              const expDate = new Date(rcvd);
+              expDate.setDate(expDate.getDate() + newShelfLife);
+              updates.expiry_date = expDate.toISOString().split('T')[0];
+            }
+            await supabase
+              .from('ops_inventory_expiry')
+              .update(updates as any)
+              .eq('id', batch.id);
+          }
+        }
+      }
+
       toast.success(`${item.name_en} updated`);
       onClose();
     } catch (e: any) {
