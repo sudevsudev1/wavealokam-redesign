@@ -145,7 +145,7 @@ export function useUpdateStock() {
     mutationFn: async ({ itemId, quantity, type, notes }: {
       itemId: string;
       quantity: number;
-      type: 'in' | 'out' | 'adjust' | 'expire' | 'refill';
+      type: 'in' | 'out' | 'adjust' | 'expire' | 'refill' | 'damage' | 'waste';
       notes?: string;
     }) => {
       if (!profile) throw new Error('Not authenticated');
@@ -173,7 +173,7 @@ export function useUpdateStock() {
       let newStock: number;
       if (type === 'adjust') {
         newStock = quantity;
-      } else if (type === 'out' || type === 'expire' || type === 'refill') {
+      } else if (type === 'out' || type === 'expire' || type === 'refill' || type === 'damage' || type === 'waste') {
         newStock = Math.max(0, currentStock - Math.abs(quantity));
       } else {
         newStock = currentStock + Math.abs(quantity);
@@ -288,6 +288,8 @@ export function useUpdatePurchaseOrder() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_purchase_orders'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_transactions'] });
     },
   });
 }

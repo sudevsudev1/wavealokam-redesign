@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
-import { useInventoryItems, useCreatePurchaseOrder, InventoryItem } from '../hooks/useInventory';
+import { useInventoryItems, useCreatePurchaseOrder, usePurchaseTemplates, InventoryItem, PurchaseTemplate } from '../hooks/useInventory';
 import { useCreateInventoryItem } from '../hooks/useInventory';
 import { MASTER_CATALOG, levenshtein, CatalogEntry, calculateExpiryDate } from '../lib/masterCatalog';
 import { saveDraft, getDraft, deleteDraft } from '../lib/offlineDb';
@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X, AlertTriangle, PlusCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X, AlertTriangle, PlusCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DRAFT_KEY = 'quick_purchase_cart';
@@ -31,16 +32,18 @@ interface TypoSuggestion {
 export default function QuickPurchaseDock() {
   const { t, language } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
+  const { data: templates = [] } = usePurchaseTemplates();
   const createOrder = useCreatePurchaseOrder();
   const createItem = useCreateInventoryItem();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [showAll, setShowAll] = useState(false);
   const [typoSuggestion, setTypoSuggestion] = useState<TypoSuggestion | null>(null);
   const [showAddNew, setShowAddNew] = useState(false);
   const [newItemQty, setNewItemQty] = useState(1);
   const [cartLoaded, setCartLoaded] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [templatePreview, setTemplatePreview] = useState<PurchaseTemplate | null>(null);
+  const [templateQtys, setTemplateQtys] = useState<Record<string, number>>({});
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -136,8 +139,8 @@ export default function QuickPurchaseDock() {
 
   const displayItems = useMemo(() => {
     if (searchResults) return searchResults.inventoryMatches;
-    return showAll ? items : dueItems;
-  }, [searchResults, items, dueItems, showAll]);
+    return [];
+  }, [searchResults]);
 
   const getCartQty = (itemId: string) =>
     cart.find(c => c.item_id === itemId)?.quantity || 0;
@@ -380,58 +383,51 @@ export default function QuickPurchaseDock() {
           </div>
         )}
 
-        {/* Toggle: show all vs due only */}
-        {!search.trim() && (
-          <div className="flex gap-1">
-            <button
-              onClick={() => setShowAll(false)}
-              className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${!showAll ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-            >
-              Due ({dueItems.length})
-            </button>
-            <button
-              onClick={() => setShowAll(true)}
-              className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${showAll ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-            >
-              All ({items.length})
-            </button>
-          </div>
-        )}
-
-        {/* Catalog matches (items not yet in inventory) */}
-        {searchResults && searchResults.catalogMatches.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">From catalog</p>
-            {searchResults.catalogMatches.slice(0, 5).map(entry => (
-              <div
-                key={entry.name}
-                className="flex items-center justify-between p-2 rounded-lg border border-dashed border-primary/20 bg-primary/5"
-              >
-                <div className="min-w-0 flex-1">
-                  <span className="text-xs font-medium truncate block">{entry.name}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {entry.category} · {entry.defaultQty} {entry.unit} · {entry.shelfLifeDays}d shelf
-                  </span>
-                </div>
-                <button
-                  onClick={() => addCatalogItemToCart(entry)}
-                  className="h-7 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-medium flex items-center gap-0.5 hover:bg-primary/20 active:scale-95 transition-all"
+        {/* Template search results */}
+        {search.trim() && (() => {
+          const q = search.trim().toLowerCase();
+          const matchedTemplates = templates.filter(t => t.name.toLowerCase().includes(q));
+          if (matchedTemplates.length === 0) return null;
+          return (
+            <div className="space-y-1">
+              <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Templates</p>
+              {matchedTemplates.slice(0, 5).map(tmpl => (
+                <div
+                  key={tmpl.id}
+                  className="flex items-center justify-between p-2 rounded-lg border border-dashed border-accent bg-accent/30"
                 >
-                  <Plus className="h-3 w-3" /> Add
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate block flex items-center gap-1">
+                      <FileText className="h-3 w-3 text-muted-foreground" />
+                      {tmpl.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {(tmpl.items_json as any[]).length} items
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setTemplatePreview(tmpl);
+                      const qtys: Record<string, number> = {};
+                      (tmpl.items_json as any[]).forEach((ti: any) => { qtys[ti.item_id] = ti.quantity; });
+                      setTemplateQtys(qtys);
+                      setSearch('');
+                    }}
+                    className="h-7 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-medium flex items-center gap-0.5 hover:bg-primary/20 active:scale-95 transition-all"
+                  >
+                    <Plus className="h-3 w-3" /> Use
+                  </button>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
-        {/* Item list */}
-        <div className="space-y-1 max-h-[260px] overflow-y-auto">
-          {displayItems.length === 0 && !showAddNew ? (
-            <p className="text-center text-[10px] text-muted-foreground py-4">
-              {search ? 'No inventory items found' : 'No items due for order 🎉'}
-            </p>
-          ) : (
-            displayItems.slice(0, 25).map(item => {
+        {/* Search results - only show when searching */}
+        {search.trim() && displayItems.length > 0 && (
+          <div className="space-y-1 max-h-[200px] overflow-y-auto">
+            <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Inventory items</p>
+            {displayItems.slice(0, 15).map(item => {
               const cartQty = getCartQty(item.id);
               const isDue = item.current_stock <= item.reorder_point;
               const deficit = Math.max(0, item.par_level - item.current_stock);
@@ -439,7 +435,7 @@ export default function QuickPurchaseDock() {
                 <div
                   key={item.id}
                   className={`flex items-center justify-between p-2 rounded-lg border transition-colors ${
-                    cartQty > 0 ? 'border-primary/40 bg-primary/5' : isDue ? 'border-orange-200 bg-orange-50/50 dark:bg-orange-950/20' : 'border-border'
+                    cartQty > 0 ? 'border-primary/40 bg-primary/5' : isDue ? 'border-destructive/20 bg-destructive/5' : 'border-border'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
@@ -490,14 +486,24 @@ export default function QuickPurchaseDock() {
                   </div>
                 </div>
               );
-            })
-          )}
-          {displayItems.length > 25 && (
-            <p className="text-[10px] text-muted-foreground text-center py-1">
-              {displayItems.length - 25} more — refine search
+            })}
+          </div>
+        )}
+
+        {/* Due items summary when not searching */}
+        {!search.trim() && dueItems.length > 0 && (
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">
+              {dueItems.length} items due for order — search to add them
             </p>
-          )}
-        </div>
+          </div>
+        )}
+
+        {!search.trim() && dueItems.length === 0 && cart.length === 0 && (
+          <p className="text-center text-[10px] text-muted-foreground py-2">
+            Search items or templates to add to cart
+          </p>
+        )}
 
         {/* Cart summary + submit */}
         {cart.length > 0 && (
@@ -534,6 +540,85 @@ export default function QuickPurchaseDock() {
           </div>
         )}
       </CardContent>
+
+      {/* Template preview dialog */}
+      <Dialog open={!!templatePreview} onOpenChange={(open) => { if (!open) setTemplatePreview(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <FileText className="h-4 w-4" />
+              {templatePreview?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-[10px] text-muted-foreground">Adjust quantities then add all to cart:</p>
+            {templatePreview && (templatePreview.items_json as any[]).map((ti: any) => {
+              const item = items.find(i => i.id === ti.item_id);
+              const name = item ? getName(item) : ti.item_id.slice(0, 8);
+              return (
+                <div key={ti.item_id} className="flex items-center justify-between p-2 rounded-lg border">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate block">{name}</span>
+                    {item && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Stock: {item.current_stock} {item.unit}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, (prev[ti.item_id] || 0) - 1) }))}
+                      className="h-6 w-6 rounded-full bg-muted flex items-center justify-center"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <Input
+                      type="number"
+                      value={templateQtys[ti.item_id] || 0}
+                      onChange={e => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, Number(e.target.value)) }))}
+                      className="h-6 w-12 text-xs text-center px-0.5 font-mono"
+                    />
+                    <button
+                      onClick={() => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: (prev[ti.item_id] || 0) + 1 }))}
+                      className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            <Button
+              className="w-full text-xs"
+              size="sm"
+              onClick={() => {
+                if (!templatePreview) return;
+                const itemsToAdd = (templatePreview.items_json as any[])
+                  .filter((ti: any) => (templateQtys[ti.item_id] || 0) > 0);
+                for (const ti of itemsToAdd) {
+                  const item = items.find(i => i.id === ti.item_id);
+                  const name = item ? getName(item) : ti.item_id.slice(0, 8);
+                  const unit = item?.unit || 'pcs';
+                  const qty = templateQtys[ti.item_id] || ti.quantity;
+                  // Replace existing cart entry or add new
+                  setCart(prev => {
+                    const existing = prev.find(c => c.item_id === ti.item_id);
+                    if (existing) {
+                      return prev.map(c => c.item_id === ti.item_id ? { ...c, quantity: qty } : c);
+                    }
+                    return [...prev, { item_id: ti.item_id, name, unit, quantity: qty }];
+                  });
+                }
+                toast.success(`${itemsToAdd.length} items added from "${templatePreview.name}"`);
+                setTemplatePreview(null);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add {Object.values(templateQtys).filter(q => q > 0).length} items to cart
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
