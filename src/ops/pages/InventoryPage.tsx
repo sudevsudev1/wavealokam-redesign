@@ -99,12 +99,15 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
   const batchDeleteItems = useBatchDeleteInventoryItems();
+  const createOrder = useCreatePurchaseOrder();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
+  const [selectedForPO, setSelectedForPO] = useState<Set<string>>(new Set());
+  const [poMode, setPoMode] = useState(false);
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -139,6 +142,30 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
       }
       return next;
     });
+  };
+
+  const togglePOSelect = (id: string) => {
+    setSelectedForPO((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreatePOFromOverview = async () => {
+    if (selectedForPO.size === 0) return;
+    const cart = Array.from(selectedForPO).map(id => {
+      const item = items.find(i => i.id === id)!;
+      return { item_id: id, quantity: Math.max(1, item.par_level - item.current_stock) };
+    });
+    try {
+      await createOrder.mutateAsync(cart);
+      toast.success(t('purchase.orderCreated'));
+      setSelectedForPO(new Set());
+      setPoMode(false);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   const handleBatchDelete = async () => {
@@ -184,10 +211,38 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
               setEditMode((prev) => !prev);
               setExpandedItem(null);
               if (editMode) setSelectedForDelete(new Set());
+              if (poMode) { setPoMode(false); setSelectedForPO(new Set()); }
             }}
           >
             {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
           </Button>
+
+          {!editMode && (
+            <Button
+              size="sm"
+              variant={poMode ? 'secondary' : 'outline'}
+              className="text-xs gap-1"
+              onClick={() => {
+                setPoMode((prev) => !prev);
+                if (poMode) setSelectedForPO(new Set());
+              }}
+            >
+              <Truck className="h-3 w-3" />
+              {poMode ? 'Cancel PO' : 'Add to PO'}
+            </Button>
+          )}
+
+          {poMode && selectedForPO.size > 0 && (
+            <Button
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={handleCreatePOFromOverview}
+              disabled={createOrder.isPending}
+            >
+              {createOrder.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
+              Create PO ({selectedForPO.size})
+            </Button>
+          )}
 
           {editMode && filtered.length > 0 && (
             <Button size="sm" variant="outline" className="text-xs" onClick={toggleSelectAllFiltered}>
@@ -217,13 +272,20 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
           const isSelected = selectedForDelete.has(item.id);
 
           return (
-            <Card key={item.id}>
+            <Card key={item.id} className={poMode && selectedForPO.has(item.id) ? 'border-primary bg-primary/5' : ''}>
               <CardContent className="p-2.5">
                 <div className="flex items-start gap-2">
                   {isAdmin && editMode && (
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => toggleSelect(item.id)}
+                      className="mt-1"
+                    />
+                  )}
+                  {poMode && !editMode && (
+                    <Checkbox
+                      checked={selectedForPO.has(item.id)}
+                      onCheckedChange={() => togglePOSelect(item.id)}
                       className="mt-1"
                     />
                   )}
@@ -392,9 +454,15 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
                 {tx.notes && <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">· {tx.notes}</span>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className={`font-mono font-medium ${tx.quantity > 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
-                  {tx.quantity > 0 ? '+' : ''}{tx.quantity}
-                </span>
+                {(() => {
+                  const isDeduction = ['out', 'expire', 'refill', 'damage', 'waste'].includes(tx.type);
+                  const displayQty = isDeduction ? -Math.abs(tx.quantity) : Math.abs(tx.quantity);
+                  return (
+                    <span className={`font-mono font-medium ${isDeduction ? 'text-orange-600' : 'text-emerald-600'}`}>
+                      {isDeduction ? '' : '+'}{displayQty}
+                    </span>
+                  );
+                })()}
                 <span className="text-[10px] text-muted-foreground">{format(parseISO(tx.created_at), 'dd MMM HH:mm')}</span>
               </div>
             </div>
@@ -930,9 +998,15 @@ function RecentTransactions({ items }: { items: InventoryItem[] }) {
               </span>
             </div>
             <div className="text-right shrink-0">
-              <span className={`font-mono font-medium ${tx.quantity > 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
-                {tx.quantity > 0 ? '+' : ''}{tx.quantity}
-              </span>
+              {(() => {
+                const isDeduction = ['out', 'expire', 'refill', 'damage', 'waste'].includes(tx.type);
+                const displayQty = isDeduction ? -Math.abs(tx.quantity) : Math.abs(tx.quantity);
+                return (
+                  <span className={`font-mono font-medium ${isDeduction ? 'text-orange-600' : 'text-emerald-600'}`}>
+                    {isDeduction ? '' : '+'}{displayQty}
+                  </span>
+                );
+              })()}
               <p className="text-[10px] text-muted-foreground">{format(parseISO(tx.created_at), 'dd MMM HH:mm')}</p>
             </div>
           </div>
