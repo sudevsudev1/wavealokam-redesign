@@ -211,10 +211,38 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
               setEditMode((prev) => !prev);
               setExpandedItem(null);
               if (editMode) setSelectedForDelete(new Set());
+              if (poMode) { setPoMode(false); setSelectedForPO(new Set()); }
             }}
           >
             {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
           </Button>
+
+          {!editMode && (
+            <Button
+              size="sm"
+              variant={poMode ? 'secondary' : 'outline'}
+              className="text-xs gap-1"
+              onClick={() => {
+                setPoMode((prev) => !prev);
+                if (poMode) setSelectedForPO(new Set());
+              }}
+            >
+              <Truck className="h-3 w-3" />
+              {poMode ? 'Cancel PO' : 'Add to PO'}
+            </Button>
+          )}
+
+          {poMode && selectedForPO.size > 0 && (
+            <Button
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={handleCreatePOFromOverview}
+              disabled={createOrder.isPending}
+            >
+              {createOrder.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
+              Create PO ({selectedForPO.size})
+            </Button>
+          )}
 
           {editMode && filtered.length > 0 && (
             <Button size="sm" variant="outline" className="text-xs" onClick={toggleSelectAllFiltered}>
