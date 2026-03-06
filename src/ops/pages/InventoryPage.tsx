@@ -551,6 +551,61 @@ function OrderedOnWayTab() {
         .getPublicUrl(filePath);
 
       const receiveDate = new Date();
+
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('ops_purchase_order_items')
+        .select('*')
+        .eq('order_id', orderId);
+      if (orderItemsError) throw orderItemsError;
+
+      if (orderItems) {
+        for (const oi of orderItems) {
+          const addQty = Math.max(0, Number((oi as any).received_quantity ?? (oi as any).quantity ?? 0));
+          if (!addQty) continue;
+
+          const { data: inv, error: invError } = await supabase
+            .from('ops_inventory_items')
+            .select('current_stock')
+            .eq('id', (oi as any).item_id)
+            .single();
+          if (invError) throw invError;
+
+          const { error: updateStockError } = await supabase
+            .from('ops_inventory_items')
+            .update({ current_stock: ((inv as any).current_stock as number) + addQty } as any)
+            .eq('id', (oi as any).item_id);
+          if (updateStockError) throw updateStockError;
+
+          const { error: txError } = await supabase
+            .from('ops_inventory_transactions')
+            .insert({
+              branch_id: profile!.branchId,
+              item_id: (oi as any).item_id,
+              type: 'in',
+              quantity: addQty,
+              notes: `PO received: ${orderId.slice(0, 8)}`,
+              performed_by: profile!.userId,
+              related_order_id: orderId,
+            } as any);
+          if (txError) throw txError;
+
+          const item = items.find(i => i.id === (oi as any).item_id);
+          if (item?.expiry_warn_days) {
+            const mfgDate = new Date(receiveDate);
+            mfgDate.setDate(mfgDate.getDate() - 2);
+            const expiryDate = new Date(mfgDate);
+            expiryDate.setDate(expiryDate.getDate() + (item.expiry_warn_days * 3));
+
+            await addExpiry.mutateAsync({
+              item_id: item.id,
+              quantity: addQty,
+              expiry_date: format(expiryDate, 'yyyy-MM-dd'),
+              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
+            });
+          }
+        }
+      }
+
       await updateOrder.mutateAsync({
         id: orderId,
         updates: {
@@ -560,33 +615,6 @@ function OrderedOnWayTab() {
           receive_notes: receiveNotes || null,
         },
       });
-
-      // Auto-create expiry entries: mfg date = receive date - 2 days
-      // For items with expiry_warn_days, calculate expiry from manufacture
-      const { data: orderItems } = await supabase
-        .from('ops_purchase_order_items')
-        .select('*')
-        .eq('order_id', orderId);
-
-      if (orderItems) {
-        for (const oi of orderItems) {
-          const item = items.find(i => i.id === (oi as any).item_id);
-          if (item?.expiry_warn_days) {
-            // mfg = receive - 2 days, expiry = mfg + typical shelf life (use expiry_warn_days * 3 as rough shelf life)
-            const mfgDate = new Date(receiveDate);
-            mfgDate.setDate(mfgDate.getDate() - 2);
-            const expiryDate = new Date(mfgDate);
-            expiryDate.setDate(expiryDate.getDate() + (item.expiry_warn_days * 3));
-
-            await addExpiry.mutateAsync({
-              item_id: item.id,
-              quantity: (oi as any).quantity,
-              expiry_date: format(expiryDate, 'yyyy-MM-dd'),
-              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
-            });
-          }
-        }
-      }
 
       toast.success(t('purchase.received'));
       setReceivingOrder(null);
