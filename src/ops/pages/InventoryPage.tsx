@@ -6,7 +6,7 @@ import {
   useUpdateStock, usePurchaseOrders, usePurchaseOrderItems,
   useUpdatePurchaseOrder, useCreatePurchaseOrder,
   useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
-  useUpdateInventoryItem, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
+  useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
   InventoryItem, InventoryTransaction, PurchaseTemplate,
 } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
@@ -98,10 +98,13 @@ export default function InventoryPage() {
 function OverviewTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
+  const batchDeleteItems = useBatchDeleteInventoryItems();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -114,6 +117,46 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
       return matchesSearch && matchesCat;
     });
   }, [items, search, categoryFilter, language]);
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((item) => selectedForDelete.has(item.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedForDelete((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedForDelete((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filtered.forEach((item) => next.delete(item.id));
+      } else {
+        filtered.forEach((item) => next.add(item.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBatchDelete = async () => {
+    const ids = Array.from(selectedForDelete);
+    if (!ids.length) return;
+    const confirmed = window.confirm(`Delete ${ids.length} selected item(s)?`);
+    if (!confirmed) return;
+
+    try {
+      await batchDeleteItems.mutateAsync(ids);
+      toast.success(`${ids.length} item(s) deleted`);
+      setSelectedForDelete(new Set());
+      setEditMode(false);
+      setExpandedItem(null);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   return (
     <div className="space-y-2 mt-2">
@@ -131,39 +174,89 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
         </Select>
       </div>
 
+      {isAdmin && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={editMode ? 'secondary' : 'outline'}
+            className="text-xs"
+            onClick={() => {
+              setEditMode((prev) => !prev);
+              setExpandedItem(null);
+              if (editMode) setSelectedForDelete(new Set());
+            }}
+          >
+            {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
+          </Button>
+
+          {editMode && filtered.length > 0 && (
+            <Button size="sm" variant="outline" className="text-xs" onClick={toggleSelectAllFiltered}>
+              {allFilteredSelected ? 'Unselect Visible' : 'Select Visible'}
+            </Button>
+          )}
+
+          {editMode && selectedForDelete.size > 0 && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="text-xs gap-1.5"
+              onClick={handleBatchDelete}
+              disabled={batchDeleteItems.isPending}
+            >
+              {batchDeleteItems.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete Selected ({selectedForDelete.size})
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="space-y-1.5">
         {filtered.map((item) => {
           const status = STOCK_STATUS(item.current_stock, item.par_level, item.reorder_point);
           const isExpanded = expandedItem === item.id;
+          const isSelected = selectedForDelete.has(item.id);
+
           return (
             <Card key={item.id}>
               <CardContent className="p-2.5">
-                <button
-                  className="flex items-center justify-between w-full text-left"
-                  onClick={() => setExpandedItem(isExpanded ? null : item.id)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="font-medium text-sm truncate block">{getName(item)}</span>
-                    <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isAdmin && (
-                      <Button
-                        size="sm" variant="ghost" className="h-6 w-6 p-0"
-                        onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
-                      >
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                    )}
-                    <div className="text-right">
-                      <span className="font-mono font-semibold text-sm">{item.current_stock}</span>
-                      <span className="text-[10px] text-muted-foreground block">/{item.par_level}</span>
+                <div className="flex items-start gap-2">
+                  {isAdmin && editMode && (
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(item.id)}
+                      className="mt-1"
+                    />
+                  )}
+
+                  <button
+                    className="flex items-center justify-between w-full text-left"
+                    onClick={() => {
+                      if (!editMode) setExpandedItem(isExpanded ? null : item.id);
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-sm truncate block">{getName(item)}</span>
+                      <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
                     </div>
-                    <Badge variant="outline" className={`text-[10px] ${status.color}`}>{status.label}</Badge>
-                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                  </div>
-                </button>
-                {isExpanded && <ItemLedger itemId={item.id} itemName={getName(item)} />}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isAdmin && !editMode && (
+                        <Button
+                          size="sm" variant="ghost" className="h-6 w-6 p-0"
+                          onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
+                        >
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      )}
+                      <div className="text-right">
+                        <span className="font-mono font-semibold text-sm">{item.current_stock}</span>
+                        <span className="text-[10px] text-muted-foreground block">/{item.par_level}</span>
+                      </div>
+                      <Badge variant="outline" className={`text-[10px] ${status.color}`}>{status.label}</Badge>
+                      {!editMode && (isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />)}
+                    </div>
+                  </button>
+                </div>
+                {isExpanded && !editMode && <ItemLedger itemId={item.id} itemName={getName(item)} />}
               </CardContent>
             </Card>
           );
@@ -185,6 +278,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
   const updateItem = useUpdateInventoryItem();
   const [parLevel, setParLevel] = useState(String(item.par_level));
   const [reorderPoint, setReorderPoint] = useState(String(item.reorder_point));
+  const [currentStock, setCurrentStock] = useState(String(item.current_stock));
   const [expiryWarnDays, setExpiryWarnDays] = useState(String(item.expiry_warn_days ?? ''));
   const [category, setCategory] = useState(item.category);
   const [unit, setUnit] = useState(item.unit);
@@ -196,6 +290,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
         updates: {
           par_level: parseInt(parLevel) || 1,
           reorder_point: parseInt(reorderPoint) || 1,
+          current_stock: Math.max(0, parseInt(currentStock) || 0),
           expiry_warn_days: expiryWarnDays ? parseInt(expiryWarnDays) : null,
           category,
           unit,
@@ -217,6 +312,10 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <label className="text-xs font-medium text-muted-foreground">Current Stock</label>
+              <Input type="number" min="0" value={currentStock} onChange={e => setCurrentStock(e.target.value)} className="mt-1 text-sm" />
+            </div>
+            <div>
               <label className="text-xs font-medium text-muted-foreground">Par Level</label>
               <Input type="number" min="1" value={parLevel} onChange={e => setParLevel(e.target.value)} className="mt-1 text-sm" />
             </div>
@@ -224,10 +323,10 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
               <label className="text-xs font-medium text-muted-foreground">Reorder Point</label>
               <Input type="number" min="0" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="mt-1 text-sm" />
             </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Expiry Warning (days)</label>
-            <Input type="number" min="0" value={expiryWarnDays} onChange={e => setExpiryWarnDays(e.target.value)} placeholder="Optional" className="mt-1 text-sm" />
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Expiry Warning (days)</label>
+              <Input type="number" min="0" value={expiryWarnDays} onChange={e => setExpiryWarnDays(e.target.value)} placeholder="Optional" className="mt-1 text-sm" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -452,6 +551,61 @@ function OrderedOnWayTab() {
         .getPublicUrl(filePath);
 
       const receiveDate = new Date();
+
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('ops_purchase_order_items')
+        .select('*')
+        .eq('order_id', orderId);
+      if (orderItemsError) throw orderItemsError;
+
+      if (orderItems) {
+        for (const oi of orderItems) {
+          const addQty = Math.max(0, Number((oi as any).received_quantity ?? (oi as any).quantity ?? 0));
+          if (!addQty) continue;
+
+          const { data: inv, error: invError } = await supabase
+            .from('ops_inventory_items')
+            .select('current_stock')
+            .eq('id', (oi as any).item_id)
+            .single();
+          if (invError) throw invError;
+
+          const { error: updateStockError } = await supabase
+            .from('ops_inventory_items')
+            .update({ current_stock: ((inv as any).current_stock as number) + addQty } as any)
+            .eq('id', (oi as any).item_id);
+          if (updateStockError) throw updateStockError;
+
+          const { error: txError } = await supabase
+            .from('ops_inventory_transactions')
+            .insert({
+              branch_id: profile!.branchId,
+              item_id: (oi as any).item_id,
+              type: 'in',
+              quantity: addQty,
+              notes: `PO received: ${orderId.slice(0, 8)}`,
+              performed_by: profile!.userId,
+              related_order_id: orderId,
+            } as any);
+          if (txError) throw txError;
+
+          const item = items.find(i => i.id === (oi as any).item_id);
+          if (item?.expiry_warn_days) {
+            const mfgDate = new Date(receiveDate);
+            mfgDate.setDate(mfgDate.getDate() - 2);
+            const expiryDate = new Date(mfgDate);
+            expiryDate.setDate(expiryDate.getDate() + (item.expiry_warn_days * 3));
+
+            await addExpiry.mutateAsync({
+              item_id: item.id,
+              quantity: addQty,
+              expiry_date: format(expiryDate, 'yyyy-MM-dd'),
+              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
+            });
+          }
+        }
+      }
+
       await updateOrder.mutateAsync({
         id: orderId,
         updates: {
@@ -461,33 +615,6 @@ function OrderedOnWayTab() {
           receive_notes: receiveNotes || null,
         },
       });
-
-      // Auto-create expiry entries: mfg date = receive date - 2 days
-      // For items with expiry_warn_days, calculate expiry from manufacture
-      const { data: orderItems } = await supabase
-        .from('ops_purchase_order_items')
-        .select('*')
-        .eq('order_id', orderId);
-
-      if (orderItems) {
-        for (const oi of orderItems) {
-          const item = items.find(i => i.id === (oi as any).item_id);
-          if (item?.expiry_warn_days) {
-            // mfg = receive - 2 days, expiry = mfg + typical shelf life (use expiry_warn_days * 3 as rough shelf life)
-            const mfgDate = new Date(receiveDate);
-            mfgDate.setDate(mfgDate.getDate() - 2);
-            const expiryDate = new Date(mfgDate);
-            expiryDate.setDate(expiryDate.getDate() + (item.expiry_warn_days * 3));
-
-            await addExpiry.mutateAsync({
-              item_id: item.id,
-              quantity: (oi as any).quantity,
-              expiry_date: format(expiryDate, 'yyyy-MM-dd'),
-              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
-            });
-          }
-        }
-      }
 
       toast.success(t('purchase.received'));
       setReceivingOrder(null);
