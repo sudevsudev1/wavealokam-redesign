@@ -14,6 +14,8 @@ export interface InventoryItem {
   current_stock: number;
   reorder_point: number;
   expiry_warn_days: number | null;
+  mfg_offset_days: number;
+  last_received_at: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -179,9 +181,12 @@ export function useUpdateStock() {
         newStock = currentStock + Math.abs(quantity);
       }
 
+      const updatePayload: any = { current_stock: newStock };
+      if (type === 'in') updatePayload.last_received_at = new Date().toISOString();
+
       const { error: updateError } = await supabase
         .from('ops_inventory_items')
-        .update({ current_stock: newStock } as any)
+        .update(updatePayload)
         .eq('id', itemId);
       if (updateError) throw updateError;
     },
@@ -423,7 +428,7 @@ export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Pick<InventoryItem, 'par_level' | 'reorder_point' | 'expiry_warn_days' | 'name_en' | 'category' | 'unit' | 'current_stock'>> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Pick<InventoryItem, 'par_level' | 'reorder_point' | 'expiry_warn_days' | 'mfg_offset_days' | 'last_received_at' | 'name_en' | 'category' | 'unit' | 'current_stock'>> }) => {
       const { error } = await supabase
         .from('ops_inventory_items')
         .update(updates as any)

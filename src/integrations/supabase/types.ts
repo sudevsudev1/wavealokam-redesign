@@ -654,6 +654,8 @@ export type Database = {
           expiry_warn_days: number | null
           id: string
           is_active: boolean
+          last_received_at: string | null
+          mfg_offset_days: number
           name_en: string
           name_ml: string | null
           par_level: number
@@ -669,6 +671,8 @@ export type Database = {
           expiry_warn_days?: number | null
           id?: string
           is_active?: boolean
+          last_received_at?: string | null
+          mfg_offset_days?: number
           name_en: string
           name_ml?: string | null
           par_level?: number
@@ -684,6 +688,8 @@ export type Database = {
           expiry_warn_days?: number | null
           id?: string
           is_active?: boolean
+          last_received_at?: string | null
+          mfg_offset_days?: number
           name_en?: string
           name_ml?: string | null
           par_level?: number
