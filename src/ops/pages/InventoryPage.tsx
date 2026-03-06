@@ -23,110 +23,34 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Package, AlertTriangle, Search, Plus, Camera, CheckCircle,
   Loader2, ArrowDown, ArrowUp, Truck, ClipboardList, RotateCcw,
-  ChevronDown, ChevronUp, Trash2, Pencil, Save, ListPlus, Play,
+  ChevronDown, ChevronUp, Trash2, Pencil, Save, ListPlus, Play, Minus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { ItemBatchDates, fmtDate } from '../components/ItemBatchDates';
 
 
-/** Compute mfg & expiry dates from item config */
-function computeItemDates(item: InventoryItem) {
-  if (!item.last_received_at) return null;
-  const received = parseISO(item.last_received_at);
-  const mfgDate = new Date(received.getTime() - (item.mfg_offset_days ?? 2) * 86400000);
-  const expiryDate = item.expiry_warn_days
-    ? new Date(mfgDate.getTime() + item.expiry_warn_days * 86400000)
-    : null;
-  const daysLeft = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
-  return { mfgDate, expiryDate, daysLeft };
-}
-
-/** Compact date badge row for item cards – admin can tap to edit dates */
-function ItemDateBadges({ item, editable = false }: { item: InventoryItem; editable?: boolean }) {
-  const dates = computeItemDates(item);
-  const updateItem = useUpdateInventoryItem();
-  const [editing, setEditing] = useState(false);
-  const [editReceived, setEditReceived] = useState('');
-  const [editMfgOffset, setEditMfgOffset] = useState('');
-  const [editShelfLife, setEditShelfLife] = useState('');
-
-  if (!dates) return null;
-  const { mfgDate, expiryDate, daysLeft } = dates;
-
-  const startEditing = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditReceived(item.last_received_at ? format(parseISO(item.last_received_at), 'yyyy-MM-dd') : '');
-    setEditMfgOffset(String(item.mfg_offset_days ?? 2));
-    setEditShelfLife(String(item.expiry_warn_days ?? ''));
-    setEditing(true);
-  };
-
-  const handleSave = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await updateItem.mutateAsync({
-        id: item.id,
-        updates: {
-          last_received_at: editReceived ? new Date(editReceived).toISOString() : null,
-          mfg_offset_days: parseInt(editMfgOffset) || 2,
-          expiry_warn_days: editShelfLife ? parseInt(editShelfLife) : null,
-        },
-      });
-      toast.success('Dates updated');
-      setEditing(false);
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  if (editing && editable) {
-    return (
-      <div className="mt-1 space-y-1 bg-muted/50 rounded p-1.5" onClick={e => e.stopPropagation()}>
-        <div className="grid grid-cols-3 gap-1">
-          <div>
-            <label className="text-[8px] text-muted-foreground block">Rcvd</label>
-            <Input type="date" value={editReceived} onChange={e => setEditReceived(e.target.value)} className="h-6 text-[10px] px-1" />
-          </div>
-          <div>
-            <label className="text-[8px] text-muted-foreground block">Mfg-Off</label>
-            <Input type="number" min="0" value={editMfgOffset} onChange={e => setEditMfgOffset(e.target.value)} className="h-6 text-[10px] px-1" />
-          </div>
-          <div>
-            <label className="text-[8px] text-muted-foreground block">Shelf</label>
-            <Input type="number" min="0" value={editShelfLife} onChange={e => setEditShelfLife(e.target.value)} placeholder="—" className="h-6 text-[10px] px-1" />
-          </div>
-        </div>
-        <div className="flex gap-1 justify-end">
-          <Button size="sm" variant="ghost" className="h-5 text-[9px] px-1.5" onClick={(e) => { e.stopPropagation(); setEditing(false); }}>Cancel</Button>
-          <Button size="sm" className="h-5 text-[9px] px-1.5" onClick={handleSave} disabled={updateItem.isPending}>
-            {updateItem.isPending ? '...' : 'Save'}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
+/** Quantity editor with +/- buttons */
+function QtyEditor({ value, onChange, min = 1 }: { value: number; onChange: (v: number) => void; min?: number }) {
   return (
-    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 items-center">
-      <span className="text-[9px] text-muted-foreground">
-        Mfg: {format(mfgDate, 'dd MMM')}
-      </span>
-      {expiryDate && (
-        <span className={`text-[9px] font-medium ${
-          daysLeft! <= 0 ? 'text-destructive' : daysLeft! <= 7 ? 'text-orange-600' : 'text-muted-foreground'
-        }`}>
-          Exp: {format(expiryDate, 'dd MMM')} ({daysLeft}d)
-        </span>
-      )}
-      {editable && (
-        <button onClick={startEditing} className="text-[9px] text-primary hover:underline ml-0.5">
-          <Pencil className="h-2.5 w-2.5 inline" />
-        </button>
-      )}
+    <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+      <Button size="sm" variant="outline" className="h-6 w-6 p-0" onClick={() => onChange(Math.max(min, value - 1))}>
+        <Minus className="h-3 w-3" />
+      </Button>
+      <Input
+        type="number" min={min} value={value}
+        onChange={e => onChange(Math.max(min, parseInt(e.target.value) || min))}
+        className="w-12 h-6 text-center text-xs px-1"
+        onClick={e => e.stopPropagation()}
+      />
+      <Button size="sm" variant="outline" className="h-6 w-6 p-0" onClick={() => onChange(value + 1)}>
+        <Plus className="h-3 w-3" />
+      </Button>
     </div>
   );
 }
+
 
 export default function InventoryPage() {
   const { t, language } = useOpsLanguage();
@@ -207,6 +131,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const [editMode, setEditMode] = useState(false);
   const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
   const [selectedForPO, setSelectedForPO] = useState<Set<string>>(new Set());
+  const [poQuantities, setPoQuantities] = useState<Record<string, number>>({});
   const [poMode, setPoMode] = useState(false);
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
@@ -247,7 +172,15 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const togglePOSelect = (id: string) => {
     setSelectedForPO((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        const item = items.find(i => i.id === id);
+        if (item) {
+          setPoQuantities(q => ({ ...q, [id]: Math.max(1, item.par_level - item.current_stock) }));
+        }
+      }
       return next;
     });
   };
@@ -255,8 +188,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const handleCreatePOFromOverview = async () => {
     if (selectedForPO.size === 0) return;
     const cart = Array.from(selectedForPO).map(id => {
-      const item = items.find(i => i.id === id)!;
-      return { item_id: id, quantity: Math.max(1, item.par_level - item.current_stock) };
+      return { item_id: id, quantity: poQuantities[id] || 1 };
     });
     try {
       await createOrder.mutateAsync(cart);
@@ -383,11 +315,18 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                     />
                   )}
                   {poMode && !editMode && (
-                    <Checkbox
-                      checked={selectedForPO.has(item.id)}
-                      onCheckedChange={() => togglePOSelect(item.id)}
-                      className="mt-1"
-                    />
+                    <div className="flex flex-col items-center gap-1 mt-1">
+                      <Checkbox
+                        checked={selectedForPO.has(item.id)}
+                        onCheckedChange={() => togglePOSelect(item.id)}
+                      />
+                      {selectedForPO.has(item.id) && (
+                        <QtyEditor
+                          value={poQuantities[item.id] || Math.max(1, item.par_level - item.current_stock)}
+                          onChange={v => setPoQuantities(q => ({ ...q, [item.id]: v }))}
+                        />
+                      )}
+                    </div>
                   )}
 
                   <button
@@ -399,7 +338,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                     <div className="min-w-0 flex-1">
                       <span className="font-medium text-sm truncate block">{getName(item)}</span>
                       <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                      <ItemDateBadges item={item} editable={isAdmin} />
+                      <ItemBatchDates itemId={item.id} editable={isAdmin} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {isAdmin && !editMode && (
@@ -444,16 +383,8 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
   const [currentStock, setCurrentStock] = useState(String(item.current_stock));
   const [expiryWarnDays, setExpiryWarnDays] = useState(String(item.expiry_warn_days ?? ''));
   const [mfgOffsetDays, setMfgOffsetDays] = useState(String(item.mfg_offset_days ?? 2));
-  const [lastReceivedAt, setLastReceivedAt] = useState(item.last_received_at ? format(parseISO(item.last_received_at), 'yyyy-MM-dd') : '');
   const [category, setCategory] = useState(item.category);
   const [unit, setUnit] = useState(item.unit);
-
-  const computedMfgDate = lastReceivedAt && mfgOffsetDays
-    ? new Date(new Date(lastReceivedAt).getTime() - (parseInt(mfgOffsetDays) || 2) * 86400000)
-    : null;
-  const computedExpiryDate = computedMfgDate && expiryWarnDays
-    ? new Date(computedMfgDate.getTime() + (parseInt(expiryWarnDays) || 0) * 86400000)
-    : null;
 
   const handleSave = async () => {
     try {
@@ -465,7 +396,6 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
           current_stock: Math.max(0, parseInt(currentStock) || 0),
           expiry_warn_days: expiryWarnDays ? parseInt(expiryWarnDays) : null,
           mfg_offset_days: parseInt(mfgOffsetDays) || 2,
-          last_received_at: lastReceivedAt ? new Date(lastReceivedAt).toISOString() : null,
           category,
           unit,
         },
@@ -505,35 +435,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
               <label className="text-xs font-medium text-muted-foreground">Mfg Offset (days)</label>
               <Input type="number" min="0" value={mfgOffsetDays} onChange={e => setMfgOffsetDays(e.target.value)} className="mt-1 text-sm" />
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Last Received</label>
-              <Input type="date" value={lastReceivedAt} onChange={e => setLastReceivedAt(e.target.value)} className="mt-1 text-sm" />
-            </div>
           </div>
-
-          {/* Computed dates preview */}
-          {computedMfgDate && (
-            <div className="bg-muted/50 rounded-md p-2 space-y-0.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Mfg Date</span>
-                <span className="font-medium">{format(computedMfgDate, 'dd MMM yyyy')}</span>
-              </div>
-              {computedExpiryDate && (
-                <>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Exp Date</span>
-                    <span className="font-medium">{format(computedExpiryDate, 'dd MMM yyyy')}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Days Left</span>
-                    <span className={`font-medium ${differenceInDays(computedExpiryDate, new Date()) <= 0 ? 'text-destructive' : differenceInDays(computedExpiryDate, new Date()) <= 7 ? 'text-orange-600' : 'text-emerald-600'}`}>
-                      {differenceInDays(computedExpiryDate, new Date())}d
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -621,6 +523,7 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const createOrder = useCreatePurchaseOrder();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [dueQuantities, setDueQuantities] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
@@ -657,8 +560,7 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const handleGeneratePO = async () => {
     if (selectedItems.size === 0) return;
     const cart = Array.from(selectedItems).map(id => {
-      const item = items.find(i => i.id === id)!;
-      return { item_id: id, quantity: Math.max(1, item.par_level - item.current_stock) };
+      return { item_id: id, quantity: dueQuantities[id] || Math.max(1, (items.find(i => i.id === id)?.par_level || 1) - (items.find(i => i.id === id)?.current_stock || 0)) };
     });
     try {
       await createOrder.mutateAsync(cart);
@@ -738,15 +640,23 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
                       <div className="min-w-0">
                         <span className="font-medium text-sm truncate block">{getName(item)}</span>
                         <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                        <ItemDateBadges item={item} />
+                        <ItemBatchDates itemId={item.id} />
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 space-y-1">
                       <div className="flex items-baseline gap-1">
                         <span className="font-mono text-sm font-bold text-orange-600">{item.current_stock}</span>
                         <span className="text-[10px] text-muted-foreground">/ {item.par_level}</span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
+                      {isSelected && (
+                        <QtyEditor
+                          value={dueQuantities[item.id] || Math.max(1, deficit)}
+                          onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
+                        />
+                      )}
+                      {!isSelected && (
+                        <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -826,25 +736,33 @@ function OrderedOnWayTab() {
         for (const oi of orderItems) {
           const addQty = Math.max(0, Number((oi as any).received_quantity ?? (oi as any).quantity ?? 0));
           if (!addQty) continue;
+          const itemId = (oi as any).item_id;
 
           const { data: inv, error: invError } = await supabase
             .from('ops_inventory_items')
-            .select('current_stock')
-            .eq('id', (oi as any).item_id)
+            .select('current_stock, mfg_offset_days, expiry_warn_days')
+            .eq('id', itemId)
             .single();
           if (invError) throw invError;
 
+          const mfgOffsetDays = (inv as any).mfg_offset_days ?? 2;
+          const shelfLifeDays = (inv as any).expiry_warn_days;
+
+          // Update stock + last_received_at
           const { error: updateStockError } = await supabase
             .from('ops_inventory_items')
-            .update({ current_stock: ((inv as any).current_stock as number) + addQty } as any)
-            .eq('id', (oi as any).item_id);
+            .update({
+              current_stock: ((inv as any).current_stock as number) + addQty,
+              last_received_at: receiveDate.toISOString(),
+            } as any)
+            .eq('id', itemId);
           if (updateStockError) throw updateStockError;
 
           const { error: txError } = await supabase
             .from('ops_inventory_transactions')
             .insert({
               branch_id: profile!.branchId,
-              item_id: (oi as any).item_id,
+              item_id: itemId,
               type: 'in',
               quantity: addQty,
               notes: `PO received: ${orderId.slice(0, 8)}`,
@@ -853,20 +771,31 @@ function OrderedOnWayTab() {
             } as any);
           if (txError) throw txError;
 
-          const item = items.find(i => i.id === (oi as any).item_id);
-          if (item?.expiry_warn_days) {
-            const mfgDate = new Date(receiveDate);
-            mfgDate.setDate(mfgDate.getDate() - 2);
-            const expiryDate = new Date(mfgDate);
-            expiryDate.setDate(expiryDate.getDate() + (item.expiry_warn_days * 3));
+          // Create batch entry with received_date, mfg_date, expiry_date
+          const receiveDateStr = format(receiveDate, 'yyyy-MM-dd');
+          const mfgDate = new Date(receiveDate);
+          mfgDate.setDate(mfgDate.getDate() - mfgOffsetDays);
+          const mfgDateStr = format(mfgDate, 'yyyy-MM-dd');
 
-            await addExpiry.mutateAsync({
-              item_id: item.id,
-              quantity: addQty,
-              expiry_date: format(expiryDate, 'yyyy-MM-dd'),
-              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
-            });
+          let expiryDateStr = format(new Date(mfgDate.getTime() + 365 * 86400000), 'yyyy-MM-dd'); // default 1yr
+          if (shelfLifeDays) {
+            const expiryDate = new Date(mfgDate);
+            expiryDate.setDate(expiryDate.getDate() + shelfLifeDays);
+            expiryDateStr = format(expiryDate, 'yyyy-MM-dd');
           }
+
+          const { error: batchError } = await supabase
+            .from('ops_inventory_expiry')
+            .insert({
+              branch_id: profile!.branchId,
+              item_id: itemId,
+              quantity: addQty,
+              received_date: receiveDateStr,
+              mfg_date: mfgDateStr,
+              expiry_date: expiryDateStr,
+              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
+            } as any);
+          if (batchError) throw batchError;
         }
       }
 
@@ -910,7 +839,7 @@ function OrderedOnWayTab() {
                       {order.status}
                     </Badge>
                   </div>
-                  <p className="text-xs mt-0.5">{getProfileName(order.requested_by)} · {format(parseISO(order.created_at), 'dd MMM')}</p>
+                  <p className="text-xs mt-0.5">{getProfileName(order.requested_by)} · {format(parseISO(order.created_at), 'dd/MM/yyyy')}</p>
                   {order.vendor && <p className="text-[10px] text-muted-foreground">Vendor: {order.vendor}</p>}
                 </div>
                 <div className="flex gap-1 shrink-0 flex-wrap justify-end">

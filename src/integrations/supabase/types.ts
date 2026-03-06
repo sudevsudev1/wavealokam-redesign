@@ -602,7 +602,9 @@ export type Database = {
           id: string
           is_disposed: boolean
           item_id: string
+          mfg_date: string | null
           quantity: number
+          received_date: string | null
         }
         Insert: {
           batch_label?: string | null
@@ -614,7 +616,9 @@ export type Database = {
           id?: string
           is_disposed?: boolean
           item_id: string
+          mfg_date?: string | null
           quantity?: number
+          received_date?: string | null
         }
         Update: {
           batch_label?: string | null
@@ -626,7 +630,9 @@ export type Database = {
           id?: string
           is_disposed?: boolean
           item_id?: string
+          mfg_date?: string | null
           quantity?: number
+          received_date?: string | null
         }
         Relationships: [
           {
