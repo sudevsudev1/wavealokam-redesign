@@ -139,8 +139,8 @@ export default function QuickPurchaseDock() {
 
   const displayItems = useMemo(() => {
     if (searchResults) return searchResults.inventoryMatches;
-    return showAll ? items : dueItems;
-  }, [searchResults, items, dueItems, showAll]);
+    return [];
+  }, [searchResults]);
 
   const getCartQty = (itemId: string) =>
     cart.find(c => c.item_id === itemId)?.quantity || 0;
