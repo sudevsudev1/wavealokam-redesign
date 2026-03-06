@@ -114,7 +114,7 @@ export default function PurchasePage() {
 
           const { error: updateStockError } = await supabase
             .from('ops_inventory_items')
-            .update({ current_stock: ((inv as any).current_stock as number) + addQty } as any)
+            .update({ current_stock: ((inv as any).current_stock as number) + addQty, last_received_at: new Date().toISOString() } as any)
             .eq('id', (oi as any).item_id);
           if (updateStockError) throw updateStockError;
 

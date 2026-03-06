@@ -14,6 +14,8 @@ export interface InventoryItem {
   current_stock: number;
   reorder_point: number;
   expiry_warn_days: number | null;
+  mfg_offset_days: number;
+  last_received_at: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
