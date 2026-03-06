@@ -1029,7 +1029,18 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [templateRoomType, setTemplateRoomType] = useState('');
   const [templateItemId, setTemplateItemId] = useState('');
+  const [templateItemSearch, setTemplateItemSearch] = useState('');
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all');
   const [templateQty, setTemplateQty] = useState('1');
+
+  const filteredRefillItems = useMemo(() => {
+    return items.filter(i => {
+      const name = getName(i);
+      const matchSearch = !templateItemSearch || name.toLowerCase().includes(templateItemSearch.toLowerCase()) || i.name_en.toLowerCase().includes(templateItemSearch.toLowerCase());
+      const matchCat = templateCategoryFilter === 'all' || i.category === templateCategoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [items, templateItemSearch, templateCategoryFilter, language]);
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
