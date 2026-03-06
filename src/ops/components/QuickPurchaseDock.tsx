@@ -540,6 +540,85 @@ export default function QuickPurchaseDock() {
           </div>
         )}
       </CardContent>
+
+      {/* Template preview dialog */}
+      <Dialog open={!!templatePreview} onOpenChange={(open) => { if (!open) setTemplatePreview(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <FileText className="h-4 w-4" />
+              {templatePreview?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-[10px] text-muted-foreground">Adjust quantities then add all to cart:</p>
+            {templatePreview && (templatePreview.items_json as any[]).map((ti: any) => {
+              const item = items.find(i => i.id === ti.item_id);
+              const name = item ? getName(item) : ti.item_id.slice(0, 8);
+              return (
+                <div key={ti.item_id} className="flex items-center justify-between p-2 rounded-lg border">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate block">{name}</span>
+                    {item && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Stock: {item.current_stock} {item.unit}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, (prev[ti.item_id] || 0) - 1) }))}
+                      className="h-6 w-6 rounded-full bg-muted flex items-center justify-center"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <Input
+                      type="number"
+                      value={templateQtys[ti.item_id] || 0}
+                      onChange={e => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, Number(e.target.value)) }))}
+                      className="h-6 w-12 text-xs text-center px-0.5 font-mono"
+                    />
+                    <button
+                      onClick={() => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: (prev[ti.item_id] || 0) + 1 }))}
+                      className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            <Button
+              className="w-full text-xs"
+              size="sm"
+              onClick={() => {
+                if (!templatePreview) return;
+                const itemsToAdd = (templatePreview.items_json as any[])
+                  .filter((ti: any) => (templateQtys[ti.item_id] || 0) > 0);
+                for (const ti of itemsToAdd) {
+                  const item = items.find(i => i.id === ti.item_id);
+                  const name = item ? getName(item) : ti.item_id.slice(0, 8);
+                  const unit = item?.unit || 'pcs';
+                  const qty = templateQtys[ti.item_id] || ti.quantity;
+                  // Replace existing cart entry or add new
+                  setCart(prev => {
+                    const existing = prev.find(c => c.item_id === ti.item_id);
+                    if (existing) {
+                      return prev.map(c => c.item_id === ti.item_id ? { ...c, quantity: qty } : c);
+                    }
+                    return [...prev, { item_id: ti.item_id, name, unit, quantity: qty }];
+                  });
+                }
+                toast.success(`${itemsToAdd.length} items added from "${templatePreview.name}"`);
+                setTemplatePreview(null);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add {Object.values(templateQtys).filter(q => q > 0).length} items to cart
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
