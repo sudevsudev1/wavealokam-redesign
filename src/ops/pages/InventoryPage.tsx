@@ -42,13 +42,73 @@ function computeItemDates(item: InventoryItem) {
   return { mfgDate, expiryDate, daysLeft };
 }
 
-/** Compact date badge row for item cards */
-function ItemDateBadges({ item }: { item: InventoryItem }) {
+/** Compact date badge row for item cards – admin can tap to edit dates */
+function ItemDateBadges({ item, editable = false }: { item: InventoryItem; editable?: boolean }) {
   const dates = computeItemDates(item);
+  const updateItem = useUpdateInventoryItem();
+  const [editing, setEditing] = useState(false);
+  const [editReceived, setEditReceived] = useState('');
+  const [editMfgOffset, setEditMfgOffset] = useState('');
+  const [editShelfLife, setEditShelfLife] = useState('');
+
   if (!dates) return null;
   const { mfgDate, expiryDate, daysLeft } = dates;
+
+  const startEditing = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditReceived(item.last_received_at ? format(parseISO(item.last_received_at), 'yyyy-MM-dd') : '');
+    setEditMfgOffset(String(item.mfg_offset_days ?? 2));
+    setEditShelfLife(String(item.expiry_warn_days ?? ''));
+    setEditing(true);
+  };
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await updateItem.mutateAsync({
+        id: item.id,
+        updates: {
+          last_received_at: editReceived ? new Date(editReceived).toISOString() : null,
+          mfg_offset_days: parseInt(editMfgOffset) || 2,
+          expiry_warn_days: editShelfLife ? parseInt(editShelfLife) : null,
+        },
+      });
+      toast.success('Dates updated');
+      setEditing(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  if (editing && editable) {
+    return (
+      <div className="mt-1 space-y-1 bg-muted/50 rounded p-1.5" onClick={e => e.stopPropagation()}>
+        <div className="grid grid-cols-3 gap-1">
+          <div>
+            <label className="text-[8px] text-muted-foreground block">Rcvd</label>
+            <Input type="date" value={editReceived} onChange={e => setEditReceived(e.target.value)} className="h-6 text-[10px] px-1" />
+          </div>
+          <div>
+            <label className="text-[8px] text-muted-foreground block">Mfg-Off</label>
+            <Input type="number" min="0" value={editMfgOffset} onChange={e => setEditMfgOffset(e.target.value)} className="h-6 text-[10px] px-1" />
+          </div>
+          <div>
+            <label className="text-[8px] text-muted-foreground block">Shelf</label>
+            <Input type="number" min="0" value={editShelfLife} onChange={e => setEditShelfLife(e.target.value)} placeholder="—" className="h-6 text-[10px] px-1" />
+          </div>
+        </div>
+        <div className="flex gap-1 justify-end">
+          <Button size="sm" variant="ghost" className="h-5 text-[9px] px-1.5" onClick={(e) => { e.stopPropagation(); setEditing(false); }}>Cancel</Button>
+          <Button size="sm" className="h-5 text-[9px] px-1.5" onClick={handleSave} disabled={updateItem.isPending}>
+            {updateItem.isPending ? '...' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 items-center">
       <span className="text-[9px] text-muted-foreground">
         Mfg: {format(mfgDate, 'dd MMM')}
       </span>
@@ -58,6 +118,11 @@ function ItemDateBadges({ item }: { item: InventoryItem }) {
         }`}>
           Exp: {format(expiryDate, 'dd MMM')} ({daysLeft}d)
         </span>
+      )}
+      {editable && (
+        <button onClick={startEditing} className="text-[9px] text-primary hover:underline ml-0.5">
+          <Pencil className="h-2.5 w-2.5 inline" />
+        </button>
       )}
     </div>
   );
