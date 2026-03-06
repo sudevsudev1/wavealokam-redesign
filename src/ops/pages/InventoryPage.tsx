@@ -98,10 +98,13 @@ export default function InventoryPage() {
 function OverviewTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
+  const batchDeleteItems = useBatchDeleteInventoryItems();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -114,6 +117,46 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
       return matchesSearch && matchesCat;
     });
   }, [items, search, categoryFilter, language]);
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((item) => selectedForDelete.has(item.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedForDelete((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedForDelete((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filtered.forEach((item) => next.delete(item.id));
+      } else {
+        filtered.forEach((item) => next.add(item.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBatchDelete = async () => {
+    const ids = Array.from(selectedForDelete);
+    if (!ids.length) return;
+    const confirmed = window.confirm(`Delete ${ids.length} selected item(s)?`);
+    if (!confirmed) return;
+
+    try {
+      await batchDeleteItems.mutateAsync(ids);
+      toast.success(`${ids.length} item(s) deleted`);
+      setSelectedForDelete(new Set());
+      setEditMode(false);
+      setExpandedItem(null);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   return (
     <div className="space-y-2 mt-2">
@@ -131,39 +174,89 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
         </Select>
       </div>
 
+      {isAdmin && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={editMode ? 'secondary' : 'outline'}
+            className="text-xs"
+            onClick={() => {
+              setEditMode((prev) => !prev);
+              setExpandedItem(null);
+              if (editMode) setSelectedForDelete(new Set());
+            }}
+          >
+            {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
+          </Button>
+
+          {editMode && filtered.length > 0 && (
+            <Button size="sm" variant="outline" className="text-xs" onClick={toggleSelectAllFiltered}>
+              {allFilteredSelected ? 'Unselect Visible' : 'Select Visible'}
+            </Button>
+          )}
+
+          {editMode && selectedForDelete.size > 0 && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="text-xs gap-1.5"
+              onClick={handleBatchDelete}
+              disabled={batchDeleteItems.isPending}
+            >
+              {batchDeleteItems.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete Selected ({selectedForDelete.size})
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="space-y-1.5">
         {filtered.map((item) => {
           const status = STOCK_STATUS(item.current_stock, item.par_level, item.reorder_point);
           const isExpanded = expandedItem === item.id;
+          const isSelected = selectedForDelete.has(item.id);
+
           return (
             <Card key={item.id}>
               <CardContent className="p-2.5">
-                <button
-                  className="flex items-center justify-between w-full text-left"
-                  onClick={() => setExpandedItem(isExpanded ? null : item.id)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="font-medium text-sm truncate block">{getName(item)}</span>
-                    <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isAdmin && (
-                      <Button
-                        size="sm" variant="ghost" className="h-6 w-6 p-0"
-                        onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
-                      >
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                    )}
-                    <div className="text-right">
-                      <span className="font-mono font-semibold text-sm">{item.current_stock}</span>
-                      <span className="text-[10px] text-muted-foreground block">/{item.par_level}</span>
+                <div className="flex items-start gap-2">
+                  {isAdmin && editMode && (
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(item.id)}
+                      className="mt-1"
+                    />
+                  )}
+
+                  <button
+                    className="flex items-center justify-between w-full text-left"
+                    onClick={() => {
+                      if (!editMode) setExpandedItem(isExpanded ? null : item.id);
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-sm truncate block">{getName(item)}</span>
+                      <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
                     </div>
-                    <Badge variant="outline" className={`text-[10px] ${status.color}`}>{status.label}</Badge>
-                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                  </div>
-                </button>
-                {isExpanded && <ItemLedger itemId={item.id} itemName={getName(item)} />}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isAdmin && !editMode && (
+                        <Button
+                          size="sm" variant="ghost" className="h-6 w-6 p-0"
+                          onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
+                        >
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      )}
+                      <div className="text-right">
+                        <span className="font-mono font-semibold text-sm">{item.current_stock}</span>
+                        <span className="text-[10px] text-muted-foreground block">/{item.par_level}</span>
+                      </div>
+                      <Badge variant="outline" className={`text-[10px] ${status.color}`}>{status.label}</Badge>
+                      {!editMode && (isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />)}
+                    </div>
+                  </button>
+                </div>
+                {isExpanded && !editMode && <ItemLedger itemId={item.id} itemName={getName(item)} />}
               </CardContent>
             </Card>
           );
