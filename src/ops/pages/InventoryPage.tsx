@@ -315,11 +315,18 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                     />
                   )}
                   {poMode && !editMode && (
-                    <Checkbox
-                      checked={selectedForPO.has(item.id)}
-                      onCheckedChange={() => togglePOSelect(item.id)}
-                      className="mt-1"
-                    />
+                    <div className="flex flex-col items-center gap-1 mt-1">
+                      <Checkbox
+                        checked={selectedForPO.has(item.id)}
+                        onCheckedChange={() => togglePOSelect(item.id)}
+                      />
+                      {selectedForPO.has(item.id) && (
+                        <QtyEditor
+                          value={poQuantities[item.id] || Math.max(1, item.par_level - item.current_stock)}
+                          onChange={v => setPoQuantities(q => ({ ...q, [item.id]: v }))}
+                        />
+                      )}
+                    </div>
                   )}
 
                   <button
