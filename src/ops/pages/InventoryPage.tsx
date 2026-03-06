@@ -392,9 +392,15 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
                 {tx.notes && <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">· {tx.notes}</span>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className={`font-mono font-medium ${tx.quantity > 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
-                  {tx.quantity > 0 ? '+' : ''}{tx.quantity}
-                </span>
+                {(() => {
+                  const isDeduction = ['out', 'expire', 'refill', 'damage', 'waste'].includes(tx.type);
+                  const displayQty = isDeduction ? -Math.abs(tx.quantity) : Math.abs(tx.quantity);
+                  return (
+                    <span className={`font-mono font-medium ${isDeduction ? 'text-orange-600' : 'text-emerald-600'}`}>
+                      {isDeduction ? '' : '+'}{displayQty}
+                    </span>
+                  );
+                })()}
                 <span className="text-[10px] text-muted-foreground">{format(parseISO(tx.created_at), 'dd MMM HH:mm')}</span>
               </div>
             </div>
@@ -930,9 +936,15 @@ function RecentTransactions({ items }: { items: InventoryItem[] }) {
               </span>
             </div>
             <div className="text-right shrink-0">
-              <span className={`font-mono font-medium ${tx.quantity > 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
-                {tx.quantity > 0 ? '+' : ''}{tx.quantity}
-              </span>
+              {(() => {
+                const isDeduction = ['out', 'expire', 'refill', 'damage', 'waste'].includes(tx.type);
+                const displayQty = isDeduction ? -Math.abs(tx.quantity) : Math.abs(tx.quantity);
+                return (
+                  <span className={`font-mono font-medium ${isDeduction ? 'text-orange-600' : 'text-emerald-600'}`}>
+                    {isDeduction ? '' : '+'}{displayQty}
+                  </span>
+                );
+              })()}
               <p className="text-[10px] text-muted-foreground">{format(parseISO(tx.created_at), 'dd MMM HH:mm')}</p>
             </div>
           </div>
