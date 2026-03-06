@@ -383,58 +383,51 @@ export default function QuickPurchaseDock() {
           </div>
         )}
 
-        {/* Toggle: show all vs due only */}
-        {!search.trim() && (
-          <div className="flex gap-1">
-            <button
-              onClick={() => setShowAll(false)}
-              className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${!showAll ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-            >
-              Due ({dueItems.length})
-            </button>
-            <button
-              onClick={() => setShowAll(true)}
-              className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${showAll ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-            >
-              All ({items.length})
-            </button>
-          </div>
-        )}
-
-        {/* Catalog matches (items not yet in inventory) */}
-        {searchResults && searchResults.catalogMatches.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">From catalog</p>
-            {searchResults.catalogMatches.slice(0, 5).map(entry => (
-              <div
-                key={entry.name}
-                className="flex items-center justify-between p-2 rounded-lg border border-dashed border-primary/20 bg-primary/5"
-              >
-                <div className="min-w-0 flex-1">
-                  <span className="text-xs font-medium truncate block">{entry.name}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {entry.category} · {entry.defaultQty} {entry.unit} · {entry.shelfLifeDays}d shelf
-                  </span>
-                </div>
-                <button
-                  onClick={() => addCatalogItemToCart(entry)}
-                  className="h-7 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-medium flex items-center gap-0.5 hover:bg-primary/20 active:scale-95 transition-all"
+        {/* Template search results */}
+        {search.trim() && (() => {
+          const q = search.trim().toLowerCase();
+          const matchedTemplates = templates.filter(t => t.name.toLowerCase().includes(q));
+          if (matchedTemplates.length === 0) return null;
+          return (
+            <div className="space-y-1">
+              <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Templates</p>
+              {matchedTemplates.slice(0, 5).map(tmpl => (
+                <div
+                  key={tmpl.id}
+                  className="flex items-center justify-between p-2 rounded-lg border border-dashed border-accent bg-accent/30"
                 >
-                  <Plus className="h-3 w-3" /> Add
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate block flex items-center gap-1">
+                      <FileText className="h-3 w-3 text-muted-foreground" />
+                      {tmpl.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {(tmpl.items_json as any[]).length} items
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setTemplatePreview(tmpl);
+                      const qtys: Record<string, number> = {};
+                      (tmpl.items_json as any[]).forEach((ti: any) => { qtys[ti.item_id] = ti.quantity; });
+                      setTemplateQtys(qtys);
+                      setSearch('');
+                    }}
+                    className="h-7 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-medium flex items-center gap-0.5 hover:bg-primary/20 active:scale-95 transition-all"
+                  >
+                    <Plus className="h-3 w-3" /> Use
+                  </button>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
-        {/* Item list */}
-        <div className="space-y-1 max-h-[260px] overflow-y-auto">
-          {displayItems.length === 0 && !showAddNew ? (
-            <p className="text-center text-[10px] text-muted-foreground py-4">
-              {search ? 'No inventory items found' : 'No items due for order 🎉'}
-            </p>
-          ) : (
-            displayItems.slice(0, 25).map(item => {
+        {/* Search results - only show when searching */}
+        {search.trim() && displayItems.length > 0 && (
+          <div className="space-y-1 max-h-[200px] overflow-y-auto">
+            <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Inventory items</p>
+            {displayItems.slice(0, 15).map(item => {
               const cartQty = getCartQty(item.id);
               const isDue = item.current_stock <= item.reorder_point;
               const deficit = Math.max(0, item.par_level - item.current_stock);
@@ -442,7 +435,7 @@ export default function QuickPurchaseDock() {
                 <div
                   key={item.id}
                   className={`flex items-center justify-between p-2 rounded-lg border transition-colors ${
-                    cartQty > 0 ? 'border-primary/40 bg-primary/5' : isDue ? 'border-orange-200 bg-orange-50/50 dark:bg-orange-950/20' : 'border-border'
+                    cartQty > 0 ? 'border-primary/40 bg-primary/5' : isDue ? 'border-destructive/20 bg-destructive/5' : 'border-border'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
@@ -493,14 +486,24 @@ export default function QuickPurchaseDock() {
                   </div>
                 </div>
               );
-            })
-          )}
-          {displayItems.length > 25 && (
-            <p className="text-[10px] text-muted-foreground text-center py-1">
-              {displayItems.length - 25} more — refine search
+            })}
+          </div>
+        )}
+
+        {/* Due items summary when not searching */}
+        {!search.trim() && dueItems.length > 0 && (
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">
+              {dueItems.length} items due for order — search to add them
             </p>
-          )}
-        </div>
+          </div>
+        )}
+
+        {!search.trim() && dueItems.length === 0 && cart.length === 0 && (
+          <p className="text-center text-[10px] text-muted-foreground py-2">
+            Search items or templates to add to cart
+          </p>
+        )}
 
         {/* Cart summary + submit */}
         {cart.length > 0 && (
