@@ -131,6 +131,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const [editMode, setEditMode] = useState(false);
   const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
   const [selectedForPO, setSelectedForPO] = useState<Set<string>>(new Set());
+  const [poQuantities, setPoQuantities] = useState<Record<string, number>>({});
   const [poMode, setPoMode] = useState(false);
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
@@ -171,7 +172,15 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const togglePOSelect = (id: string) => {
     setSelectedForPO((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        const item = items.find(i => i.id === id);
+        if (item) {
+          setPoQuantities(q => ({ ...q, [id]: Math.max(1, item.par_level - item.current_stock) }));
+        }
+      }
       return next;
     });
   };
@@ -179,8 +188,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const handleCreatePOFromOverview = async () => {
     if (selectedForPO.size === 0) return;
     const cart = Array.from(selectedForPO).map(id => {
-      const item = items.find(i => i.id === id)!;
-      return { item_id: id, quantity: Math.max(1, item.par_level - item.current_stock) };
+      return { item_id: id, quantity: poQuantities[id] || 1 };
     });
     try {
       await createOrder.mutateAsync(cart);
@@ -323,7 +331,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                     <div className="min-w-0 flex-1">
                       <span className="font-medium text-sm truncate block">{getName(item)}</span>
                       <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                      <ItemDateBadges item={item} editable={isAdmin} />
+                      <ItemBatchDates itemId={item.id} editable={isAdmin} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {isAdmin && !editMode && (
@@ -662,7 +670,7 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
                       <div className="min-w-0">
                         <span className="font-medium text-sm truncate block">{getName(item)}</span>
                         <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                        <ItemDateBadges item={item} />
+                        <ItemBatchDates itemId={item.id} />
                       </div>
                     </div>
                     <div className="text-right shrink-0">
