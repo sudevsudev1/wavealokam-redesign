@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import {
   Settings, Users, MapPin, FileText, ScrollText,
-  Loader2, Edit, Save, Shield, ShieldCheck, ChevronDown, ChevronUp, UserPlus,
+  Loader2, Edit, Save, Shield, ShieldCheck, ChevronDown, ChevronUp, UserPlus, KeyRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -176,6 +176,9 @@ function UserCard({ profile: p, onUpdate }: { profile: any; onUpdate: any }) {
   const [name, setName] = useState(p.display_name);
   const [role, setRole] = useState(p.role);
   const [active, setActive] = useState(p.is_active);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [newPwd, setNewPwd] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   const save = async () => {
     try {
@@ -187,6 +190,28 @@ function UserCard({ profile: p, onUpdate }: { profile: any; onUpdate: any }) {
       setEditing(false);
     } catch {
       toast.error('Failed to update');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPwd || newPwd.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ops-reset-password', {
+        body: { targetUserId: p.user_id, newPassword: newPwd },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Password reset for ${p.display_name}`);
+      setResetOpen(false);
+      setNewPwd('');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to reset password');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -207,10 +232,35 @@ function UserCard({ profile: p, onUpdate }: { profile: any; onUpdate: any }) {
               </div>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setEditing(!editing)}>
-            <Edit className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setResetOpen(!resetOpen)} title="Reset password">
+              <KeyRound className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setEditing(!editing)}>
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
+
+        {resetOpen && (
+          <div className="mt-3 pt-3 border-t border-border space-y-2">
+            <p className="text-xs text-foreground/60">Set new password for <strong>{p.display_name}</strong></p>
+            <Input
+              type="password"
+              value={newPwd}
+              onChange={e => setNewPwd(e.target.value)}
+              placeholder="New password (min 6 chars)"
+              className="text-sm"
+            />
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1 gap-1" onClick={handleResetPassword} disabled={resetting}>
+                {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
+                Reset Password
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setResetOpen(false); setNewPwd(''); }}>Cancel</Button>
+            </div>
+          </div>
+        )}
 
         {editing && (
           <div className="mt-3 pt-3 border-t border-border space-y-2">
