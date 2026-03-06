@@ -643,12 +643,20 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
                         <ItemBatchDates itemId={item.id} />
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 space-y-1">
                       <div className="flex items-baseline gap-1">
                         <span className="font-mono text-sm font-bold text-orange-600">{item.current_stock}</span>
                         <span className="text-[10px] text-muted-foreground">/ {item.par_level}</span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
+                      {isSelected && (
+                        <QtyEditor
+                          value={dueQuantities[item.id] || Math.max(1, deficit)}
+                          onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
+                        />
+                      )}
+                      {!isSelected && (
+                        <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
+                      )}
                     </div>
                   </div>
                 </CardContent>
