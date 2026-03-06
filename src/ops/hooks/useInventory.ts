@@ -571,3 +571,41 @@ export function useApplyRefillTemplate() {
     },
   });
 }
+
+export function useCreateRefillTemplate() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async (entry: { room_type: string; item_id: string; quantity: number }) => {
+      if (!profile) throw new Error('Not authenticated');
+      const { error } = await supabase.from('ops_room_refill_templates').insert({
+        branch_id: profile.branchId,
+        room_type: entry.room_type,
+        item_id: entry.item_id,
+        quantity: entry.quantity,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_room_refill_templates'] });
+    },
+  });
+}
+
+export function useDeleteRefillTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('ops_room_refill_templates')
+        .update({ is_active: false } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_room_refill_templates'] });
+    },
+  });
+}
