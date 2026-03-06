@@ -99,12 +99,15 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
   const batchDeleteItems = useBatchDeleteInventoryItems();
+  const createOrder = useCreatePurchaseOrder();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
+  const [selectedForPO, setSelectedForPO] = useState<Set<string>>(new Set());
+  const [poMode, setPoMode] = useState(false);
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
