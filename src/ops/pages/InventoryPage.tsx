@@ -272,13 +272,20 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
           const isSelected = selectedForDelete.has(item.id);
 
           return (
-            <Card key={item.id}>
+            <Card key={item.id} className={poMode && selectedForPO.has(item.id) ? 'border-primary bg-primary/5' : ''}>
               <CardContent className="p-2.5">
                 <div className="flex items-start gap-2">
                   {isAdmin && editMode && (
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => toggleSelect(item.id)}
+                      className="mt-1"
+                    />
+                  )}
+                  {poMode && !editMode && (
+                    <Checkbox
+                      checked={selectedForPO.has(item.id)}
+                      onCheckedChange={() => togglePOSelect(item.id)}
                       className="mt-1"
                     />
                   )}
