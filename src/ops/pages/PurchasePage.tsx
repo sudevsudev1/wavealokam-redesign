@@ -94,38 +94,42 @@ export default function PurchasePage() {
         .from('ops-attachments')
         .getPublicUrl(filePath);
 
-      // Fetch order items to update inventory stock
-      const { data: orderItems } = await supabase
+      const { data: orderItems, error: orderItemsError } = await supabase
         .from('ops_purchase_order_items')
         .select('item_id, quantity, received_quantity')
         .eq('order_id', orderId);
+      if (orderItemsError) throw orderItemsError;
 
-      // Update current_stock for each item
       if (orderItems && orderItems.length > 0) {
         for (const oi of orderItems) {
-          const addQty = (oi as any).received_quantity ?? (oi as any).quantity;
-          const { data: inv } = await supabase
+          const addQty = Math.max(0, Number((oi as any).received_quantity ?? (oi as any).quantity ?? 0));
+          if (!addQty) continue;
+
+          const { data: inv, error: invError } = await supabase
             .from('ops_inventory_items')
             .select('current_stock')
             .eq('id', (oi as any).item_id)
             .single();
-          if (inv) {
-            const newStock = ((inv as any).current_stock as number) + addQty;
-            await supabase
-              .from('ops_inventory_items')
-              .update({ current_stock: newStock } as any)
-              .eq('id', (oi as any).item_id);
-          }
-          // Record transaction
-          await supabase.from('ops_inventory_transactions').insert({
-            branch_id: profile!.branchId,
-            item_id: (oi as any).item_id,
-            type: 'in',
-            quantity: addQty,
-            notes: `PO received: ${orderId.slice(0, 8)}`,
-            performed_by: profile!.userId,
-            related_order_id: orderId,
-          } as any);
+          if (invError) throw invError;
+
+          const { error: updateStockError } = await supabase
+            .from('ops_inventory_items')
+            .update({ current_stock: ((inv as any).current_stock as number) + addQty } as any)
+            .eq('id', (oi as any).item_id);
+          if (updateStockError) throw updateStockError;
+
+          const { error: txError } = await supabase
+            .from('ops_inventory_transactions')
+            .insert({
+              branch_id: profile!.branchId,
+              item_id: (oi as any).item_id,
+              type: 'in',
+              quantity: addQty,
+              notes: `PO received: ${orderId.slice(0, 8)}`,
+              performed_by: profile!.userId,
+              related_order_id: orderId,
+            } as any);
+          if (txError) throw txError;
         }
       }
 
