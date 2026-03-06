@@ -6,10 +6,11 @@ import {
   useUpdateStock, usePurchaseOrders, usePurchaseOrderItems,
   useUpdatePurchaseOrder, useCreatePurchaseOrder,
   useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
-  InventoryItem, InventoryTransaction,
+  useUpdateInventoryItem, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
+  InventoryItem, InventoryTransaction, PurchaseTemplate,
 } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
-import { STOCK_STATUS, INVENTORY_CATEGORIES, ORDER_STATUS_COLORS } from '../lib/inventoryConstants';
+import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS, ORDER_STATUS_COLORS } from '../lib/inventoryConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,10 +18,11 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Package, AlertTriangle, Search, Plus, Camera, CheckCircle,
   Loader2, ArrowDown, ArrowUp, Truck, ClipboardList, RotateCcw,
-  ChevronDown, ChevronUp, Trash2,
+  ChevronDown, ChevronUp, Trash2, Pencil, Save, ListPlus, Play,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
@@ -66,9 +68,9 @@ export default function InventoryPage() {
         </Card>
       </div>
 
-      {/* 4-Tab Interface */}
+      {/* 5-Tab Interface */}
       <Tabs defaultValue="overview">
-        <TabsList className="w-full grid grid-cols-4">
+        <TabsList className="w-full grid grid-cols-5">
           <TabsTrigger value="overview" className="text-[10px] sm:text-xs">{t('inv.overviewTab')}</TabsTrigger>
           <TabsTrigger value="due" className="text-[10px] sm:text-xs">
             {t('inv.dueTab')}
@@ -79,12 +81,14 @@ export default function InventoryPage() {
             {activeOrders > 0 && <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{activeOrders}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="log" className="text-[10px] sm:text-xs">{t('inv.logTab')}</TabsTrigger>
+          <TabsTrigger value="templates" className="text-[10px] sm:text-xs">Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
         <TabsContent value="due"><DueForOrderTab items={items} /></TabsContent>
         <TabsContent value="ordered"><OrderedOnWayTab /></TabsContent>
         <TabsContent value="log"><LogUsageTab items={items} /></TabsContent>
+        <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
       </Tabs>
     </div>
   );
@@ -93,9 +97,11 @@ export default function InventoryPage() {
 /* ─── Tab 1: Overview ─── */
 function OverviewTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
+  const { isAdmin } = useOpsAuth();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -141,6 +147,14 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                     <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {isAdmin && (
+                      <Button
+                        size="sm" variant="ghost" className="h-6 w-6 p-0"
+                        onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
+                      >
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                    )}
                     <div className="text-right">
                       <span className="font-mono font-semibold text-sm">{item.current_stock}</span>
                       <span className="text-[10px] text-muted-foreground block">/{item.par_level}</span>
@@ -158,10 +172,92 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
           <div className="text-center text-muted-foreground py-8 text-sm">No items found</div>
         )}
       </div>
+
+      {editingItem && (
+        <EditItemDialog item={editingItem} onClose={() => setEditingItem(null)} />
+      )}
     </div>
   );
 }
 
+/* ─── Admin Edit Item Dialog ─── */
+function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
+  const updateItem = useUpdateInventoryItem();
+  const [parLevel, setParLevel] = useState(String(item.par_level));
+  const [reorderPoint, setReorderPoint] = useState(String(item.reorder_point));
+  const [expiryWarnDays, setExpiryWarnDays] = useState(String(item.expiry_warn_days ?? ''));
+  const [category, setCategory] = useState(item.category);
+  const [unit, setUnit] = useState(item.unit);
+
+  const handleSave = async () => {
+    try {
+      await updateItem.mutateAsync({
+        id: item.id,
+        updates: {
+          par_level: parseInt(parLevel) || 1,
+          reorder_point: parseInt(reorderPoint) || 1,
+          expiry_warn_days: expiryWarnDays ? parseInt(expiryWarnDays) : null,
+          category,
+          unit,
+        },
+      });
+      toast.success(`${item.name_en} updated`);
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm">Edit: {item.name_en}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Par Level</label>
+              <Input type="number" min="1" value={parLevel} onChange={e => setParLevel(e.target.value)} className="mt-1 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Reorder Point</label>
+              <Input type="number" min="0" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="mt-1 text-sm" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Expiry Warning (days)</label>
+            <Input type="number" min="0" value={expiryWarnDays} onChange={e => setExpiryWarnDays(e.target.value)} placeholder="Optional" className="mt-1 text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INVENTORY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Unit</label>
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INVENTORY_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button onClick={handleSave} disabled={updateItem.isPending} className="w-full text-xs gap-1.5">
+            {updateItem.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Save Changes
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) {
   const { t } = useOpsLanguage();
   const { data: txns, isLoading } = useInventoryTransactions(itemId);
@@ -209,8 +305,6 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
     </div>
   );
 }
-
-/* ─── Tab 2: Due for Order ─── */
 function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const createOrder = useCreatePurchaseOrder();
@@ -717,6 +811,219 @@ function RecentTransactions({ items }: { items: InventoryItem[] }) {
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+/* ─── Tab 5: Templates ─── */
+function TemplatesTab({ items }: { items: InventoryItem[] }) {
+  const { language } = useOpsLanguage();
+  const { data: templates = [], isLoading } = usePurchaseTemplates();
+  const { data: profiles = [] } = useOpsProfiles();
+  const createTemplate = useCreatePurchaseTemplate();
+  const deleteTemplate = useDeletePurchaseTemplate();
+  const createOrder = useCreatePurchaseOrder();
+  const [showCreate, setShowCreate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDesc, setTemplateDesc] = useState('');
+  const [templateItems, setTemplateItems] = useState<{ item_id: string; quantity: number }[]>([]);
+  const [searchItem, setSearchItem] = useState('');
+
+  const getName = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return itemId.slice(0, 8);
+    return language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
+  };
+
+  const getProfileName = (userId: string) => {
+    const p = profiles.find(pr => pr.user_id === userId);
+    return p?.display_name || '?';
+  };
+
+  const filteredItems = useMemo(() => {
+    if (!searchItem) return [];
+    return items.filter(i =>
+      i.name_en.toLowerCase().includes(searchItem.toLowerCase()) &&
+      !templateItems.some(ti => ti.item_id === i.id)
+    ).slice(0, 8);
+  }, [items, searchItem, templateItems]);
+
+  const addToTemplate = (itemId: string) => {
+    setTemplateItems(prev => [...prev, { item_id: itemId, quantity: 1 }]);
+    setSearchItem('');
+  };
+
+  const removeFromTemplate = (itemId: string) => {
+    setTemplateItems(prev => prev.filter(ti => ti.item_id !== itemId));
+  };
+
+  const updateTemplateQty = (itemId: string, qty: number) => {
+    setTemplateItems(prev => prev.map(ti => ti.item_id === itemId ? { ...ti, quantity: Math.max(1, qty) } : ti));
+  };
+
+  const handleCreate = async () => {
+    if (!templateName.trim() || templateItems.length === 0) return;
+    try {
+      await createTemplate.mutateAsync({
+        name: templateName.trim(),
+        description: templateDesc.trim() || undefined,
+        items_json: templateItems,
+      });
+      toast.success('Template created');
+      setShowCreate(false);
+      setTemplateName('');
+      setTemplateDesc('');
+      setTemplateItems([]);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleUseTemplate = async (template: PurchaseTemplate) => {
+    try {
+      const cart = template.items_json.map(ti => ({ item_id: ti.item_id, quantity: ti.quantity }));
+      await createOrder.mutateAsync(cart);
+      toast.success('Purchase order created from template');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTemplate.mutateAsync(id);
+      toast.success('Template removed');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-3 mt-2">
+      <Button onClick={() => setShowCreate(true)} className="w-full text-xs gap-1.5" variant="outline">
+        <ListPlus className="h-3.5 w-3.5" /> Create Template
+      </Button>
+
+      {templates.length === 0 && !showCreate && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <ListPlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No templates yet. Create one for quick recurring orders.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Create Template Form */}
+      {showCreate && (
+        <Card>
+          <CardHeader className="py-2.5 px-3">
+            <CardTitle className="text-sm">New Template</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 pb-3 space-y-2">
+            <Input
+              value={templateName} onChange={e => setTemplateName(e.target.value)}
+              placeholder="Template name (e.g., Daily Kitchen)" className="text-sm"
+            />
+            <Input
+              value={templateDesc} onChange={e => setTemplateDesc(e.target.value)}
+              placeholder="Description (optional)" className="text-xs"
+            />
+
+            {/* Search and add items */}
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={searchItem} onChange={e => setSearchItem(e.target.value)}
+                placeholder="Search items to add..." className="pl-7 text-xs h-8"
+              />
+              {filteredItems.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                  {filteredItems.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => addToTemplate(item.id)}
+                      className="w-full text-left px-3 py-1.5 hover:bg-muted text-xs flex justify-between"
+                    >
+                      <span>{item.name_en}</span>
+                      <span className="text-muted-foreground">{item.category}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Selected items */}
+            {templateItems.length > 0 && (
+              <div className="space-y-1 border border-border rounded-md p-2">
+                {templateItems.map(ti => (
+                  <div key={ti.item_id} className="flex items-center justify-between text-xs">
+                    <span className="truncate flex-1">{getName(ti.item_id)}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => updateTemplateQty(ti.item_id, ti.quantity - 1)}>−</Button>
+                      <span className="w-6 text-center font-mono">{ti.quantity}</span>
+                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => updateTemplateQty(ti.item_id, ti.quantity + 1)}>+</Button>
+                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => removeFromTemplate(ti.item_id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button onClick={handleCreate} disabled={!templateName.trim() || templateItems.length === 0 || createTemplate.isPending} className="flex-1 text-xs gap-1">
+                {createTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                Save
+              </Button>
+              <Button variant="outline" onClick={() => { setShowCreate(false); setTemplateItems([]); setTemplateName(''); }} className="text-xs">
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Existing Templates */}
+      {templates.map(tpl => (
+        <Card key={tpl.id}>
+          <CardContent className="p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm">{tpl.name}</p>
+                {tpl.description && <p className="text-[10px] text-muted-foreground">{tpl.description}</p>}
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {tpl.items_json.length} items · by {getProfileName(tpl.created_by)}
+                </p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button
+                  size="sm" variant="default" className="h-7 text-[10px] px-2 gap-1"
+                  onClick={() => handleUseTemplate(tpl)}
+                  disabled={createOrder.isPending}
+                >
+                  <Play className="h-3 w-3" /> Use
+                </Button>
+                <Button
+                  size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive"
+                  onClick={() => handleDelete(tpl.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {tpl.items_json.map(ti => (
+                <Badge key={ti.item_id} variant="secondary" className="text-[10px]">
+                  {getName(ti.item_id)} ×{ti.quantity}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

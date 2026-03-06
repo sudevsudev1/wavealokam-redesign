@@ -417,6 +417,92 @@ export function useRooms() {
   });
 }
 
+export function useUpdateInventoryItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Pick<InventoryItem, 'par_level' | 'reorder_point' | 'expiry_warn_days' | 'name_en' | 'category' | 'unit'>> }) => {
+      const { error } = await supabase
+        .from('ops_inventory_items')
+        .update(updates as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+    },
+  });
+}
+
+export interface PurchaseTemplate {
+  id: string;
+  branch_id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  items_json: { item_id: string; quantity: number }[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function usePurchaseTemplates() {
+  const { profile } = useOpsAuth();
+
+  return useQuery({
+    queryKey: ['ops_purchase_templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ops_purchase_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return (data || []) as unknown as PurchaseTemplate[];
+    },
+    enabled: !!profile,
+  });
+}
+
+export function useCreatePurchaseTemplate() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async (template: { name: string; description?: string; items_json: { item_id: string; quantity: number }[] }) => {
+      if (!profile) throw new Error('Not authenticated');
+      const { error } = await supabase.from('ops_purchase_templates').insert({
+        branch_id: profile.branchId,
+        created_by: profile.userId,
+        name: template.name,
+        description: template.description || null,
+        items_json: template.items_json as any,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_templates'] });
+    },
+  });
+}
+
+export function useDeletePurchaseTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('ops_purchase_templates')
+        .update({ is_active: false } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_templates'] });
+    },
+  });
+}
+
 export function useApplyRefillTemplate() {
   const queryClient = useQueryClient();
   const { profile } = useOpsAuth();
