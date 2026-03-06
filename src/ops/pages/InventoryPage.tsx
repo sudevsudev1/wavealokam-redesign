@@ -312,6 +312,10 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <label className="text-xs font-medium text-muted-foreground">Current Stock</label>
+              <Input type="number" min="0" value={currentStock} onChange={e => setCurrentStock(e.target.value)} className="mt-1 text-sm" />
+            </div>
+            <div>
               <label className="text-xs font-medium text-muted-foreground">Par Level</label>
               <Input type="number" min="1" value={parLevel} onChange={e => setParLevel(e.target.value)} className="mt-1 text-sm" />
             </div>
@@ -319,10 +323,10 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
               <label className="text-xs font-medium text-muted-foreground">Reorder Point</label>
               <Input type="number" min="0" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="mt-1 text-sm" />
             </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Expiry Warning (days)</label>
-            <Input type="number" min="0" value={expiryWarnDays} onChange={e => setExpiryWarnDays(e.target.value)} placeholder="Optional" className="mt-1 text-sm" />
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Expiry Warning (days)</label>
+              <Input type="number" min="0" value={expiryWarnDays} onChange={e => setExpiryWarnDays(e.target.value)} placeholder="Optional" className="mt-1 text-sm" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
