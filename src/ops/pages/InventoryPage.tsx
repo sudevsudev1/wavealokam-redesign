@@ -962,6 +962,9 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all');
   const [templateQty, setTemplateQty] = useState('1');
 
+  const getName = (item: InventoryItem) =>
+    language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
+
   const filteredRefillItems = useMemo(() => {
     return items.filter(i => {
       const name = getName(i);
@@ -970,9 +973,6 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
       return matchSearch && matchCat;
     });
   }, [items, templateItemSearch, templateCategoryFilter, language]);
-
-  const getName = (item: InventoryItem) =>
-    language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
 
   const getItemName = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
