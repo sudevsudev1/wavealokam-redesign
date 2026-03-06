@@ -868,18 +868,34 @@ function OrderItemsList({ orderId }: { orderId: string }) {
 /* ─── Tab 4: Log Usage / Refill ─── */
 function LogUsageTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
+  const { isAdmin } = useOpsAuth();
   const { data: rooms = [] } = useRooms();
+  const { data: refillTemplates = [] } = useRefillTemplates();
   const updateStock = useUpdateStock();
   const applyRefill = useApplyRefillTemplate();
+  const createRefillTemplate = useCreateRefillTemplate();
+  const deleteRefillTemplate = useDeleteRefillTemplate();
 
   const [logType, setLogType] = useState<'issue' | 'damage' | 'waste' | 'refill'>('issue');
   const [selectedItem, setSelectedItem] = useState('');
   const [logQty, setLogQty] = useState('1');
   const [logNote, setLogNote] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [templateRoomType, setTemplateRoomType] = useState('');
+  const [templateItemId, setTemplateItemId] = useState('');
+  const [templateQty, setTemplateQty] = useState('1');
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
+
+  const getItemName = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return itemId.slice(0, 8);
+    return getName(item);
+  };
+
+  const roomTypes = [...new Set(rooms.map(r => r.room_type))];
 
   const handleQuickLog = async () => {
     if (!selectedItem || !logQty) return;
@@ -913,17 +929,56 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
     }
   };
 
-  // Group room types
-  const roomTypes = [...new Set(rooms.map(r => r.room_type))];
+  const handleAddToTemplate = async () => {
+    if (!templateRoomType || !templateItemId) return;
+    try {
+      await createRefillTemplate.mutateAsync({
+        room_type: templateRoomType,
+        item_id: templateItemId,
+        quantity: parseInt(templateQty) || 1,
+      });
+      toast.success('Item added to refill template');
+      setTemplateItemId('');
+      setTemplateQty('1');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    try {
+      await deleteRefillTemplate.mutateAsync(id);
+      toast.success('Removed from template');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const filteredTemplates = templateRoomType
+    ? refillTemplates.filter((rt: any) => rt.room_type === templateRoomType)
+    : refillTemplates;
 
   return (
     <div className="space-y-3 mt-2">
       {/* Room Refill Section */}
       <Card>
         <CardHeader className="py-2.5 px-3">
-          <CardTitle className="text-sm flex items-center gap-1.5">
-            <Package className="h-4 w-4 text-primary" />
-            {t('inv.refillRoom')}
+          <CardTitle className="text-sm flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Package className="h-4 w-4 text-primary" />
+              {t('inv.refillRoom')}
+            </span>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant={showTemplateManager ? 'secondary' : 'ghost'}
+                className="text-[10px] h-6 px-2"
+                onClick={() => setShowTemplateManager(prev => !prev)}
+              >
+                <Pencil className="h-3 w-3 mr-1" />
+                {showTemplateManager ? 'Close' : 'Manage Templates'}
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-3 space-y-2">
@@ -946,6 +1001,86 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Refill Template Manager (Admin only) */}
+      {isAdmin && showTemplateManager && (
+        <Card>
+          <CardHeader className="py-2.5 px-3">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <ListPlus className="h-4 w-4 text-primary" />
+              Room Refill Templates
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 pb-3 space-y-3">
+            {/* Select room type to view/add */}
+            <Select value={templateRoomType} onValueChange={setTemplateRoomType}>
+              <SelectTrigger className="text-xs"><SelectValue placeholder="Select room type" /></SelectTrigger>
+              <SelectContent>
+                {roomTypes.map(rt => (
+                  <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {templateRoomType && (
+              <>
+                {/* Current items in template */}
+                {filteredTemplates.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Items in "{templateRoomType}" template</p>
+                    {filteredTemplates.map((rt: any) => (
+                      <div key={rt.id} className="flex items-center justify-between text-xs p-2 border rounded">
+                        <span className="truncate mr-2">{getItemName(rt.item_id)}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="font-mono text-muted-foreground">×{rt.quantity}</span>
+                          <Button
+                            size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive"
+                            onClick={() => handleDeleteTemplate(rt.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-2">No items in this template yet</p>
+                )}
+
+                {/* Add item to template */}
+                <div className="border-t pt-2 space-y-2">
+                  <p className="text-[10px] font-medium text-muted-foreground">Add item to template</p>
+                  <Select value={templateItemId} onValueChange={setTemplateItemId}>
+                    <SelectTrigger className="text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
+                    <SelectContent>
+                      {items.map(i => (
+                        <SelectItem key={i.id} value={i.id}>{getName(i)} ({i.unit})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number" min="1" value={templateQty}
+                      onChange={e => setTemplateQty(e.target.value)}
+                      placeholder="Qty"
+                      className="w-20 text-xs"
+                    />
+                    <Button
+                      onClick={handleAddToTemplate}
+                      disabled={!templateItemId || createRefillTemplate.isPending}
+                      className="flex-1 text-xs gap-1"
+                      size="sm"
+                    >
+                      {createRefillTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                      Add to Template
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Log Section */}
       <Card>
