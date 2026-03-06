@@ -99,6 +99,44 @@ export function useInventoryItems() {
   return query;
 }
 
+export function useCreateInventoryItem() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async (item: {
+      name_en: string;
+      category: string;
+      unit: string;
+      par_level: number;
+      reorder_point: number;
+      expiry_warn_days: number | null;
+    }) => {
+      if (!profile) throw new Error('Not authenticated');
+      const { data, error } = await supabase
+        .from('ops_inventory_items')
+        .insert({
+          branch_id: profile.branchId,
+          name_en: item.name_en,
+          category: item.category,
+          unit: item.unit,
+          par_level: item.par_level,
+          reorder_point: item.reorder_point,
+          expiry_warn_days: item.expiry_warn_days,
+          current_stock: 0,
+          is_active: true,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as unknown as InventoryItem;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+    },
+  });
+}
+
 export function useUpdateStock() {
   const queryClient = useQueryClient();
   const { profile } = useOpsAuth();

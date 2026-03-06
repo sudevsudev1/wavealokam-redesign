@@ -1,28 +1,73 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useInventoryItems, useCreatePurchaseOrder, InventoryItem } from '../hooks/useInventory';
+import { useCreateInventoryItem } from '../hooks/useInventory';
+import { MASTER_CATALOG, levenshtein, CatalogEntry, calculateExpiryDate } from '../lib/masterCatalog';
+import { saveDraft, getDraft, deleteDraft } from '../lib/offlineDb';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X, AlertTriangle, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
+const DRAFT_KEY = 'quick_purchase_cart';
+
 interface CartItem {
-  item_id: string;
+  item_id: string; // inventory item id, or 'new_<timestamp>' for one-time
+  name: string;
   quantity: number;
+  unit: string;
+  isOneTime?: boolean; // not mapped to inventory
+  isNewItem?: boolean; // needs to be created in inventory first
+  catalogEntry?: CatalogEntry;
+}
+
+interface TypoSuggestion {
+  query: string;
+  matches: { name: string; id?: string; distance: number }[];
 }
 
 export default function QuickPurchaseDock() {
   const { t, language } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
   const createOrder = useCreatePurchaseOrder();
+  const createItem = useCreateInventoryItem();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showAll, setShowAll] = useState(false);
+  const [typoSuggestion, setTypoSuggestion] = useState<TypoSuggestion | null>(null);
+  const [showAddNew, setShowAddNew] = useState(false);
+  const [newItemQty, setNewItemQty] = useState(1);
+  const [cartLoaded, setCartLoaded] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
+
+  // Load cart from IndexedDB on mount
+  useEffect(() => {
+    getDraft(DRAFT_KEY).then(data => {
+      if (data && Array.isArray((data as any).cart)) {
+        setCart((data as any).cart);
+      }
+      setCartLoaded(true);
+    }).catch(() => setCartLoaded(true));
+  }, []);
+
+  // Autosave cart to IndexedDB with 300ms debounce
+  useEffect(() => {
+    if (!cartLoaded) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      if (cart.length > 0) {
+        saveDraft(DRAFT_KEY, 'quick_purchase', { cart }).catch(() => {});
+      } else {
+        deleteDraft(DRAFT_KEY).catch(() => {});
+      }
+    }, 300);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [cart, cartLoaded]);
 
   // Items at or below reorder point
   const dueItems = useMemo(() =>
@@ -30,23 +75,74 @@ export default function QuickPurchaseDock() {
     [items]
   );
 
-  // Search results (all items when searching, due items when not)
-  const displayItems = useMemo(() => {
-    if (search.trim()) {
-      return items.filter(i => {
-        const name = getName(i).toLowerCase();
-        const nameEn = i.name_en.toLowerCase();
-        const q = search.toLowerCase();
-        return name.includes(q) || nameEn.includes(q) || i.category.toLowerCase().includes(q);
-      });
+  // Character-by-character search with fuzzy matching
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+
+    // Search inventory items
+    const inventoryMatches = items.filter(i => {
+      const name = getName(i).toLowerCase();
+      const nameEn = i.name_en.toLowerCase();
+      return name.includes(q) || nameEn.includes(q) || i.category.toLowerCase().includes(q);
+    });
+
+    // Search catalog for items not yet in inventory
+    const inventoryNames = new Set(items.map(i => i.name_en.toLowerCase()));
+    const catalogMatches = MASTER_CATALOG.filter(c =>
+      !inventoryNames.has(c.name.toLowerCase()) && c.name.toLowerCase().includes(q)
+    );
+
+    return { inventoryMatches, catalogMatches };
+  }, [items, search, language]);
+
+  // Detect typos when no exact matches
+  useEffect(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || q.length < 3) {
+      setTypoSuggestion(null);
+      setShowAddNew(false);
+      return;
     }
+
+    const hasExactMatches = searchResults &&
+      (searchResults.inventoryMatches.length > 0 || searchResults.catalogMatches.length > 0);
+
+    if (!hasExactMatches) {
+      // Find close matches via Levenshtein
+      const allNames = [
+        ...items.map(i => ({ name: i.name_en, id: i.id })),
+        ...MASTER_CATALOG.map(c => ({ name: c.name, id: undefined })),
+      ];
+      const threshold = q.length <= 4 ? 2 : 3;
+      const matches = allNames
+        .map(item => ({ ...item, distance: levenshtein(q, item.name.toLowerCase()) }))
+        .filter(m => m.distance <= threshold)
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 3);
+
+      if (matches.length > 0) {
+        setTypoSuggestion({ query: q, matches });
+        setShowAddNew(true);
+      } else {
+        setTypoSuggestion(null);
+        setShowAddNew(true);
+      }
+    } else {
+      setTypoSuggestion(null);
+      setShowAddNew(false);
+    }
+  }, [search, searchResults, items]);
+
+  const displayItems = useMemo(() => {
+    if (searchResults) return searchResults.inventoryMatches;
     return showAll ? items : dueItems;
-  }, [items, dueItems, search, showAll, language]);
+  }, [searchResults, items, dueItems, showAll]);
 
   const getCartQty = (itemId: string) =>
     cart.find(c => c.item_id === itemId)?.quantity || 0;
 
-  const updateCart = (itemId: string, delta: number, parLevel?: number, currentStock?: number) => {
+  const updateCart = useCallback((itemId: string, name: string, unit: string, delta: number, parLevel?: number, currentStock?: number) => {
     setCart(prev => {
       const existing = prev.find(c => c.item_id === itemId);
       if (existing) {
@@ -58,23 +154,121 @@ export default function QuickPurchaseDock() {
         const suggestedQty = parLevel && currentStock !== undefined
           ? Math.max(1, parLevel - currentStock)
           : 1;
-        return [...prev, { item_id: itemId, quantity: delta > 1 ? delta : suggestedQty }];
+        return [...prev, { item_id: itemId, name, unit, quantity: delta > 1 ? delta : suggestedQty }];
       }
       return prev;
     });
-  };
+  }, []);
+
+  const setCartQty = useCallback((itemId: string, qty: number) => {
+    setCart(prev => {
+      if (qty <= 0) return prev.filter(c => c.item_id !== itemId);
+      return prev.map(c => c.item_id === itemId ? { ...c, quantity: qty } : c);
+    });
+  }, []);
 
   const removeFromCart = (itemId: string) => {
     setCart(prev => prev.filter(c => c.item_id !== itemId));
   };
 
+  const addCatalogItemToCart = (entry: CatalogEntry) => {
+    const tempId = `catalog_${entry.name}`;
+    const existing = cart.find(c => c.item_id === tempId);
+    if (existing) {
+      updateCart(tempId, entry.name, entry.unit, 1);
+    } else {
+      setCart(prev => [...prev, {
+        item_id: tempId,
+        name: entry.name,
+        unit: entry.unit,
+        quantity: entry.defaultQty,
+        isNewItem: true,
+        catalogEntry: entry,
+      }]);
+    }
+    setSearch('');
+  };
+
+  const addOneTimeItem = () => {
+    const name = search.trim();
+    if (!name) return;
+    const tempId = `onetime_${Date.now()}`;
+    setCart(prev => [...prev, {
+      item_id: tempId,
+      name,
+      unit: 'pcs',
+      quantity: newItemQty,
+      isOneTime: true,
+    }]);
+    setSearch('');
+    setNewItemQty(1);
+    setShowAddNew(false);
+    toast.info(`"${name}" added as one-time purchase`);
+  };
+
+  const addAsNewInventoryItem = () => {
+    const name = search.trim();
+    if (!name) return;
+    const tempId = `new_${Date.now()}`;
+    setCart(prev => [...prev, {
+      item_id: tempId,
+      name,
+      unit: 'pcs',
+      quantity: newItemQty,
+      isNewItem: true,
+    }]);
+    setSearch('');
+    setNewItemQty(1);
+    setShowAddNew(false);
+    toast.info(`"${name}" will be added to inventory on order`);
+  };
+
+  const selectTypoMatch = (name: string) => {
+    setSearch(name);
+    setTypoSuggestion(null);
+  };
+
   const handleSubmitOrder = async () => {
     if (cart.length === 0) return;
     try {
-      await createOrder.mutateAsync(cart);
-      toast.success(t('purchase.orderCreated'));
+      // First, create any new inventory items
+      const newItemIds: Record<string, string> = {};
+      for (const c of cart) {
+        if (c.isNewItem && !c.isOneTime) {
+          const catalogEntry = c.catalogEntry || MASTER_CATALOG.find(m => m.name.toLowerCase() === c.name.toLowerCase());
+          const newItem = await createItem.mutateAsync({
+            name_en: c.name,
+            category: catalogEntry?.category || 'F&B',
+            unit: catalogEntry?.unit || c.unit,
+            par_level: catalogEntry ? Math.ceil(catalogEntry.defaultQty) : 5,
+            reorder_point: catalogEntry ? Math.max(1, Math.ceil(catalogEntry.defaultQty * 0.3)) : 2,
+            expiry_warn_days: catalogEntry
+              ? (catalogEntry.shelfLifeDays <= 7 ? 1 : catalogEntry.shelfLifeDays <= 30 ? 3 : 7)
+              : null,
+          });
+          newItemIds[c.item_id] = newItem.id;
+        }
+      }
+
+      // Filter out one-time items (they don't go to PO with inventory tracking)
+      const poItems = cart
+        .filter(c => !c.isOneTime)
+        .map(c => ({
+          item_id: newItemIds[c.item_id] || c.item_id,
+          quantity: c.quantity,
+        }));
+
+      if (poItems.length > 0) {
+        await createOrder.mutateAsync(poItems);
+      }
+
+      const oneTimeCount = cart.filter(c => c.isOneTime).length;
+      toast.success(
+        `PO created with ${poItems.length} items${oneTimeCount > 0 ? ` (${oneTimeCount} one-time items noted)` : ''}`
+      );
       setCart([]);
       setSearch('');
+      deleteDraft(DRAFT_KEY).catch(() => {});
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -99,7 +293,7 @@ export default function QuickPurchaseDock() {
             {t('home.purchase')}
             {dueItems.length > 0 && (
               <Badge variant="destructive" className="ml-1 text-[9px] h-4 px-1.5">
-                {dueItems.length} {t('inv.lowStock').toLowerCase()}
+                {dueItems.length} due
               </Badge>
             )}
           </span>
@@ -111,16 +305,80 @@ export default function QuickPurchaseDock() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {/* Search */}
+        {/* Search — character by character */}
         <div className="relative">
           <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder={t('inv.searchPlaceholder')}
+            placeholder="Type item name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-7 h-8 text-xs"
           />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-2 top-2">
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
         </div>
+
+        {/* Typo suggestion */}
+        {typoSuggestion && typoSuggestion.matches.length > 0 && (
+          <div className="bg-accent/50 border border-accent rounded-lg p-2 space-y-1">
+            <p className="text-[10px] text-accent-foreground flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> Did you mean:
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {typoSuggestion.matches.map(m => (
+                <button
+                  key={m.name}
+                  onClick={() => selectTypoMatch(m.name)}
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground hover:bg-accent/80 transition-colors"
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Add new item options */}
+        {showAddNew && search.trim().length >= 2 && (
+          <div className="border border-dashed border-primary/30 rounded-lg p-2 space-y-1.5">
+            <p className="text-[10px] text-muted-foreground">
+              "{search.trim()}" not found. Add as:
+            </p>
+            <div className="flex gap-1.5">
+              <div className="flex items-center gap-1 flex-1">
+                <button onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))}
+                  className="h-5 w-5 rounded bg-muted flex items-center justify-center">
+                  <Minus className="h-2.5 w-2.5" />
+                </button>
+                <Input
+                  type="number"
+                  value={newItemQty}
+                  onChange={e => setNewItemQty(Math.max(1, Number(e.target.value)))}
+                  className="h-5 w-10 text-[10px] text-center px-0.5"
+                />
+                <button onClick={() => setNewItemQty(newItemQty + 1)}
+                  className="h-5 w-5 rounded bg-muted flex items-center justify-center">
+                  <Plus className="h-2.5 w-2.5" />
+                </button>
+              </div>
+              <button
+                onClick={addAsNewInventoryItem}
+                className="text-[9px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-0.5"
+              >
+                <PlusCircle className="h-3 w-3" /> New item
+              </button>
+              <button
+                onClick={addOneTimeItem}
+                className="text-[9px] px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+              >
+                One-time
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Toggle: show all vs due only */}
         {!search.trim() && (
@@ -129,25 +387,51 @@ export default function QuickPurchaseDock() {
               onClick={() => setShowAll(false)}
               className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${!showAll ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
             >
-              {t('inv.dueTab')} ({dueItems.length})
+              Due ({dueItems.length})
             </button>
             <button
               onClick={() => setShowAll(true)}
               className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${showAll ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
             >
-              {t('inv.allCategories')} ({items.length})
+              All ({items.length})
             </button>
+          </div>
+        )}
+
+        {/* Catalog matches (items not yet in inventory) */}
+        {searchResults && searchResults.catalogMatches.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">From catalog</p>
+            {searchResults.catalogMatches.slice(0, 5).map(entry => (
+              <div
+                key={entry.name}
+                className="flex items-center justify-between p-2 rounded-lg border border-dashed border-primary/20 bg-primary/5"
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs font-medium truncate block">{entry.name}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {entry.category} · {entry.defaultQty} {entry.unit} · {entry.shelfLifeDays}d shelf
+                  </span>
+                </div>
+                <button
+                  onClick={() => addCatalogItemToCart(entry)}
+                  className="h-7 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-medium flex items-center gap-0.5 hover:bg-primary/20 active:scale-95 transition-all"
+                >
+                  <Plus className="h-3 w-3" /> Add
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Item list */}
         <div className="space-y-1 max-h-[260px] overflow-y-auto">
-          {displayItems.length === 0 ? (
+          {displayItems.length === 0 && !showAddNew ? (
             <p className="text-center text-[10px] text-muted-foreground py-4">
-              {search ? 'No items found' : t('inv.noDueItems')}
+              {search ? 'No inventory items found' : 'No items due for order 🎉'}
             </p>
           ) : (
-            displayItems.slice(0, 20).map(item => {
+            displayItems.slice(0, 25).map(item => {
               const cartQty = getCartQty(item.id);
               const isDue = item.current_stock <= item.reorder_point;
               const deficit = Math.max(0, item.par_level - item.current_stock);
@@ -163,7 +447,7 @@ export default function QuickPurchaseDock() {
                     <span className="text-[10px] text-muted-foreground">
                       {item.current_stock}/{item.par_level} {item.unit}
                       {isDue && deficit > 0 && (
-                        <span className="text-orange-600 ml-1">· need {deficit}</span>
+                        <span className="text-destructive ml-1">· need {deficit}</span>
                       )}
                     </span>
                   </div>
@@ -171,14 +455,19 @@ export default function QuickPurchaseDock() {
                     {cartQty > 0 ? (
                       <>
                         <button
-                          onClick={() => updateCart(item.id, -1)}
+                          onClick={() => updateCart(item.id, getName(item), item.unit, -1)}
                           className="h-6 w-6 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 active:scale-95"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
-                        <span className="text-xs font-mono font-semibold w-6 text-center">{cartQty}</span>
+                        <Input
+                          type="number"
+                          value={cartQty}
+                          onChange={e => setCartQty(item.id, Number(e.target.value))}
+                          className="h-6 w-10 text-xs text-center px-0.5 font-mono font-semibold"
+                        />
                         <button
-                          onClick={() => updateCart(item.id, 1)}
+                          onClick={() => updateCart(item.id, getName(item), item.unit, 1)}
                           className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 active:scale-95"
                         >
                           <Plus className="h-3 w-3" />
@@ -192,7 +481,7 @@ export default function QuickPurchaseDock() {
                       </>
                     ) : (
                       <button
-                        onClick={() => updateCart(item.id, 1, item.par_level, item.current_stock)}
+                        onClick={() => updateCart(item.id, getName(item), item.unit, 1, item.par_level, item.current_stock)}
                         className="h-7 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-medium flex items-center gap-0.5 hover:bg-primary/20 active:scale-95 transition-all"
                       >
                         <Plus className="h-3 w-3" /> Add
@@ -203,9 +492,9 @@ export default function QuickPurchaseDock() {
               );
             })
           )}
-          {displayItems.length > 20 && (
+          {displayItems.length > 25 && (
             <p className="text-[10px] text-muted-foreground text-center py-1">
-              {displayItems.length - 20} more items — refine search
+              {displayItems.length - 25} more — refine search
             </p>
           )}
         </div>
@@ -214,30 +503,33 @@ export default function QuickPurchaseDock() {
         {cart.length > 0 && (
           <div className="pt-2 border-t border-border space-y-1.5">
             <div className="flex flex-wrap gap-1">
-              {cart.map(c => {
-                const item = items.find(i => i.id === c.item_id);
-                return (
-                  <Badge key={c.item_id} variant="secondary" className="text-[10px] gap-0.5 pr-0.5">
-                    {item ? getName(item).slice(0, 15) : '...'} ×{c.quantity}
-                    <button onClick={() => removeFromCart(c.item_id)} className="ml-0.5 hover:text-destructive">
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </Badge>
-                );
-              })}
+              {cart.map(c => (
+                <Badge
+                  key={c.item_id}
+                  variant={c.isOneTime ? 'outline' : c.isNewItem ? 'secondary' : 'default'}
+                  className="text-[10px] gap-0.5 pr-0.5"
+                >
+                  {c.name.slice(0, 15)} ×{c.quantity}
+                  {c.isOneTime && <span className="text-[8px] opacity-70">1x</span>}
+                  {c.isNewItem && <span className="text-[8px] opacity-70">new</span>}
+                  <button onClick={() => removeFromCart(c.item_id)} className="ml-0.5 hover:text-destructive">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </Badge>
+              ))}
             </div>
             <Button
               onClick={handleSubmitOrder}
-              disabled={createOrder.isPending}
+              disabled={createOrder.isPending || createItem.isPending}
               className="w-full h-8 text-xs gap-1.5"
               size="sm"
             >
-              {createOrder.isPending ? (
+              {(createOrder.isPending || createItem.isPending) ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Truck className="h-3.5 w-3.5" />
               )}
-              {t('inv.generatePO')} ({cart.length} items)
+              Generate PO ({cart.length} items)
             </Button>
           </div>
         )}

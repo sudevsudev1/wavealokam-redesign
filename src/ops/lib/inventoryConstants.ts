@@ -1,9 +1,12 @@
 export const INVENTORY_CATEGORIES = [
+  'Vegetables', 'Fruits', 'Dairy & Eggs', 'Staples', 'Pulses', 'Spices',
+  'Oils & Condiments', 'Proteins', 'Packaging & Cleaning',
   'Toiletries', 'Linens', 'Cleaning', 'F&B', 'Maintenance', 'Stationery', 'Safety',
 ] as const;
 
 export const INVENTORY_UNITS = [
-  'pcs', 'bottles', 'liters', 'cans', 'reams', 'boxes', 'books', 'kits',
+  'pcs', 'kg', 'liter', 'bunch', 'pack', 'loaf', 'roll',
+  'bottles', 'cans', 'reams', 'boxes', 'books', 'kits',
 ] as const;
 
 export const ORDER_STATUSES = [
