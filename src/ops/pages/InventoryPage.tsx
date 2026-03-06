@@ -343,8 +343,17 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
   const [reorderPoint, setReorderPoint] = useState(String(item.reorder_point));
   const [currentStock, setCurrentStock] = useState(String(item.current_stock));
   const [expiryWarnDays, setExpiryWarnDays] = useState(String(item.expiry_warn_days ?? ''));
+  const [mfgOffsetDays, setMfgOffsetDays] = useState(String(item.mfg_offset_days ?? 2));
+  const [lastReceivedAt, setLastReceivedAt] = useState(item.last_received_at ? format(parseISO(item.last_received_at), 'yyyy-MM-dd') : '');
   const [category, setCategory] = useState(item.category);
   const [unit, setUnit] = useState(item.unit);
+
+  const computedMfgDate = lastReceivedAt && mfgOffsetDays
+    ? new Date(new Date(lastReceivedAt).getTime() - (parseInt(mfgOffsetDays) || 2) * 86400000)
+    : null;
+  const computedExpiryDate = computedMfgDate && expiryWarnDays
+    ? new Date(computedMfgDate.getTime() + (parseInt(expiryWarnDays) || 0) * 86400000)
+    : null;
 
   const handleSave = async () => {
     try {
@@ -355,6 +364,8 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
           reorder_point: parseInt(reorderPoint) || 1,
           current_stock: Math.max(0, parseInt(currentStock) || 0),
           expiry_warn_days: expiryWarnDays ? parseInt(expiryWarnDays) : null,
+          mfg_offset_days: parseInt(mfgOffsetDays) || 2,
+          last_received_at: lastReceivedAt ? new Date(lastReceivedAt).toISOString() : null,
           category,
           unit,
         },
@@ -387,10 +398,43 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
               <Input type="number" min="0" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="mt-1 text-sm" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Expiry Warning (days)</label>
+              <label className="text-xs font-medium text-muted-foreground">Shelf Life (days)</label>
               <Input type="number" min="0" value={expiryWarnDays} onChange={e => setExpiryWarnDays(e.target.value)} placeholder="Optional" className="mt-1 text-sm" />
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Mfg Offset (days)</label>
+              <Input type="number" min="0" value={mfgOffsetDays} onChange={e => setMfgOffsetDays(e.target.value)} className="mt-1 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Last Received</label>
+              <Input type="date" value={lastReceivedAt} onChange={e => setLastReceivedAt(e.target.value)} className="mt-1 text-sm" />
+            </div>
           </div>
+
+          {/* Computed dates preview */}
+          {computedMfgDate && (
+            <div className="bg-muted/50 rounded-md p-2 space-y-0.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Mfg Date</span>
+                <span className="font-medium">{format(computedMfgDate, 'dd MMM yyyy')}</span>
+              </div>
+              {computedExpiryDate && (
+                <>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Exp Date</span>
+                    <span className="font-medium">{format(computedExpiryDate, 'dd MMM yyyy')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Days Left</span>
+                    <span className={`font-medium ${differenceInDays(computedExpiryDate, new Date()) <= 0 ? 'text-destructive' : differenceInDays(computedExpiryDate, new Date()) <= 7 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                      {differenceInDays(computedExpiryDate, new Date())}d
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground">Category</label>
