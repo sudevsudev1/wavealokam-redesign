@@ -98,13 +98,16 @@ export default function VectorDock() {
   // Floating button when closed
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-3 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95"
-        aria-label="Open Vector"
-      >
-        <img src="/images/vector-avatar.png" alt="Vector" className="h-10 w-10 rounded-full object-cover" />
-      </button>
+      <div className="fixed bottom-20 right-3 z-50 flex flex-col items-center gap-0.5">
+        <button
+          onClick={() => setOpen(true)}
+          className="h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95"
+          aria-label="Open Vector"
+        >
+          <img src="/images/vector-avatar.png" alt="Vector" className="h-10 w-10 rounded-full object-cover" />
+        </button>
+        <span className="text-[9px] font-semibold text-foreground leading-tight bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded-full shadow-sm">Vector</span>
+      </div>
     );
   }
 
