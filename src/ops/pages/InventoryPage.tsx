@@ -476,15 +476,36 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const createOrder = useCreatePurchaseOrder();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
 
-  const dueItems = items.filter(i => i.current_stock <= i.reorder_point);
+  const dueItems = useMemo(() => {
+    return items.filter(i => {
+      if (i.current_stock > i.reorder_point) return false;
+      const name = getName(i);
+      const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || i.name_en.toLowerCase().includes(search.toLowerCase());
+      const matchesCat = categoryFilter === 'all' || i.category === categoryFilter;
+      return matchesSearch && matchesCat;
+    });
+  }, [items, search, categoryFilter, language]);
 
   const toggleItem = (id: string) => {
     const next = new Set(selectedItems);
     next.has(id) ? next.delete(id) : next.add(id);
+    setSelectedItems(next);
+  };
+
+  const selectAllVisible = () => {
+    const next = new Set(selectedItems);
+    const allSelected = dueItems.every(i => next.has(i.id));
+    if (allSelected) {
+      dueItems.forEach(i => next.delete(i.id));
+    } else {
+      dueItems.forEach(i => next.add(i.id));
+    }
     setSelectedItems(next);
   };
 
@@ -503,9 +524,26 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
     }
   };
 
+  const totalDue = items.filter(i => i.current_stock <= i.reorder_point).length;
+
   return (
     <div className="space-y-2 mt-2">
-      {dueItems.length === 0 ? (
+      {/* Search & Filter */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder={t('inv.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[110px] h-9 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('inv.allCategories')}</SelectItem>
+            {INVENTORY_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {totalDue === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
             <CheckCircle className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
@@ -514,15 +552,27 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
         </Card>
       ) : (
         <>
-          {selectedItems.size > 0 && (
-            <Button
-              onClick={handleGeneratePO}
-              disabled={createOrder.isPending}
-              className="w-full gap-1.5 text-xs"
-            >
-              {createOrder.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
-              {t('inv.generatePO')} ({selectedItems.size} items)
-            </Button>
+          <div className="flex flex-wrap gap-2">
+            {dueItems.length > 0 && (
+              <Button size="sm" variant="outline" className="text-xs" onClick={selectAllVisible}>
+                {dueItems.every(i => selectedItems.has(i.id)) ? 'Unselect Visible' : 'Select Visible'}
+              </Button>
+            )}
+            {selectedItems.size > 0 && (
+              <Button
+                size="sm"
+                onClick={handleGeneratePO}
+                disabled={createOrder.isPending}
+                className="text-xs gap-1.5"
+              >
+                {createOrder.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
+                {t('inv.generatePO')} ({selectedItems.size} items)
+              </Button>
+            )}
+          </div>
+
+          {dueItems.length === 0 && (search || categoryFilter !== 'all') && (
+            <p className="text-xs text-muted-foreground text-center py-4">No matching due items</p>
           )}
 
           {dueItems.map(item => {
