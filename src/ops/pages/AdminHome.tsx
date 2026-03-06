@@ -102,25 +102,15 @@ export default function AdminHome() {
         </CardContent>
       </Card>
 
-      {/* Placeholders */}
-      <div className="grid grid-cols-2 gap-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-xs">
-              <MessageSquare className="h-3.5 w-3.5 text-primary" />{t('home.vector')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-center py-4 text-muted-foreground text-[10px]">{t('home.comingSoon')}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-xs">
-              <ShoppingCart className="h-3.5 w-3.5 text-primary" />{t('home.purchase')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-center py-4 text-muted-foreground text-[10px]">{t('home.comingSoon')}</div></CardContent>
-        </Card>
-      </div>
+      {/* Purchase placeholder */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-1.5 text-xs">
+            <ShoppingCart className="h-3.5 w-3.5 text-primary" />{t('home.purchase')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent><div className="text-center py-4 text-muted-foreground text-[10px]">{t('home.comingSoon')}</div></CardContent>
+      </Card>
     </div>
   );
 }

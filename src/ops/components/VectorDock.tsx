@@ -103,7 +103,7 @@ export default function VectorDock() {
         className="fixed bottom-20 right-3 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95"
         aria-label="Open Vector"
       >
-        <Bot className="h-6 w-6" />
+        <img src="/images/vector-avatar.png" alt="Vector" className="h-10 w-10 rounded-full object-cover" />
       </button>
     );
   }
@@ -113,7 +113,7 @@ export default function VectorDock() {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5 sm:rounded-t-xl">
         <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
+          <img src="/images/vector-avatar.png" alt="Vector" className="h-6 w-6 rounded-full object-cover" />
           <span className="font-bold text-sm">Vector</span>
           <span className="text-[10px] text-muted-foreground">
             {networkStatus === 'offline' ? '(Offline)' : 'Live'}
