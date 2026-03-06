@@ -334,6 +334,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                     <div className="min-w-0 flex-1">
                       <span className="font-medium text-sm truncate block">{getName(item)}</span>
                       <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
+                      <ItemDateBadges item={item} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {isAdmin && !editMode && (
@@ -672,6 +673,7 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
                       <div className="min-w-0">
                         <span className="font-medium text-sm truncate block">{getName(item)}</span>
                         <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
+                        <ItemDateBadges item={item} />
                       </div>
                     </div>
                     <div className="text-right shrink-0">
