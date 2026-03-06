@@ -227,6 +227,7 @@ export function useUpdateStock() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_expiry'] });
     },
   });
 }
