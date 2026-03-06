@@ -839,7 +839,7 @@ function OrderedOnWayTab() {
                       {order.status}
                     </Badge>
                   </div>
-                  <p className="text-xs mt-0.5">{getProfileName(order.requested_by)} · {format(parseISO(order.created_at), 'dd MMM')}</p>
+                  <p className="text-xs mt-0.5">{getProfileName(order.requested_by)} · {format(parseISO(order.created_at), 'dd/MM/yyyy')}</p>
                   {order.vendor && <p className="text-[10px] text-muted-foreground">Vendor: {order.vendor}</p>}
                 </div>
                 <div className="flex gap-1 shrink-0 flex-wrap justify-end">
