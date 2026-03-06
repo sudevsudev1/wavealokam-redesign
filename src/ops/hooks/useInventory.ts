@@ -145,7 +145,7 @@ export function useUpdateStock() {
     mutationFn: async ({ itemId, quantity, type, notes }: {
       itemId: string;
       quantity: number;
-      type: 'in' | 'out' | 'adjust' | 'expire' | 'refill';
+      type: 'in' | 'out' | 'adjust' | 'expire' | 'refill' | 'damage' | 'waste';
       notes?: string;
     }) => {
       if (!profile) throw new Error('Not authenticated');
