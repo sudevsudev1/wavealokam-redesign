@@ -144,6 +144,30 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
     });
   };
 
+  const togglePOSelect = (id: string) => {
+    setSelectedForPO((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreatePOFromOverview = async () => {
+    if (selectedForPO.size === 0) return;
+    const cart = Array.from(selectedForPO).map(id => {
+      const item = items.find(i => i.id === id)!;
+      return { item_id: id, quantity: Math.max(1, item.par_level - item.current_stock) };
+    });
+    try {
+      await createOrder.mutateAsync(cart);
+      toast.success(t('purchase.orderCreated'));
+      setSelectedForPO(new Set());
+      setPoMode(false);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const handleBatchDelete = async () => {
     const ids = Array.from(selectedForDelete);
     if (!ids.length) return;
