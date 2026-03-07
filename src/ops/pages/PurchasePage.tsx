@@ -208,8 +208,8 @@ export default function PurchasePage() {
                       <span className="truncate mr-2">{getName(c.item_id)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Input
-                          type="number" min="1" value={c.quantity}
-                          onChange={(e) => setCart(cart.map((x) => x.item_id === c.item_id ? { ...x, quantity: parseInt(e.target.value) || 1 } : x))}
+                          type="number" min="0.25" step="0.01" value={c.quantity}
+                          onChange={(e) => setCart(cart.map((x) => x.item_id === c.item_id ? { ...x, quantity: parseFloat(e.target.value) || 0.25 } : x))}
                           className="w-14 h-7 text-center text-xs"
                         />
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.item_id)}>
