@@ -43,6 +43,12 @@ export default function VectorDock() {
   const messages = mode === 'guest' ? guestMessages : internalMessages;
   const setMessages = mode === 'guest' ? setGuestMessages : setInternalMessages;
 
+  // Button position state (for dragging the closed icon)
+  const [btnPos, setBtnPos] = useState({ x: -1, y: -1 });
+  const btnDragging = useRef(false);
+  const btnDragOffset = useRef({ x: 0, y: 0 });
+  const btnMoved = useRef(false);
+
   // Initialize position to bottom-right on first open
   useEffect(() => {
     if (open && pos.x === -1) {
@@ -171,18 +177,57 @@ export default function VectorDock() {
     window.open(`${WHATSAPP_BASE}${encodeURIComponent(text)}`, '_blank');
   };
 
+  // Closed button drag handlers
+  const onBtnDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    btnDragging.current = true;
+    btnMoved.current = false;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const el = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    btnDragOffset.current = { x: clientX - el.left, y: clientY - el.top };
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      if (!btnDragging.current) return;
+      btnMoved.current = true;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      setBtnPos({
+        x: Math.max(0, Math.min(window.innerWidth - 52, clientX - btnDragOffset.current.x)),
+        y: Math.max(0, Math.min(window.innerHeight - 52, clientY - btnDragOffset.current.y)),
+      });
+    };
+    const onUp = () => { btnDragging.current = false; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+  }, []);
+
   // Floating button when closed
   if (!open) {
+    const btnStyle: React.CSSProperties = btnPos.x >= 0
+      ? { left: btnPos.x, top: btnPos.y, bottom: 'auto', right: 'auto' }
+      : { bottom: 80, right: 12 };
     return (
-      <div className="fixed bottom-20 right-3 z-50 flex flex-col items-center gap-0.5">
+      <div className="fixed z-50 flex flex-col items-center gap-0.5" style={btnStyle}>
         <button
-          onClick={() => setOpen(true)}
-          className="h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95"
+          onMouseDown={onBtnDragStart}
+          onTouchStart={onBtnDragStart}
+          onClick={() => { if (!btnMoved.current) setOpen(true); }}
+          className="h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95 cursor-grab active:cursor-grabbing touch-none"
           aria-label="Open Vector"
         >
-          <img src="/images/vector-avatar.png" alt="Vector" className="h-10 w-10 rounded-full object-cover" />
+          <img src="/images/vector-avatar.png" alt="Vector" className="h-10 w-10 rounded-full object-cover pointer-events-none" />
         </button>
-        <span className="text-[9px] font-semibold text-foreground leading-tight bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded-full shadow-sm">Vector</span>
+        <span className="text-[9px] font-semibold text-foreground leading-tight bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded-full shadow-sm pointer-events-none">Vector</span>
       </div>
     );
   }
