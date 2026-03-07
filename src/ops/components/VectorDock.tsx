@@ -4,7 +4,7 @@ import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsOffline } from '../contexts/OpsOfflineContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Bot, X, Send, Copy, MessageSquare, Globe, Loader2, ChevronDown } from 'lucide-react';
+import { Bot, X, Send, Copy, MessageSquare, Globe, Loader2, ChevronDown, Minimize2, Maximize2, GripHorizontal } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -13,11 +13,17 @@ type Msg = { role: 'user' | 'assistant'; content: string };
 
 const WHATSAPP_BASE = 'https://wa.me/?text=';
 
+const MIN_W = 300;
+const MIN_H = 350;
+const DEFAULT_W = 400;
+const DEFAULT_H = 600;
+
 export default function VectorDock() {
   const { profile, isAdmin } = useOpsAuth();
   const { t, language } = useOpsLanguage();
   const { networkStatus } = useOpsOffline();
   const [open, setOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [mode, setMode] = useState<'guest' | 'internal'>('guest');
   const [guestMessages, setGuestMessages] = useState<Msg[]>([]);
   const [internalMessages, setInternalMessages] = useState<Msg[]>([]);
@@ -26,16 +32,86 @@ export default function VectorDock() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Position & size state (desktop only)
+  const [pos, setPos] = useState({ x: -1, y: -1 }); // -1 = not yet initialized
+  const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
+  const dragging = useRef(false);
+  const resizing = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const dockRef = useRef<HTMLDivElement>(null);
+
   const messages = mode === 'guest' ? guestMessages : internalMessages;
   const setMessages = mode === 'guest' ? setGuestMessages : setInternalMessages;
+
+  // Initialize position to bottom-right on first open
+  useEffect(() => {
+    if (open && pos.x === -1) {
+      setPos({
+        x: window.innerWidth - size.w - 12,
+        y: window.innerHeight - size.h - 12,
+      });
+    }
+  }, [open]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open, mode]);
+    if (open && !minimized) inputRef.current?.focus();
+  }, [open, mode, minimized]);
+
+  // Drag handlers
+  const onDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    // Only on desktop
+    if (window.innerWidth < 640) return;
+    dragging.current = true;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    dragOffset.current = { x: clientX - pos.x, y: clientY - pos.y };
+    e.preventDefault();
+  }, [pos]);
+
+  // Resize handlers
+  const onResizeStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (window.innerWidth < 640) return;
+    resizing.current = true;
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      if (dragging.current) {
+        const newX = Math.max(0, Math.min(window.innerWidth - 100, clientX - dragOffset.current.x));
+        const newY = Math.max(0, Math.min(window.innerHeight - 40, clientY - dragOffset.current.y));
+        setPos({ x: newX, y: newY });
+      }
+      if (resizing.current && dockRef.current) {
+        const rect = dockRef.current.getBoundingClientRect();
+        const newW = Math.max(MIN_W, clientX - rect.left);
+        const newH = Math.max(MIN_H, clientY - rect.top);
+        setSize({ w: newW, h: newH });
+      }
+    };
+    const onUp = () => {
+      dragging.current = false;
+      resizing.current = false;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+  }, []);
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
@@ -111,11 +187,64 @@ export default function VectorDock() {
     );
   }
 
+  // Minimized bar (desktop: positioned, mobile: fixed bottom)
+  if (minimized) {
+    return (
+      <div
+        ref={dockRef}
+        className="fixed z-50 sm:rounded-xl shadow-2xl border border-border bg-background"
+        style={{
+          // Mobile: full width bottom bar
+          ...(window.innerWidth < 640
+            ? { left: 0, right: 0, bottom: 0 }
+            : { left: pos.x, top: pos.y, width: size.w }),
+        }}
+      >
+        <div
+          className="flex items-center justify-between px-3 py-2 sm:rounded-xl cursor-grab active:cursor-grabbing bg-primary/5"
+          onMouseDown={onDragStart}
+          onTouchStart={onDragStart}
+        >
+          <div className="flex items-center gap-2">
+            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+            <img src="/images/vector-avatar.png" alt="Vector" className="h-6 w-6 rounded-full object-cover" />
+            <span className="font-bold text-sm">Vector</span>
+            <span className="text-[10px] text-muted-foreground">
+              {networkStatus === 'offline' ? '(Offline)' : 'Live'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setMinimized(false)} className="p-1.5 hover:bg-muted rounded-md" title="Expand">
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => { setOpen(false); setMinimized(false); }} className="p-1.5 hover:bg-muted rounded-md" title="Close">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full panel
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background sm:inset-auto sm:bottom-3 sm:right-3 sm:w-[400px] sm:h-[600px] sm:rounded-xl sm:shadow-2xl sm:border sm:border-border">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5 sm:rounded-t-xl">
+    <div
+      ref={dockRef}
+      className="fixed inset-0 z-50 flex flex-col bg-background sm:inset-auto sm:rounded-xl sm:shadow-2xl sm:border sm:border-border"
+      style={{
+        ...(window.innerWidth >= 640
+          ? { left: pos.x, top: pos.y, width: size.w, height: size.h }
+          : {}),
+      }}
+    >
+      {/* Draggable Header */}
+      <div
+        className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5 sm:rounded-t-xl sm:cursor-grab sm:active:cursor-grabbing select-none"
+        onMouseDown={onDragStart}
+        onTouchStart={onDragStart}
+      >
         <div className="flex items-center gap-2">
+          <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
           <img src="/images/vector-avatar.png" alt="Vector" className="h-6 w-6 rounded-full object-cover" />
           <span className="font-bold text-sm">Vector</span>
           <span className="text-[10px] text-muted-foreground">
@@ -123,10 +252,11 @@ export default function VectorDock() {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setOpen(false)} className="p-1.5 hover:bg-muted rounded-md">
-            {/* On mobile show minimize, on desktop show X */}
-            <ChevronDown className="h-4 w-4 sm:hidden" />
-            <X className="h-4 w-4 hidden sm:block" />
+          <button onClick={() => setMinimized(true)} className="p-1.5 hover:bg-muted rounded-md" title="Minimize">
+            <Minimize2 className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setOpen(false)} className="p-1.5 hover:bg-muted rounded-md" title="Close">
+            <X className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -185,6 +315,18 @@ export default function VectorDock() {
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
+      </div>
+
+      {/* Resize handle (desktop only) */}
+      <div
+        className="hidden sm:block absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+        onMouseDown={onResizeStart}
+        onTouchStart={onResizeStart}
+      >
+        <svg className="w-4 h-4 text-muted-foreground/50" viewBox="0 0 16 16">
+          <path d="M14 14L8 14L14 8Z" fill="currentColor" />
+          <path d="M14 14L11 14L14 11Z" fill="currentColor" opacity="0.5" />
+        </svg>
       </div>
     </div>
   );
