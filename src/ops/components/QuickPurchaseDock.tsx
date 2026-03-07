@@ -375,7 +375,7 @@ export default function QuickPurchaseDock() {
             </p>
             <div className="flex gap-1.5">
               <div className="flex items-center gap-1 flex-1">
-                <button onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))}
+                <button onClick={() => setNewItemQty(Math.max(0.25, Math.round((newItemQty - 0.25) * 100) / 100))}
                   className="h-5 w-5 rounded bg-muted flex items-center justify-center">
                   <Minus className="h-2.5 w-2.5" />
                 </button>
@@ -387,7 +387,7 @@ export default function QuickPurchaseDock() {
                   onChange={e => setNewItemQty(Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                   className="h-5 w-10 text-[10px] text-center px-0.5"
                 />
-                <button onClick={() => setNewItemQty(newItemQty + 1)}
+                <button onClick={() => setNewItemQty(Math.round((newItemQty + 1) * 100) / 100)}
                   className="h-5 w-5 rounded bg-muted flex items-center justify-center">
                   <Plus className="h-2.5 w-2.5" />
                 </button>
