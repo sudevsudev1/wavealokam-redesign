@@ -94,7 +94,7 @@ export default function InventoryPage() {
       </div>
 
       {/* 5-Tab Interface */}
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={searchParams.get('tab') || 'overview'}>
         <TabsList className="w-full grid grid-cols-5">
           <TabsTrigger value="overview" className="text-[10px] sm:text-xs">{t('inv.overviewTab')}</TabsTrigger>
           <TabsTrigger value="due" className="text-[10px] sm:text-xs">
