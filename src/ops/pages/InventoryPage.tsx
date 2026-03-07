@@ -96,18 +96,18 @@ export default function InventoryPage() {
 
       {/* 5-Tab Interface */}
       <Tabs defaultValue={searchParams.get('tab') || 'overview'}>
-        <TabsList className="w-full grid grid-cols-5">
-          <TabsTrigger value="overview" className="text-[10px] sm:text-xs">{t('inv.overviewTab')}</TabsTrigger>
-          <TabsTrigger value="due" className="text-[10px] sm:text-xs">
+        <TabsList className="w-full flex overflow-x-auto scrollbar-hide">
+          <TabsTrigger value="overview" className="flex-shrink-0 text-xs px-3">{t('inv.overviewTab')}</TabsTrigger>
+          <TabsTrigger value="due" className="flex-shrink-0 text-xs px-3">
             {t('inv.dueTab')}
             {lowStockCount > 0 && <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{lowStockCount}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="ordered" className="text-[10px] sm:text-xs">
+          <TabsTrigger value="ordered" className="flex-shrink-0 text-xs px-3">
             {t('inv.orderedTab')}
             {activeOrders > 0 && <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{activeOrders}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="log" className="text-[10px] sm:text-xs">{t('inv.logTab')}</TabsTrigger>
-          <TabsTrigger value="templates" className="text-[10px] sm:text-xs">Templates</TabsTrigger>
+          <TabsTrigger value="log" className="flex-shrink-0 text-xs px-3">{t('inv.logTab')}</TabsTrigger>
+          <TabsTrigger value="templates" className="flex-shrink-0 text-xs px-3">Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
