@@ -54,6 +54,7 @@ function QtyEditor({ value, onChange, min = 1 }: { value: number; onChange: (v: 
 
 
 export default function InventoryPage() {
+  const [searchParams] = useSearchParams();
   const { t, language } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: orders = [] } = usePurchaseOrders();

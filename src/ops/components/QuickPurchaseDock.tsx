@@ -32,6 +32,7 @@ interface TypoSuggestion {
 
 export default function QuickPurchaseDock() {
   const { t, language } = useOpsLanguage();
+  const navigate = useNavigate();
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: templates = [] } = usePurchaseTemplates();
   const createOrder = useCreatePurchaseOrder();
