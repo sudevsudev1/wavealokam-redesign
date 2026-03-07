@@ -310,6 +310,27 @@ export default function QuickPurchaseDock() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
+        {/* Recent template quick buttons */}
+        {!search.trim() && templates.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            {[...templates].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 3).map(tmpl => (
+              <button
+                key={tmpl.id}
+                onClick={() => {
+                  setTemplatePreview(tmpl);
+                  const qtys: Record<string, number> = {};
+                  (tmpl.items_json as any[]).forEach((ti: any) => { qtys[ti.item_id] = ti.quantity; });
+                  setTemplateQtys(qtys);
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded-full border border-accent bg-accent/30 text-[10px] font-medium text-accent-foreground hover:bg-accent/50 transition-colors whitespace-nowrap shrink-0"
+              >
+                <FileText className="h-3 w-3" />
+                {tmpl.name.length > 12 ? tmpl.name.slice(0, 12) + '…' : tmpl.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Search — character by character */}
         <div className="relative">
           <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
