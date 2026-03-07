@@ -151,13 +151,13 @@ export default function QuickPurchaseDock() {
     setCart(prev => {
       const existing = prev.find(c => c.item_id === itemId);
       if (existing) {
-        const newQty = existing.quantity + delta;
+        const newQty = Math.round((existing.quantity + delta) * 100) / 100;
         if (newQty <= 0) return prev.filter(c => c.item_id !== itemId);
         return prev.map(c => c.item_id === itemId ? { ...c, quantity: newQty } : c);
       }
       if (delta > 0) {
         const suggestedQty = parLevel && currentStock !== undefined
-          ? Math.max(1, parLevel - currentStock)
+          ? Math.max(0.25, parLevel - currentStock)
           : 1;
         return [...prev, { item_id: itemId, name, unit, quantity: delta > 1 ? delta : suggestedQty }];
       }
@@ -168,7 +168,7 @@ export default function QuickPurchaseDock() {
   const setCartQty = useCallback((itemId: string, qty: number) => {
     setCart(prev => {
       if (qty <= 0) return prev.filter(c => c.item_id !== itemId);
-      return prev.map(c => c.item_id === itemId ? { ...c, quantity: qty } : c);
+      return prev.map(c => c.item_id === itemId ? { ...c, quantity: Math.round(qty * 100) / 100 } : c);
     });
   }, []);
 
