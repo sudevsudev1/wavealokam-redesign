@@ -1,0 +1,2 @@
+ALTER TABLE ops_purchase_order_items ALTER COLUMN quantity TYPE numeric USING quantity::numeric;
+ALTER TABLE ops_purchase_order_items ALTER COLUMN received_quantity TYPE numeric USING received_quantity::numeric;
