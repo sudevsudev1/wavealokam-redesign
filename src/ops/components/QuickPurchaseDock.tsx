@@ -494,11 +494,14 @@ export default function QuickPurchaseDock() {
 
         {/* Due items summary when not searching */}
         {!search.trim() && dueItems.length > 0 && (
-          <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">
-              {dueItems.length} items due for order — search to add them
+          <button
+            onClick={() => navigate('/ops/inventory?tab=due')}
+            className="w-full text-center py-1.5 rounded-md bg-destructive/10 hover:bg-destructive/20 transition-colors"
+          >
+            <p className="text-[10px] text-destructive font-medium">
+              {dueItems.length} items due for order — tap to view →
             </p>
-          </div>
+          </button>
         )}
 
         {!search.trim() && dueItems.length === 0 && cart.length === 0 && (
