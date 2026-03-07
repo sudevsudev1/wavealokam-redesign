@@ -381,8 +381,10 @@ export default function QuickPurchaseDock() {
                 </button>
                 <Input
                   type="number"
+                  step="0.01"
+                  min="0.25"
                   value={newItemQty}
-                  onChange={e => setNewItemQty(Math.max(1, Number(e.target.value)))}
+                  onChange={e => setNewItemQty(Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                   className="h-5 w-10 text-[10px] text-center px-0.5"
                 />
                 <button onClick={() => setNewItemQty(newItemQty + 1)}
@@ -481,8 +483,10 @@ export default function QuickPurchaseDock() {
                         </button>
                         <Input
                           type="number"
+                          step="0.01"
+                          min="0.25"
                           value={cartQty}
-                          onChange={e => setCartQty(item.id, Number(e.target.value))}
+                          onChange={e => setCartQty(item.id, parseFloat(e.target.value) || 0)}
                           className="h-6 w-10 text-xs text-center px-0.5 font-mono font-semibold"
                         />
                         <button
@@ -600,8 +604,10 @@ export default function QuickPurchaseDock() {
                     </button>
                     <Input
                       type="number"
+                      step="0.01"
+                      min="0"
                       value={templateQtys[ti.item_id] || 0}
-                      onChange={e => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, Number(e.target.value)) }))}
+                      onChange={e => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, parseFloat(e.target.value) || 0) }))}
                       className="h-6 w-12 text-xs text-center px-0.5 font-mono"
                     />
                     <button
