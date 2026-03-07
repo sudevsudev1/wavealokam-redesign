@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useInventoryItems, useCreatePurchaseOrder, usePurchaseTemplates, InventoryItem, PurchaseTemplate } from '../hooks/useInventory';
 import { useCreateInventoryItem } from '../hooks/useInventory';
@@ -31,6 +32,7 @@ interface TypoSuggestion {
 
 export default function QuickPurchaseDock() {
   const { t, language } = useOpsLanguage();
+  const navigate = useNavigate();
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: templates = [] } = usePurchaseTemplates();
   const createOrder = useCreatePurchaseOrder();
@@ -149,13 +151,13 @@ export default function QuickPurchaseDock() {
     setCart(prev => {
       const existing = prev.find(c => c.item_id === itemId);
       if (existing) {
-        const newQty = existing.quantity + delta;
+        const newQty = Math.round((existing.quantity + delta) * 100) / 100;
         if (newQty <= 0) return prev.filter(c => c.item_id !== itemId);
         return prev.map(c => c.item_id === itemId ? { ...c, quantity: newQty } : c);
       }
       if (delta > 0) {
         const suggestedQty = parLevel && currentStock !== undefined
-          ? Math.max(1, parLevel - currentStock)
+          ? Math.max(0.25, parLevel - currentStock)
           : 1;
         return [...prev, { item_id: itemId, name, unit, quantity: delta > 1 ? delta : suggestedQty }];
       }
@@ -166,7 +168,7 @@ export default function QuickPurchaseDock() {
   const setCartQty = useCallback((itemId: string, qty: number) => {
     setCart(prev => {
       if (qty <= 0) return prev.filter(c => c.item_id !== itemId);
-      return prev.map(c => c.item_id === itemId ? { ...c, quantity: qty } : c);
+      return prev.map(c => c.item_id === itemId ? { ...c, quantity: Math.round(qty * 100) / 100 } : c);
     });
   }, []);
 
@@ -308,6 +310,27 @@ export default function QuickPurchaseDock() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
+        {/* Recent template quick buttons */}
+        {!search.trim() && templates.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            {[...templates].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 3).map(tmpl => (
+              <button
+                key={tmpl.id}
+                onClick={() => {
+                  setTemplatePreview(tmpl);
+                  const qtys: Record<string, number> = {};
+                  (tmpl.items_json as any[]).forEach((ti: any) => { qtys[ti.item_id] = ti.quantity; });
+                  setTemplateQtys(qtys);
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded-full border border-accent bg-accent/30 text-[10px] font-medium text-accent-foreground hover:bg-accent/50 transition-colors whitespace-nowrap shrink-0"
+              >
+                <FileText className="h-3 w-3" />
+                {tmpl.name.length > 12 ? tmpl.name.slice(0, 12) + '…' : tmpl.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Search — character by character */}
         <div className="relative">
           <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
@@ -352,17 +375,19 @@ export default function QuickPurchaseDock() {
             </p>
             <div className="flex gap-1.5">
               <div className="flex items-center gap-1 flex-1">
-                <button onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))}
+                <button onClick={() => setNewItemQty(Math.max(0.25, Math.round((newItemQty - 0.25) * 100) / 100))}
                   className="h-5 w-5 rounded bg-muted flex items-center justify-center">
                   <Minus className="h-2.5 w-2.5" />
                 </button>
                 <Input
                   type="number"
+                  step="0.01"
+                  min="0.25"
                   value={newItemQty}
-                  onChange={e => setNewItemQty(Math.max(1, Number(e.target.value)))}
+                  onChange={e => setNewItemQty(Math.max(0.25, parseFloat(e.target.value) || 0.25))}
                   className="h-5 w-10 text-[10px] text-center px-0.5"
                 />
-                <button onClick={() => setNewItemQty(newItemQty + 1)}
+                <button onClick={() => setNewItemQty(Math.round((newItemQty + 1) * 100) / 100)}
                   className="h-5 w-5 rounded bg-muted flex items-center justify-center">
                   <Plus className="h-2.5 w-2.5" />
                 </button>
@@ -458,8 +483,10 @@ export default function QuickPurchaseDock() {
                         </button>
                         <Input
                           type="number"
+                          step="0.01"
+                          min="0.25"
                           value={cartQty}
-                          onChange={e => setCartQty(item.id, Number(e.target.value))}
+                          onChange={e => setCartQty(item.id, parseFloat(e.target.value) || 0)}
                           className="h-6 w-10 text-xs text-center px-0.5 font-mono font-semibold"
                         />
                         <button
@@ -492,11 +519,14 @@ export default function QuickPurchaseDock() {
 
         {/* Due items summary when not searching */}
         {!search.trim() && dueItems.length > 0 && (
-          <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">
-              {dueItems.length} items due for order — search to add them
+          <button
+            onClick={() => navigate('/ops/inventory?tab=due')}
+            className="w-full text-center py-1.5 rounded-md bg-destructive/10 hover:bg-destructive/20 transition-colors"
+          >
+            <p className="text-[10px] text-destructive font-medium">
+              {dueItems.length} items due for order — tap to view →
             </p>
-          </div>
+          </button>
         )}
 
         {!search.trim() && dueItems.length === 0 && cart.length === 0 && (
@@ -574,8 +604,10 @@ export default function QuickPurchaseDock() {
                     </button>
                     <Input
                       type="number"
+                      step="0.01"
+                      min="0"
                       value={templateQtys[ti.item_id] || 0}
-                      onChange={e => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, Number(e.target.value)) }))}
+                      onChange={e => setTemplateQtys(prev => ({ ...prev, [ti.item_id]: Math.max(0, parseFloat(e.target.value) || 0) }))}
                       className="h-6 w-12 text-xs text-center px-0.5 font-mono"
                     />
                     <button

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import {
@@ -53,6 +54,7 @@ function QtyEditor({ value, onChange, min = 1 }: { value: number; onChange: (v: 
 
 
 export default function InventoryPage() {
+  const [searchParams] = useSearchParams();
   const { t, language } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: orders = [] } = usePurchaseOrders();
@@ -93,7 +95,7 @@ export default function InventoryPage() {
       </div>
 
       {/* 5-Tab Interface */}
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={searchParams.get('tab') || 'overview'}>
         <TabsList className="w-full grid grid-cols-5">
           <TabsTrigger value="overview" className="text-[10px] sm:text-xs">{t('inv.overviewTab')}</TabsTrigger>
           <TabsTrigger value="due" className="text-[10px] sm:text-xs">
