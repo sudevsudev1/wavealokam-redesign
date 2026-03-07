@@ -121,6 +121,9 @@ const translations: Record<string, Record<Language, string>> = {
   'purchase.notesPlaceholder': { en: 'Any issues or notes...', ml: 'കുറിപ്പുകൾ...' },
   'purchase.confirmReceive': { en: 'Confirm Received', ml: 'സ്വീകരിച്ചു സ്ഥിരീകരിക്കുക' },
   'purchase.received': { en: 'Order received!', ml: 'ഓർഡർ സ്വീകരിച്ചു!' },
+  'purchase.review': { en: 'Review', ml: 'അവലോകനം' },
+  'purchase.reviewOrder': { en: 'Review Order Items', ml: 'ഓർഡർ ഇനങ്ങൾ അവലോകനം ചെയ്യുക' },
+  'purchase.approveWithChanges': { en: 'Save & Approve', ml: 'സേവ് & അംഗീകരിക്കുക' },
 
   // Guest Log
   'guest.activeGuests': { en: 'In-House', ml: 'ഇൻ-ഹൗസ്' },
