@@ -214,10 +214,10 @@ export default function VectorDock() {
   // Floating button when closed
   if (!open) {
     const btnStyle: React.CSSProperties = btnPos.x >= 0
-      ? { left: btnPos.x, top: btnPos.y, bottom: 'auto', right: 'auto' }
-      : { bottom: 80, right: 12 };
+      ? { position: 'fixed', left: btnPos.x, top: btnPos.y, bottom: 'auto', right: 'auto' }
+      : { position: 'fixed', bottom: 16, right: 12 };
     return (
-      <div className="fixed z-50 flex flex-col items-center gap-0.5" style={btnStyle}>
+      <div className="z-50 flex flex-col items-center gap-0.5" style={btnStyle}>
         <button
           onMouseDown={onBtnDragStart}
           onTouchStart={onBtnDragStart}
