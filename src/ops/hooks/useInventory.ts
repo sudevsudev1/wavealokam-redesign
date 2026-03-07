@@ -285,30 +285,82 @@ export function useCreatePurchaseOrder() {
     mutationFn: async (items: { item_id: string; quantity: number }[]) => {
       if (!profile) throw new Error('Not authenticated');
 
-      const { data: order, error: orderError } = await supabase
+      // Check if there's already a "Requested" order from this user — club into it
+      const { data: existingOrders } = await supabase
         .from('ops_purchase_orders')
-        .insert({
+        .select('id')
+        .eq('branch_id', profile.branchId)
+        .eq('requested_by', profile.userId)
+        .eq('status', 'Requested')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let orderId: string;
+
+      if (existingOrders && existingOrders.length > 0) {
+        // Club into existing order
+        orderId = (existingOrders[0] as any).id;
+
+        // Get existing items to merge quantities
+        const { data: existingItems } = await supabase
+          .from('ops_purchase_order_items')
+          .select('id, item_id, quantity')
+          .eq('order_id', orderId);
+
+        for (const newItem of items) {
+          const existing = (existingItems || []).find((ei: any) => ei.item_id === newItem.item_id);
+          if (existing) {
+            // Update quantity (add to existing)
+            await supabase
+              .from('ops_purchase_order_items')
+              .update({ quantity: (existing as any).quantity + newItem.quantity } as any)
+              .eq('id', (existing as any).id);
+          } else {
+            await supabase
+              .from('ops_purchase_order_items')
+              .insert({
+                order_id: orderId,
+                item_id: newItem.item_id,
+                quantity: newItem.quantity,
+                branch_id: profile.branchId,
+              } as any);
+          }
+        }
+
+        // Touch updated_at
+        await supabase
+          .from('ops_purchase_orders')
+          .update({ updated_at: new Date().toISOString() } as any)
+          .eq('id', orderId);
+
+        return existingOrders[0];
+      } else {
+        // Create new order
+        const { data: order, error: orderError } = await supabase
+          .from('ops_purchase_orders')
+          .insert({
+            branch_id: profile.branchId,
+            requested_by: profile.userId,
+            status: 'Requested',
+          } as any)
+          .select()
+          .single();
+        if (orderError) throw orderError;
+
+        const orderItems = items.map((i) => ({
+          order_id: (order as any).id,
+          item_id: i.item_id,
+          quantity: i.quantity,
           branch_id: profile.branchId,
-          requested_by: profile.userId,
-          status: 'Requested',
-        } as any)
-        .select()
-        .single();
-      if (orderError) throw orderError;
+        }));
 
-      const orderItems = items.map((i) => ({
-        order_id: (order as any).id,
-        item_id: i.item_id,
-        quantity: i.quantity,
-        branch_id: profile.branchId,
-      }));
+        const { error: itemsError } = await supabase
+          .from('ops_purchase_order_items')
+          .insert(orderItems as any);
+        if (itemsError) throw itemsError;
 
-      const { error: itemsError } = await supabase
-        .from('ops_purchase_order_items')
-        .insert(orderItems as any);
-      if (itemsError) throw itemsError;
-
-      return order;
+        return order;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_purchase_orders'] });
