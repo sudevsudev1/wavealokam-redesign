@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useInventoryItems, useCreatePurchaseOrder, usePurchaseTemplates, InventoryItem, PurchaseTemplate } from '../hooks/useInventory';
 import { useCreateInventoryItem } from '../hooks/useInventory';
