@@ -186,4 +186,20 @@ const translations: Record<string, Record<Language, string>> = {
   'vector.quickTodayReport': { en: "Today's report", ml: 'ഇന്നത്തെ റിപ്പോർട്ട്' },
   'vector.quickRoomAvail': { en: 'Room availability reply', ml: 'മുറി ലഭ്യത മറുപടി' },
   'vector.quickCheckIn': { en: 'Check-in details reply', ml: 'ചെക്ക്-ഇൻ മറുപടി' },
+
+  // Daily Report
+  'report.submit': { en: 'Submit Report', ml: 'റിപ്പോർട്ട് സമർപ്പിക്കുക' },
+  'report.review': { en: 'Review Reports', ml: 'റിപ്പോർട്ടുകൾ അവലോകനം ചെയ്യുക' },
+  'report.revenue': { en: 'Revenue', ml: 'വരുമാനം' },
+  'report.approved': { en: 'Approved', ml: 'അംഗീകരിച്ചു' },
+  'report.needsRevision': { en: 'Needs Revision', ml: 'പുനരവലോകനം ആവശ്യമാണ്' },
+
+  // Shift enhancements
+  'shift.overtime': { en: 'Overtime', ml: 'ഓവർടൈം' },
+  'shift.correction': { en: 'Correct Shift', ml: 'ഷിഫ്റ്റ് ശരിയാക്കുക' },
+  'shift.monthly': { en: 'Monthly Summary', ml: 'മാസ സംഗ്രഹം' },
+
+  // Guest exports
+  'guest.exportCForm': { en: 'Export C-Form', ml: 'C-ഫോം എക്‌സ്‌പോർട്ട്' },
+  'guest.analytics': { en: 'Analytics', ml: 'അനലിറ്റിക്‌സ്' },
 };
