@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { startOfDay, endOfDay, format } from 'date-fns';
@@ -35,6 +35,28 @@ export interface DailyReportData {
   };
 }
 
+export interface DailyReportSubmission {
+  id: string;
+  branch_id: string;
+  report_date: string;
+  submitted_by: string;
+  revenue_total: number;
+  revenue_cash: number;
+  revenue_online: number;
+  occupancy_notes: string | null;
+  kitchen_notes: string | null;
+  maintenance_notes: string | null;
+  general_notes: string | null;
+  highlights: string | null;
+  issues: string | null;
+  status: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export function useDailyReport(dateStr: string) {
   const { profile } = useOpsAuth();
 
@@ -45,7 +67,6 @@ export function useDailyReport(dateStr: string) {
       const dayStart = startOfDay(day).toISOString();
       const dayEnd = endOfDay(day).toISOString();
 
-      // Fetch all data in parallel
       const [tasksRes, guestsRes, currentGuestsRes, inventoryRes, expiryRes, shiftsRes, profilesRes] = await Promise.all([
         supabase.from('ops_tasks').select('*'),
         supabase.from('ops_guest_log').select('*')
@@ -71,7 +92,6 @@ export function useDailyReport(dateStr: string) {
       const profiles = (profilesRes.data || []) as any[];
       const profileMap = new Map(profiles.map((p: any) => [p.user_id, p.display_name]));
 
-      // Task stats
       const overdue = tasks.filter((t: any) =>
         t.due_datetime && new Date(t.due_datetime) < new Date() && !['Done', 'Cancelled'].includes(t.status)
       ).length;
@@ -85,11 +105,9 @@ export function useDailyReport(dateStr: string) {
         byPriority[t.priority] = (byPriority[t.priority] || 0) + 1;
       });
 
-      // Guest stats
       const checkedOutToday = (await supabase.from('ops_guest_log').select('id', { count: 'exact', head: true })
         .gte('check_out_at', dayStart).lte('check_out_at', dayEnd)).count || 0;
 
-      // Inventory alerts
       const lowStockItems = inventory
         .filter((i: any) => i.current_stock <= i.reorder_point)
         .map((i: any) => ({ id: i.id, name: i.name_en, current: i.current_stock, reorder: i.reorder_point, unit: i.unit }));
@@ -101,7 +119,6 @@ export function useDailyReport(dateStr: string) {
         quantity: e.quantity,
       }));
 
-      // Shift stats
       const staffSummary = new Map<string, { minutes: number; flagged: boolean }>();
       shifts.forEach((s: any) => {
         const existing = staffSummary.get(s.user_id) || { minutes: 0, flagged: false };
@@ -147,5 +164,74 @@ export function useDailyReport(dateStr: string) {
       };
     },
     enabled: !!profile && !!dateStr,
+  });
+}
+
+// Manager submissions
+export function useDailyReportSubmissions(dateStr?: string) {
+  const { profile } = useOpsAuth();
+  return useQuery({
+    queryKey: ['ops_daily_report_submissions', dateStr],
+    queryFn: async () => {
+      let q = supabase.from('ops_daily_reports').select('*').order('report_date', { ascending: false });
+      if (dateStr) q = q.eq('report_date', dateStr);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as unknown as DailyReportSubmission[];
+    },
+    enabled: !!profile,
+  });
+}
+
+export function useSubmitDailyReport() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async (report: {
+      report_date: string;
+      revenue_total: number;
+      revenue_cash: number;
+      revenue_online: number;
+      occupancy_notes?: string;
+      kitchen_notes?: string;
+      maintenance_notes?: string;
+      general_notes?: string;
+      highlights?: string;
+      issues?: string;
+    }) => {
+      if (!profile) throw new Error('Not authenticated');
+      const { data, error } = await supabase.from('ops_daily_reports').insert({
+        branch_id: profile.branchId,
+        submitted_by: profile.userId,
+        ...report,
+      } as any).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_daily_report_submissions'] });
+    },
+  });
+}
+
+export function useReviewDailyReport() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async ({ id, status, review_notes }: { id: string; status: 'approved' | 'needs_revision'; review_notes?: string }) => {
+      if (!profile) throw new Error('Not authenticated');
+      const { error } = await supabase.from('ops_daily_reports').update({
+        status,
+        reviewed_by: profile.userId,
+        reviewed_at: new Date().toISOString(),
+        review_notes: review_notes || null,
+      } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_daily_report_submissions'] });
+    },
   });
 }

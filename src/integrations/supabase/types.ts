@@ -447,6 +447,80 @@ export type Database = {
           },
         ]
       }
+      ops_daily_reports: {
+        Row: {
+          branch_id: string
+          created_at: string
+          general_notes: string | null
+          highlights: string | null
+          id: string
+          issues: string | null
+          kitchen_notes: string | null
+          maintenance_notes: string | null
+          occupancy_notes: string | null
+          report_date: string
+          revenue_cash: number | null
+          revenue_online: number | null
+          revenue_total: number | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          general_notes?: string | null
+          highlights?: string | null
+          id?: string
+          issues?: string | null
+          kitchen_notes?: string | null
+          maintenance_notes?: string | null
+          occupancy_notes?: string | null
+          report_date: string
+          revenue_cash?: number | null
+          revenue_online?: number | null
+          revenue_total?: number | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          general_notes?: string | null
+          highlights?: string | null
+          id?: string
+          issues?: string | null
+          kitchen_notes?: string | null
+          maintenance_notes?: string | null
+          occupancy_notes?: string | null
+          report_date?: string
+          revenue_cash?: number | null
+          revenue_online?: number | null
+          revenue_total?: number | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_daily_reports_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_guest_log: {
         Row: {
           address: string | null
