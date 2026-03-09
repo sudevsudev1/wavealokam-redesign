@@ -238,8 +238,8 @@ export default function GuestLogPage() {
 
   return (
     <div className="space-y-4">
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Summary + Analytics */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card><CardContent className="p-4 flex items-center gap-3">
           <Users className="h-8 w-8 text-primary" />
           <div><p className="text-2xl font-bold">{activeGuests.length}</p><p className="text-xs text-muted-foreground">{t('guest.activeGuests')}</p></div>
@@ -258,7 +258,35 @@ export default function GuestLogPage() {
           <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold text-sm">{pendingGuests.length}</div>
           <div><p className="text-xs text-muted-foreground">{t('guest.pendingApproval')}</p></div>
         </CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center gap-3">
+          <BarChart3 className="h-8 w-8 text-muted-foreground" />
+          <div>
+            <p className="text-2xl font-bold">{(() => {
+              const last7 = subDays(new Date(), 7);
+              return allGuests.filter(g => new Date(g.check_in_at) >= last7).length;
+            })()}</p>
+            <p className="text-xs text-muted-foreground">Last 7 days</p>
+          </div>
+        </CardContent></Card>
       </div>
+
+      {/* Source breakdown */}
+      {allGuests.length > 0 && (
+        <Card>
+          <CardContent className="py-3 px-3">
+            <p className="text-[10px] font-semibold text-foreground/50 uppercase mb-2">Booking Sources (All Time)</p>
+            <div className="flex flex-wrap gap-2">
+              {(() => {
+                const sourceCounts: Record<string, number> = {};
+                allGuests.forEach(g => { sourceCounts[g.source || 'Direct'] = (sourceCounts[g.source || 'Direct'] || 0) + 1; });
+                return Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]).map(([src, count]) => (
+                  <Badge key={src} variant="outline" className="text-xs">{src}: {count}</Badge>
+                ));
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )
 
       {/* Tabs + Actions */}
       <div className="flex items-center justify-between flex-wrap gap-2">
