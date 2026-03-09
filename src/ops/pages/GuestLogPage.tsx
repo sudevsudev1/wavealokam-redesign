@@ -270,6 +270,14 @@ export default function GuestLogPage() {
           <Button variant={tab === 'history' ? 'default' : 'outline'} size="sm" onClick={() => setTab('history')}>{t('guest.history')}</Button>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => {
+            const checkedOut = allGuests.filter(g => g.status === 'checked_out');
+            if (checkedOut.length === 0) { toast.error('No checked-out guests to export'); return; }
+            exportCFormPDF(checkedOut);
+            toast.success('C-Form PDF downloaded');
+          }}>
+            <FileDown className="h-4 w-4 mr-1" />C-Form
+          </Button>
           <Button variant="outline" size="sm" onClick={handleShareWhatsApp}><Share2 className="h-4 w-4 mr-1" />WhatsApp</Button>
           <Dialog open={checkInOpen} onOpenChange={setCheckInOpen}>
             <DialogTrigger asChild>
