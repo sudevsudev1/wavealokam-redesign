@@ -286,7 +286,7 @@ export default function GuestLogPage() {
             </div>
           </CardContent>
         </Card>
-      )
+      )}
 
       {/* Tabs + Actions */}
       <div className="flex items-center justify-between flex-wrap gap-2">
