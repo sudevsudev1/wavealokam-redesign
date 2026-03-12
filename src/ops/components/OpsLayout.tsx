@@ -7,7 +7,7 @@ import NetworkStatus from './NetworkStatus';
 import NotificationBell from './NotificationBell';
 import VectorDock from './VectorDock';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X } from 'lucide-react';
+import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X, Shirt } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = (isAdmin: boolean) => [
@@ -18,6 +18,7 @@ const navItems = (isAdmin: boolean) => [
   { to: '/ops/guest-log', labelKey: 'nav.guestLog', icon: Users },
   { to: '/ops/shift-punch', labelKey: 'nav.shiftPunch', icon: Clock },
   { to: '/ops/daily-report', labelKey: 'nav.dailyReport', icon: FileText },
+  { to: '/ops/laundry', labelKey: 'nav.laundry', icon: Shirt },
   ...(isAdmin ? [{ to: '/ops/admin', labelKey: 'nav.adminConsole', icon: Settings }] : []),
 ];
 

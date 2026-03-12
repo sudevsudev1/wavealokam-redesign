@@ -1705,6 +1705,12 @@ serve(async (req) => {
         sb.from("ops_vector_knowledge").select("topic, content, updated_at").eq("branch_id", branch_id).eq("is_active", true).order("updated_at", { ascending: false }),
       ]);
       
+      // Inject current time awareness
+      const nowIST = new Date(Date.now() + 5.5 * 3600000);
+      const timeStr = nowIST.toISOString().replace('T', ' ').slice(0, 19);
+      const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][nowIST.getUTCDay()];
+      systemPrompt += `\n\n═══ CURRENT TIME ═══\nRight now: ${timeStr} IST (${dayOfWeek}). Use this for ALL time calculations. When user says "two hours ago" = ${new Date(nowIST.getTime() - 2 * 3600000).toISOString().replace('T', ' ').slice(0, 16)} IST. "In 45 minutes" = ${new Date(nowIST.getTime() + 45 * 60000).toISOString().replace('T', ' ').slice(0, 16)} IST. Always resolve relative times to absolute timestamps before making decisions.`;
+      
       if (profileResult.data) {
         systemPrompt += `\n\n═══ CURRENT USER ═══\nChatting with: ${profileResult.data.display_name} (role: ${profileResult.data.role}, user_id: ${user_id}). "remind me" / "my tasks" = this person.`;
       }

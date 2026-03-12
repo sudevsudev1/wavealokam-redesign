@@ -13,6 +13,7 @@ import GuestLogPage from './pages/GuestLogPage';
 import GuestSelfCheckIn from './pages/GuestSelfCheckIn';
 import ShiftPunchPage from './pages/ShiftPunchPage';
 import DailyReportPage from './pages/DailyReportPage';
+import LaundryPage from './pages/LaundryPage';
 import AdminConsolePage from './pages/AdminConsolePage';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 
@@ -47,6 +48,7 @@ export default function OpsApp() {
               <Route path="guest-log" element={<GuestLogPage />} />
               <Route path="shift-punch" element={<ShiftPunchPage />} />
               <Route path="daily-report" element={<DailyReportPage />} />
+              <Route path="laundry" element={<LaundryPage />} />
               <Route path="admin" element={<AdminConsolePage />} />
             </Route>
             <Route path="*" element={<Navigate to="/ops" replace />} />
