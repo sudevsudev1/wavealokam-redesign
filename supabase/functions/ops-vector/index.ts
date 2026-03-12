@@ -954,10 +954,13 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    let systemPrompt = mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT;
+    // 'direct' mode: the client already embedded the system instruction in messages — skip all prompt injection
+    const isDirectMode = mode === "direct";
+    
+    let systemPrompt = isDirectMode ? null : (mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT);
 
     // Inject user context for internal mode
-    if (mode !== "guest") {
+    if (!isDirectMode && mode !== "guest") {
       const sb = getSupabase();
       const { data: callerProfile } = await sb.from("ops_user_profiles").select("display_name, role").eq("user_id", user_id).single();
       if (callerProfile) {
