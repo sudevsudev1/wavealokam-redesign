@@ -189,9 +189,7 @@ export default function VectorDock() {
     const instructions: Record<string, string> = {
       en_to_ml: `Translate the following text from English to Malayalam. Return ONLY the translated text, nothing else.`,
       ml_to_en: `Translate the following text from Malayalam to English. Return ONLY the translated text, nothing else.`,
-      guest_reply: language === 'ml'
-        ? `You are drafting a professional, warm guest reply for a Kerala beach hostel (Wavealokam). The user will provide a guest query or context. Draft a clean, professional reply in English suitable for WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky. Return ONLY the reply text.`
-        : `You are drafting a professional, warm guest reply for a Kerala beach hostel (Wavealokam). The user will provide a guest query or context. Draft a clean, professional reply in English suitable for WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky. Return ONLY the reply text.`,
+      guest_reply: `Write a professional, warm guest reply for Wavealokam (Kerala beach surf retreat). The user will provide a guest query or context. Output ONLY the reply text — no preamble, no "here's a draft", no meta-commentary. It should be ready to copy-paste into WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky.`,
     };
 
     sendToVector(text, instructions[action]);
