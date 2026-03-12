@@ -294,6 +294,36 @@ const VECTOR_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_knowledge",
+      description: "Search Vector's knowledge base for specific topics, corrections, or operational facts that have been saved by admins. Always check this before answering factual questions about Wavealokam services, policies, or offerings.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search term or topic to look up" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_knowledge",
+      description: "Add or update a knowledge base entry. ADMIN ONLY. Use when an admin tells you to remember, note, correct, or update a fact. The topic should be a short searchable label, content is the full detail.",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: { type: "string", description: "Short, searchable topic label (e.g. 'surfing courses', 'checkout policy', 'pet rules')" },
+          content: { type: "string", description: "The full factual content to remember" },
+          existing_id: { type: "string", description: "If updating an existing entry, provide its ID" },
+        },
+        required: ["topic", "content"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
@@ -777,6 +807,67 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         if (error) return `Error: ${error.message}`;
         return JSON.stringify({ success: true, action, reminder_id: remId });
       }
+
+      case "search_knowledge": {
+        const query = (args.query as string || "").toLowerCase();
+        const { data, error } = await sb.from("ops_vector_knowledge")
+          .select("*")
+          .eq("branch_id", branchId)
+          .eq("is_active", true)
+          .order("updated_at", { ascending: false });
+        if (error) return `Error: ${error.message}`;
+        
+        // Client-side search since we need fuzzy matching
+        const results = (data || []).filter(entry => 
+          entry.topic.toLowerCase().includes(query) || 
+          entry.content.toLowerCase().includes(query)
+        );
+        
+        if (results.length === 0) return JSON.stringify({ found: false, message: "No knowledge base entries found for this topic." });
+        return JSON.stringify({ found: true, entries: results.map(e => ({ id: e.id, topic: e.topic, content: e.content, updated_at: e.updated_at })) });
+      }
+
+      case "upsert_knowledge": {
+        if (!isAdmin) return "Error: Only admins can update the knowledge base.";
+        
+        const topic = args.topic as string;
+        const content = args.content as string;
+        const existingId = args.existing_id as string | undefined;
+        
+        if (existingId) {
+          const { error } = await sb.from("ops_vector_knowledge")
+            .update({ content, topic, updated_by: userId, updated_at: new Date().toISOString() })
+            .eq("id", existingId)
+            .eq("branch_id", branchId);
+          if (error) return `Error: ${error.message}`;
+          return JSON.stringify({ success: true, action: "updated", id: existingId, topic });
+        } else {
+          // Check if topic already exists
+          const { data: existing } = await sb.from("ops_vector_knowledge")
+            .select("id")
+            .eq("branch_id", branchId)
+            .ilike("topic", topic)
+            .eq("is_active", true)
+            .limit(1);
+          
+          if (existing && existing.length > 0) {
+            // Update existing
+            const { error } = await sb.from("ops_vector_knowledge")
+              .update({ content, updated_by: userId, updated_at: new Date().toISOString() })
+              .eq("id", existing[0].id);
+            if (error) return `Error: ${error.message}`;
+            return JSON.stringify({ success: true, action: "updated_existing", id: existing[0].id, topic });
+          }
+          
+          // Create new
+          const { data: newEntry, error } = await sb.from("ops_vector_knowledge")
+            .insert({ branch_id: branchId, topic, content, created_by: userId! })
+            .select("id")
+            .single();
+          if (error) return `Error: ${error.message}`;
+          return JSON.stringify({ success: true, action: "created", id: newEntry.id, topic });
+        }
+      }
       
       default:
         return `Unknown tool: ${name}`;
@@ -959,12 +1050,37 @@ serve(async (req) => {
     
     let systemPrompt = isDirectMode ? null : (mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT);
 
-    // Inject user context for internal mode
+    // Inject user context and knowledge base for non-direct modes
     if (!isDirectMode && mode !== "guest") {
       const sb = getSupabase();
-      const { data: callerProfile } = await sb.from("ops_user_profiles").select("display_name, role").eq("user_id", user_id).single();
-      if (callerProfile) {
-        systemPrompt += `\n\n═══ CURRENT USER ═══\nThe person chatting with you right now is: ${callerProfile.display_name} (role: ${callerProfile.role}, user_id: ${user_id}). When they say "remind me" or "my tasks", they mean themselves.`;
+      
+      // Fetch caller profile and knowledge base in parallel
+      const [profileResult, knowledgeResult] = await Promise.all([
+        sb.from("ops_user_profiles").select("display_name, role").eq("user_id", user_id).single(),
+        sb.from("ops_vector_knowledge").select("topic, content, updated_at").eq("branch_id", branch_id).eq("is_active", true).order("updated_at", { ascending: false }),
+      ]);
+      
+      if (profileResult.data) {
+        systemPrompt += `\n\n═══ CURRENT USER ═══\nThe person chatting with you right now is: ${profileResult.data.display_name} (role: ${profileResult.data.role}, user_id: ${user_id}). When they say "remind me" or "my tasks", they mean themselves.`;
+      }
+      
+      // Inject knowledge base entries
+      const kbEntries = knowledgeResult.data || [];
+      if (kbEntries.length > 0) {
+        const kbText = kbEntries.map(e => `• ${e.topic}: ${e.content}`).join("\n");
+        systemPrompt += `\n\n═══ KNOWLEDGE BASE (admin-verified facts — these OVERRIDE your built-in knowledge) ═══\n${kbText}\n\nIMPORTANT: When answering questions that touch on any of the above topics, ALWAYS use the knowledge base content. These are corrections and clarifications from admins that supersede any prior information you have.\n\nWhen an admin tells you to "remember this", "note that", "update your knowledge", or corrects you on a fact — use the upsert_knowledge tool to save it permanently. Confirm what you saved.`;
+      } else {
+        systemPrompt += `\n\n═══ KNOWLEDGE BASE ═══\nNo admin-verified facts yet. When an admin tells you to "remember this", "note that", "update your knowledge", or corrects you on a fact — use the upsert_knowledge tool to save it permanently.`;
+      }
+    }
+    
+    // Also inject knowledge base for guest mode (so guest replies use correct facts)
+    if (!isDirectMode && mode === "guest") {
+      const sb = getSupabase();
+      const { data: kbEntries } = await sb.from("ops_vector_knowledge").select("topic, content").eq("branch_id", branch_id).eq("is_active", true);
+      if (kbEntries && kbEntries.length > 0) {
+        const kbText = kbEntries.map(e => `• ${e.topic}: ${e.content}`).join("\n");
+        systemPrompt += `\n\n═══ KNOWLEDGE BASE (admin-verified facts — OVERRIDE built-in knowledge) ═══\n${kbText}`;
       }
     }
 
