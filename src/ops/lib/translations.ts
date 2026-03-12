@@ -22,6 +22,7 @@ const translations: Record<string, Record<Language, string>> = {
   'nav.shiftPunch': { en: 'Shift Punch', ml: 'ഷിഫ്റ്റ് പഞ്ച്' },
   'nav.dailyReport': { en: 'Daily Report', ml: 'ഡെയ്‌ലി റിപ്പോർട്ട്' },
   'nav.adminConsole': { en: 'Admin Console', ml: 'അഡ്‌മിൻ കൺസോൾ' },
+  'nav.laundry': { en: 'Laundry', ml: 'ലോൺഡ്രി' },
   'nav.signOut': { en: 'Sign Out', ml: 'സൈൻ ഔട്ട്' },
 
   // Home
