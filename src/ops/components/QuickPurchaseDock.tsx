@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useInventoryItems, useAddToPurchaseList, usePurchaseTemplates, InventoryItem, PurchaseTemplate } from '../hooks/useInventory';
 import { useCreateInventoryItem } from '../hooks/useInventory';
+const createItemHook = useCreateInventoryItem; // keep reference
 import { MASTER_CATALOG, levenshtein, CatalogEntry, calculateExpiryDate } from '../lib/masterCatalog';
 import { saveDraft, getDraft, deleteDraft } from '../lib/offlineDb';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
