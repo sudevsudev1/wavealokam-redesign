@@ -901,7 +901,10 @@ export type Database = {
       }
       ops_purchase_order_items: {
         Row: {
+          added_by: string | null
           branch_id: string
+          completed_at: string | null
+          completed_by: string | null
           id: string
           item_id: string
           order_id: string
@@ -910,7 +913,10 @@ export type Database = {
           unit_price: number | null
         }
         Insert: {
+          added_by?: string | null
           branch_id: string
+          completed_at?: string | null
+          completed_by?: string | null
           id?: string
           item_id: string
           order_id: string
@@ -919,7 +925,10 @@ export type Database = {
           unit_price?: number | null
         }
         Update: {
+          added_by?: string | null
           branch_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
           id?: string
           item_id?: string
           order_id?: string
