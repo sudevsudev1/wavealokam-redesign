@@ -154,7 +154,7 @@ export default function VectorDock() {
       const { data, error } = await supabase.functions.invoke('ops-vector', {
         body: {
           messages: sendMessages,
-          mode: mode === 'quick' ? 'guest' : 'internal',
+          mode: options?.systemInstruction ? 'direct' : (mode === 'quick' ? 'internal' : 'internal'),
           branch_id: profile.branchId,
           user_id: profile.userId,
           is_admin: isAdmin,

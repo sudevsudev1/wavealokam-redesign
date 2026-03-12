@@ -954,10 +954,13 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    let systemPrompt = mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT;
+    // 'direct' mode: the client already embedded the system instruction in messages — skip all prompt injection
+    const isDirectMode = mode === "direct";
+    
+    let systemPrompt = isDirectMode ? null : (mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT);
 
     // Inject user context for internal mode
-    if (mode !== "guest") {
+    if (!isDirectMode && mode !== "guest") {
       const sb = getSupabase();
       const { data: callerProfile } = await sb.from("ops_user_profiles").select("display_name, role").eq("user_id", user_id).single();
       if (callerProfile) {
@@ -966,24 +969,24 @@ serve(async (req) => {
     }
 
     // Inject UI language preference
-    if (ui_language === 'ml') {
+    if (systemPrompt && ui_language === 'ml') {
       systemPrompt += `\n\n═══ LANGUAGE OVERRIDE ═══\nThe user's interface is set to Malayalam. Respond in Malayalam unless the task explicitly requires English output (e.g. "translate to English" or "guest reply in English").`;
     }
 
     // Initial AI call with tools
-    const aiMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages,
-    ];
+    // In direct mode, messages already contain the system instruction from the client
+    const aiMessages = isDirectMode
+      ? [...messages]
+      : [{ role: "system", content: systemPrompt }, ...messages];
 
     const body: any = {
       model: "google/gemini-2.5-flash",
       messages: aiMessages,
-      stream: false, // First call non-streaming to handle tool calls
+      stream: false,
     };
 
-    // Only provide tools for internal mode
-    if (mode !== "guest") {
+    // Only provide tools for internal mode (not guest, not direct)
+    if (!isDirectMode && mode !== "guest") {
       body.tools = VECTOR_TOOLS;
     }
 
