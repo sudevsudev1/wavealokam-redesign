@@ -123,11 +123,12 @@ export default function VectorDock() {
     return null;
   }, [messages]);
 
-  // Core send function
-  const sendToVector = useCallback(async (text: string, systemInstruction?: string) => {
+  // Core send function — for quick actions, sends ONLY instruction + text (no history)
+  const sendToVector = useCallback(async (text: string, options?: { systemInstruction?: string; displayLabel?: string }) => {
     if (!text.trim() || loading || !profile) return;
 
-    const userMsg: Msg = { role: 'user', content: text };
+    const displayText = options?.displayLabel || text;
+    const userMsg: Msg = { role: 'user', content: displayText };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput('');
@@ -141,8 +142,13 @@ export default function VectorDock() {
     }
 
     try {
-      const sendMessages = systemInstruction
-        ? [{ role: 'system' as const, content: systemInstruction }, ...updatedMessages.map(m => ({ role: m.role, content: m.content }))]
+      // For quick actions: send ONLY the system instruction + the text to act on
+      // For regular chat: send the full conversation history
+      const sendMessages = options?.systemInstruction
+        ? [
+            { role: 'system' as const, content: options.systemInstruction },
+            { role: 'user' as const, content: text },
+          ]
         : updatedMessages.map(m => ({ role: m.role, content: m.content }));
 
       const { data, error } = await supabase.functions.invoke('ops-vector', {
@@ -185,15 +191,20 @@ export default function VectorDock() {
       return;
     }
 
-    const langLabel = language === 'ml' ? 'മലയാളം' : 'Malayalam';
     const instructions: Record<string, string> = {
-      en_to_ml: `Translate the following text from English to Malayalam. Return ONLY the translated text, nothing else.`,
-      ml_to_en: `Translate the following text from Malayalam to English. Return ONLY the translated text, nothing else.`,
+      en_to_ml: `Translate the following text from English to Malayalam. Return ONLY the translated text, nothing else. No explanation, no preamble.`,
+      ml_to_en: `Translate the following text from Malayalam to English. Return ONLY the translated text, nothing else. No explanation, no preamble.`,
       guest_reply: `Write a professional, warm guest reply for Wavealokam (Kerala beach surf retreat). The user will provide a guest query or context. Output ONLY the reply text — no preamble, no "here's a draft", no meta-commentary. It should be ready to copy-paste into WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky.`,
     };
 
-    sendToVector(text, instructions[action]);
-  }, [input, getLastAssistantContent, sendToVector, language, t]);
+    const labels: Record<string, string> = {
+      en_to_ml: `🔄 EN→ML: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
+      ml_to_en: `🔄 ML→EN: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
+      guest_reply: `✍️ Guest Reply: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
+    };
+
+    sendToVector(text, { systemInstruction: instructions[action], displayLabel: labels[action] });
+  }, [input, getLastAssistantContent, sendToVector, t]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
