@@ -1602,6 +1602,50 @@ export type Database = {
           },
         ]
       }
+      ops_vector_knowledge: {
+        Row: {
+          branch_id: string
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          topic: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          branch_id: string
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          topic: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          branch_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          topic?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_vector_knowledge_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_history: {
         Row: {
           blog_post_id: string | null
