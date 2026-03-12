@@ -19,6 +19,51 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "create_task",
+      description: "Create a new task and assign it to staff. ALWAYS use this (not create_reminder) when the user wants to assign work, create a to-do, or says 'add task'. Parse natural language: 'anandhu - clean kitchen by 2pm' → assign to Anandhu, title='Clean kitchen', due=today 2pm IST→UTC. If assignee is missing, ASK with options. If deadline missing, ASK. Priority defaults to Medium.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Task title (short, actionable)" },
+          description: { type: "string", description: "Optional longer description" },
+          assigned_to_names: { type: "array", items: { type: "string" }, description: "Display names of assignees (e.g. ['Anandhu'])" },
+          due_datetime: { type: "string", description: "ISO datetime for deadline (convert IST to UTC by subtracting 5:30). Null if no deadline." },
+          priority: { type: "string", description: "Low, Medium, High, or Urgent. Default Medium." },
+          category: { type: "string", description: "Task category. Default Operations." },
+        },
+        required: ["title", "assigned_to_names"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_to_purchase_list",
+      description: "Add items to the shared purchase list. ALWAYS use this when user mentions buying, purchasing, or adding items to the purchase/shopping list, or when you see [ADD_TO_PURCHASE_LIST]. Parse: '2 kg onion, 1 kg tomato' → items array. Matches item names against inventory catalog.",
+      parameters: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Item name to search in inventory" },
+                quantity: { type: "number", description: "Quantity to add" },
+                unit: { type: "string", description: "Unit (kg, pcs, L, etc.)" },
+              },
+              required: ["name", "quantity"],
+            },
+            description: "Items to add to the purchase list",
+          },
+        },
+        required: ["items"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_tasks_summary",
       description: "Get task summary for a user or all users. Returns assigned/completed/pending/blocked/overdue counts and details.",
       parameters: {
@@ -305,51 +350,6 @@ const VECTOR_TOOLS = [
           query: { type: "string", description: "Search term or topic to look up" },
         },
         required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_task",
-      description: "Create a new task. Use when user says 'add task', types [ADD_TASK], or describes work to assign. Parse natural language: 'anandhu - clean kitchen by 2pm' → assign to Anandhu, title='Clean kitchen', due=today 2pm IST. If assignee/deadline/priority missing, ASK the user with clear options before calling this tool.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Task title (short, actionable)" },
-          description: { type: "string", description: "Optional longer description" },
-          assigned_to_names: { type: "array", items: { type: "string" }, description: "Display names of assignees" },
-          due_datetime: { type: "string", description: "ISO datetime for deadline (convert IST to UTC). Null if no deadline." },
-          priority: { type: "string", description: "Low, Medium, High, or Urgent. Default Medium." },
-          category: { type: "string", description: "Task category. Default Operations." },
-        },
-        required: ["title", "assigned_to_names"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_to_purchase_list",
-      description: "Add items to the shared purchase list. Use when user says 'add to list', types [ADD_TO_PURCHASE_LIST], or mentions buying/purchasing items. Parse natural language: '2 kg onion, 1 kg tomato' → items with quantities. Matches against inventory items by name.",
-      parameters: {
-        type: "object",
-        properties: {
-          items: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string", description: "Item name to search in inventory" },
-                quantity: { type: "number", description: "Quantity to add" },
-                unit: { type: "string", description: "Unit (kg, pcs, etc.)" },
-              },
-              required: ["name", "quantity"],
-            },
-            description: "Items to add to the purchase list",
-          },
-        },
-        required: ["items"],
       },
     },
   },
@@ -1080,6 +1080,13 @@ When a team member asks about handling a tough guest — this is absolutely your
 - If an issue seems systemic, frame as "process improvement" not blame.
 - Admins can add notes to your knowledge: you remember and use them in context.
 
+═══ REMINDERS vs TASKS — CRITICAL DISTINCTION ═══
+- TASKS (create_task tool): Use for assigning WORK to someone. "Add task", "assign", "clean the kitchen", "do X by Y time", [ADD_TASK] — these ALL mean create_task, NEVER create_reminder.
+- REMINDERS (create_reminder tool): Use ONLY for time-based notifications. "Remind me to...", "notify me at...", "set an alarm for..." — these mean create_reminder.
+- WHEN IN DOUBT between task and reminder: use create_task. Tasks are for work items. Reminders are for personal notifications.
+- NEVER create a reminder when the user says "add task for", "assign to", or describes work someone should do.
+- "add task for anandhu to clean rooftop" → create_task (title="Clean rooftop", assignee=Anandhu). NOT a reminder.
+
 ═══ REMINDERS ═══
 - You can CREATE, LIST, UPDATE, and RESCHEDULE reminders for any user using your tools.
 - When asked "remind me to..." — use create_reminder tool. Convert IST times to UTC (IST = UTC+5:30).
@@ -1091,18 +1098,21 @@ When a team member asks about handling a tough guest — this is absolutely your
 - If a reminder keeps getting postponed (3+ times), gently call it out: "This one keeps sliding. What's actually in the way?"
 
 ═══ TASK CREATION ═══
-- When you see [ADD_TASK] prefix or user asks to add/create a task, parse the text for: assignee name, task title, deadline, priority.
+- When you see [ADD_TASK] prefix OR user asks to add/create a task OR describes work to assign → ALWAYS call the create_task tool.
+- Parse the text for: assignee name, task title, deadline, priority.
 - If assignee is missing, ask "Who should I assign this to?" and list team members as clickable options.
 - If deadline is missing, ask "Any deadline?" with options: "No deadline", "Today EOD", "Tomorrow", or "Let me specify".
 - If priority is missing, default to Medium without asking.
 - Once you have at least title + assignee, call create_task. Convert IST times to UTC (IST = UTC+5:30).
-- Examples: "anandhu - clean kitchen by 2pm" → title="Clean kitchen", assignee=Anandhu, due=today 14:00 IST
+- Examples: "anandhu - clean kitchen by 2pm" → create_task(title="Clean kitchen", assigned_to_names=["Anandhu"], due_datetime=today 14:00 IST in UTC)
+- "add task for anandhu to clean rooftop" → create_task(title="Clean rooftop", assigned_to_names=["Anandhu"])
 - "get chechis to clean kitchen" → title="Get chechis to clean kitchen", then ask assignee and deadline.
 
 ═══ PURCHASE LIST ═══
-- When you see [ADD_TO_PURCHASE_LIST] prefix or user mentions buying/adding items to purchase, parse items with quantities.
+- When you see [ADD_TO_PURCHASE_LIST] prefix OR user mentions buying/adding items to purchase → ALWAYS call add_to_purchase_list tool.
+- Parse items with quantities from natural language.
 - Call add_to_purchase_list with parsed items. Match names against inventory.
-- Examples: "2 kg onion, 1 kg tomato" → [{name:"onion", quantity:2, unit:"kg"}, {name:"tomato", quantity:1, unit:"kg"}]
+- Examples: "2 kg onion, 1 kg tomato" → add_to_purchase_list(items=[{name:"onion", quantity:2, unit:"kg"}, {name:"tomato", quantity:1, unit:"kg"}])
 - If an item isn't found in inventory, tell the user and suggest similar items.
 
 ═══ LANGUAGE ═══
