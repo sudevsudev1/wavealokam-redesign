@@ -173,19 +173,22 @@ const translations: Record<string, Record<Language, string>> = {
   'guest.uploadPhoto': { en: 'Upload Photo', ml: 'ഫോട്ടോ അപ്‌ലോഡ് ചെയ്യുക' },
 
   // Vector
-  'vector.guestTab': { en: 'Guest', ml: 'അതിഥി' },
+  'vector.quickTab': { en: 'Quick Actions', ml: 'ക്വിക്ക് ആക്ഷൻ' },
   'vector.internalTab': { en: 'Internal', ml: 'ഇന്റേണൽ' },
-  'vector.guestPlaceholder': { en: 'Draft a guest reply...', ml: 'അതിഥിക്ക് മറുപടി...' },
+  'vector.quickPlaceholder': { en: 'Paste text here...', ml: 'ടെക്സ്റ്റ് ഇവിടെ പേസ്റ്റ് ചെയ്യുക...' },
   'vector.internalPlaceholder': { en: 'Ask Vector anything...', ml: 'വെക്റ്ററിനോട് ചോദിക്കൂ...' },
-  'vector.guestEmpty': { en: 'Paste a guest query to draft a reply', ml: 'മറുപടി തയ്യാറാക്കാൻ അതിഥിയുടെ ചോദ്യം പേസ്റ്റ് ചെയ്യുക' },
+  'vector.quickEmpty': { en: 'Paste text and tap a quick action below', ml: 'ടെക്സ്റ്റ് പേസ്റ്റ് ചെയ്ത് താഴെയുള്ള ക്വിക്ക് ആക്ഷൻ ടാപ്പ് ചെയ്യുക' },
   'vector.internalEmpty': { en: 'Ask about tasks, inventory, guests, shifts — Vector has live access to everything', ml: 'ടാസ്ക്കുകൾ, ഇൻവെന്ററി, അതിഥികൾ, ഷിഫ്റ്റ് — വെക്റ്റർ എല്ലാത്തിലേക്കും ആക്സസ് ഉണ്ട്' },
   'vector.copy': { en: 'Copy', ml: 'കോപ്പി' },
   'vector.copied': { en: 'Copied to clipboard', ml: 'കോപ്പി ചെയ്തു' },
+  'vector.reply': { en: 'Reply', ml: 'മറുപടി' },
+  'vector.noTextForAction': { en: 'Paste or type text first', ml: 'ആദ്യം ടെക്സ്റ്റ് പേസ്റ്റ് ചെയ്യുക' },
+  'vector.actionEnToMl': { en: 'EN → ML', ml: 'EN → ML' },
+  'vector.actionMlToEn': { en: 'ML → EN', ml: 'ML → EN' },
+  'vector.actionGuestReply': { en: 'Guest Reply', ml: 'അതിഥി മറുപടി' },
   'vector.quickDueForOrder': { en: 'Due for Order items', ml: 'ഓർഡർ ചെയ്യേണ്ടവ' },
   'vector.quickOverdue': { en: 'Overdue tasks', ml: 'ഓവർഡ്യൂ ടാസ്ക്കുകൾ' },
   'vector.quickTodayReport': { en: "Today's report", ml: 'ഇന്നത്തെ റിപ്പോർട്ട്' },
-  'vector.quickRoomAvail': { en: 'Room availability reply', ml: 'മുറി ലഭ്യത മറുപടി' },
-  'vector.quickCheckIn': { en: 'Check-in details reply', ml: 'ചെക്ക്-ഇൻ മറുപടി' },
 
   // Daily Report
   'report.submit': { en: 'Submit Report', ml: 'റിപ്പോർട്ട് സമർപ്പിക്കുക' },
