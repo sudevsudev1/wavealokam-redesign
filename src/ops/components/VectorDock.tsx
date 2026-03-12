@@ -349,25 +349,34 @@ export default function VectorDock() {
         </TabsContent>
       </Tabs>
 
-      {/* Quick Action Buttons (only in quick tab) */}
+      {/* Quick Action Buttons (quick tab: translations/guest reply; internal tab: add task/purchase) */}
       {mode === 'quick' && (
         <div className="border-t border-border px-2 py-1.5 flex gap-1.5 overflow-x-auto">
+          <QuickActionBtn label={t('vector.actionEnToMl')} icon={<Languages className="h-3 w-3" />} onClick={() => handleQuickAction('en_to_ml')} disabled={loading} />
+          <QuickActionBtn label={t('vector.actionMlToEn')} icon={<Languages className="h-3 w-3" />} onClick={() => handleQuickAction('ml_to_en')} disabled={loading} />
+          <QuickActionBtn label={t('vector.actionGuestReply')} icon={<Send className="h-3 w-3" />} onClick={() => handleQuickAction('guest_reply')} disabled={loading} />
+        </div>
+      )}
+      {mode === 'internal' && (
+        <div className="border-t border-border px-2 py-1.5 flex gap-1.5 overflow-x-auto">
           <QuickActionBtn
-            label={t('vector.actionEnToMl')}
-            icon={<Languages className="h-3 w-3" />}
-            onClick={() => handleQuickAction('en_to_ml')}
+            label={t('vector.addTask')}
+            icon={<ClipboardList className="h-3 w-3" />}
+            onClick={() => {
+              const text = input.trim();
+              if (!text) { toast.error('Type a task description first'); return; }
+              sendToVector(`[ADD_TASK] ${text}`);
+            }}
             disabled={loading}
           />
           <QuickActionBtn
-            label={t('vector.actionMlToEn')}
-            icon={<Languages className="h-3 w-3" />}
-            onClick={() => handleQuickAction('ml_to_en')}
-            disabled={loading}
-          />
-          <QuickActionBtn
-            label={t('vector.actionGuestReply')}
-            icon={<Send className="h-3 w-3" />}
-            onClick={() => handleQuickAction('guest_reply')}
+            label={t('vector.addToList')}
+            icon={<ListPlus className="h-3 w-3" />}
+            onClick={() => {
+              const text = input.trim();
+              if (!text) { toast.error('Type items to add first'); return; }
+              sendToVector(`[ADD_TO_PURCHASE_LIST] ${text}`);
+            }}
             disabled={loading}
           />
         </div>
