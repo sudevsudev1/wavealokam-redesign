@@ -49,6 +49,7 @@ export default function OpsApp() {
               <Route path="daily-report" element={<DailyReportPage />} />
               <Route path="admin" element={<AdminConsolePage />} />
             </Route>
+            <Route path="*" element={<Navigate to="/ops" replace />} />
           </Routes>
           <PwaInstallPrompt />
         </OpsOfflineProvider>
