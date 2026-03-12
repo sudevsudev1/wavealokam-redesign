@@ -540,6 +540,7 @@ export type Database = {
           date_of_birth: string | null
           email: string | null
           evisa_number: string | null
+          expected_check_in: string | null
           expected_check_out: string | null
           guest_name: string
           guest_type: string
@@ -582,6 +583,7 @@ export type Database = {
           date_of_birth?: string | null
           email?: string | null
           evisa_number?: string | null
+          expected_check_in?: string | null
           expected_check_out?: string | null
           guest_name: string
           guest_type?: string
@@ -624,6 +626,7 @@ export type Database = {
           date_of_birth?: string | null
           email?: string | null
           evisa_number?: string | null
+          expected_check_in?: string | null
           expected_check_out?: string | null
           guest_name?: string
           guest_type?: string
@@ -841,6 +844,59 @@ export type Database = {
             columns: ["related_order_id"]
             isOneToOne: false
             referencedRelation: "ops_purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_laundry_batches: {
+        Row: {
+          actual_return_at: string | null
+          branch_id: string
+          created_at: string
+          expected_return_at: string
+          id: string
+          notes: string | null
+          received_by: string | null
+          sent_at: string
+          sent_before_noon: boolean
+          sent_by: string
+          sets_count: number
+          status: string
+        }
+        Insert: {
+          actual_return_at?: string | null
+          branch_id: string
+          created_at?: string
+          expected_return_at: string
+          id?: string
+          notes?: string | null
+          received_by?: string | null
+          sent_at?: string
+          sent_before_noon?: boolean
+          sent_by: string
+          sets_count?: number
+          status?: string
+        }
+        Update: {
+          actual_return_at?: string | null
+          branch_id?: string
+          created_at?: string
+          expected_return_at?: string
+          id?: string
+          notes?: string | null
+          received_by?: string | null
+          sent_at?: string
+          sent_before_noon?: boolean
+          sent_by?: string
+          sets_count?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_laundry_batches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
             referencedColumns: ["id"]
           },
         ]
