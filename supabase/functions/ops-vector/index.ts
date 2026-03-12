@@ -19,6 +19,51 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "create_task",
+      description: "Create a new task and assign it to staff. ALWAYS use this (not create_reminder) when the user wants to assign work, create a to-do, or says 'add task'. Parse natural language: 'anandhu - clean kitchen by 2pm' → assign to Anandhu, title='Clean kitchen', due=today 2pm IST→UTC. If assignee is missing, ASK with options. If deadline missing, ASK. Priority defaults to Medium.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Task title (short, actionable)" },
+          description: { type: "string", description: "Optional longer description" },
+          assigned_to_names: { type: "array", items: { type: "string" }, description: "Display names of assignees (e.g. ['Anandhu'])" },
+          due_datetime: { type: "string", description: "ISO datetime for deadline (convert IST to UTC by subtracting 5:30). Null if no deadline." },
+          priority: { type: "string", description: "Low, Medium, High, or Urgent. Default Medium." },
+          category: { type: "string", description: "Task category. Default Operations." },
+        },
+        required: ["title", "assigned_to_names"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_to_purchase_list",
+      description: "Add items to the shared purchase list. ALWAYS use this when user mentions buying, purchasing, or adding items to the purchase/shopping list, or when you see [ADD_TO_PURCHASE_LIST]. Parse: '2 kg onion, 1 kg tomato' → items array. Matches item names against inventory catalog.",
+      parameters: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Item name to search in inventory" },
+                quantity: { type: "number", description: "Quantity to add" },
+                unit: { type: "string", description: "Unit (kg, pcs, L, etc.)" },
+              },
+              required: ["name", "quantity"],
+            },
+            description: "Items to add to the purchase list",
+          },
+        },
+        required: ["items"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_tasks_summary",
       description: "Get task summary for a user or all users. Returns assigned/completed/pending/blocked/overdue counts and details.",
       parameters: {
