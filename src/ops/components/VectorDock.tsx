@@ -379,6 +379,28 @@ export default function VectorDock() {
             }}
             disabled={loading}
           />
+          <QuickActionBtn
+            label="Issue"
+            icon={<Bot className="h-3 w-3" />}
+            onClick={() => {
+              const text = input.trim();
+              if (!text) { toast.error('Type item or room (e.g. "room 102 refreshed")'); return; }
+              sendToVector(text);
+            }}
+            disabled={loading}
+          />
+          <QuickActionBtn
+            label="Daily Report"
+            icon={<ClipboardList className="h-3 w-3" />}
+            onClick={() => sendToVector('Start my daily report for today. Walk me through it conversationally.')}
+            disabled={loading}
+          />
+          <QuickActionBtn
+            label="End Shift"
+            icon={<X className="h-3 w-3" />}
+            onClick={() => sendToVector('End my shift now.')}
+            disabled={loading}
+          />
         </div>
       )}
 
