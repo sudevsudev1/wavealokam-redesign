@@ -969,24 +969,24 @@ serve(async (req) => {
     }
 
     // Inject UI language preference
-    if (ui_language === 'ml') {
+    if (systemPrompt && ui_language === 'ml') {
       systemPrompt += `\n\n═══ LANGUAGE OVERRIDE ═══\nThe user's interface is set to Malayalam. Respond in Malayalam unless the task explicitly requires English output (e.g. "translate to English" or "guest reply in English").`;
     }
 
     // Initial AI call with tools
-    const aiMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages,
-    ];
+    // In direct mode, messages already contain the system instruction from the client
+    const aiMessages = isDirectMode
+      ? [...messages]
+      : [{ role: "system", content: systemPrompt }, ...messages];
 
     const body: any = {
       model: "google/gemini-2.5-flash",
       messages: aiMessages,
-      stream: false, // First call non-streaming to handle tool calls
+      stream: false,
     };
 
-    // Only provide tools for internal mode
-    if (mode !== "guest") {
+    // Only provide tools for internal mode (not guest, not direct)
+    if (!isDirectMode && mode !== "guest") {
       body.tools = VECTOR_TOOLS;
     }
 
