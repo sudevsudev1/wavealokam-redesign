@@ -4,7 +4,7 @@ import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsOffline } from '../contexts/OpsOfflineContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Bot, X, Send, Copy, MessageSquare, Loader2, Minimize2, Maximize2, GripHorizontal, Languages, Reply, Zap } from 'lucide-react';
+import { Bot, X, Send, Copy, MessageSquare, Loader2, Minimize2, Maximize2, GripHorizontal, Languages, Reply, Zap, ListPlus, ClipboardList } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
