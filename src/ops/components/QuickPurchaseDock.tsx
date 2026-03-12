@@ -36,6 +36,7 @@ export default function QuickPurchaseDock() {
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: templates = [] } = usePurchaseTemplates();
   const createOrder = useAddToPurchaseList();
+  const createItem = useCreateInventoryItem();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [typoSuggestion, setTypoSuggestion] = useState<TypoSuggestion | null>(null);
