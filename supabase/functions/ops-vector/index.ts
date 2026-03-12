@@ -1050,12 +1050,37 @@ serve(async (req) => {
     
     let systemPrompt = isDirectMode ? null : (mode === "guest" ? VECTOR_GUEST_PROMPT : VECTOR_INTERNAL_PROMPT);
 
-    // Inject user context for internal mode
+    // Inject user context and knowledge base for non-direct modes
     if (!isDirectMode && mode !== "guest") {
       const sb = getSupabase();
-      const { data: callerProfile } = await sb.from("ops_user_profiles").select("display_name, role").eq("user_id", user_id).single();
-      if (callerProfile) {
-        systemPrompt += `\n\n═══ CURRENT USER ═══\nThe person chatting with you right now is: ${callerProfile.display_name} (role: ${callerProfile.role}, user_id: ${user_id}). When they say "remind me" or "my tasks", they mean themselves.`;
+      
+      // Fetch caller profile and knowledge base in parallel
+      const [profileResult, knowledgeResult] = await Promise.all([
+        sb.from("ops_user_profiles").select("display_name, role").eq("user_id", user_id).single(),
+        sb.from("ops_vector_knowledge").select("topic, content, updated_at").eq("branch_id", branch_id).eq("is_active", true).order("updated_at", { ascending: false }),
+      ]);
+      
+      if (profileResult.data) {
+        systemPrompt += `\n\n═══ CURRENT USER ═══\nThe person chatting with you right now is: ${profileResult.data.display_name} (role: ${profileResult.data.role}, user_id: ${user_id}). When they say "remind me" or "my tasks", they mean themselves.`;
+      }
+      
+      // Inject knowledge base entries
+      const kbEntries = knowledgeResult.data || [];
+      if (kbEntries.length > 0) {
+        const kbText = kbEntries.map(e => `• ${e.topic}: ${e.content}`).join("\n");
+        systemPrompt += `\n\n═══ KNOWLEDGE BASE (admin-verified facts — these OVERRIDE your built-in knowledge) ═══\n${kbText}\n\nIMPORTANT: When answering questions that touch on any of the above topics, ALWAYS use the knowledge base content. These are corrections and clarifications from admins that supersede any prior information you have.\n\nWhen an admin tells you to "remember this", "note that", "update your knowledge", or corrects you on a fact — use the upsert_knowledge tool to save it permanently. Confirm what you saved.`;
+      } else {
+        systemPrompt += `\n\n═══ KNOWLEDGE BASE ═══\nNo admin-verified facts yet. When an admin tells you to "remember this", "note that", "update your knowledge", or corrects you on a fact — use the upsert_knowledge tool to save it permanently.`;
+      }
+    }
+    
+    // Also inject knowledge base for guest mode (so guest replies use correct facts)
+    if (!isDirectMode && mode === "guest") {
+      const sb = getSupabase();
+      const { data: kbEntries } = await sb.from("ops_vector_knowledge").select("topic, content").eq("branch_id", branch_id).eq("is_active", true);
+      if (kbEntries && kbEntries.length > 0) {
+        const kbText = kbEntries.map(e => `• ${e.topic}: ${e.content}`).join("\n");
+        systemPrompt += `\n\n═══ KNOWLEDGE BASE (admin-verified facts — OVERRIDE built-in knowledge) ═══\n${kbText}`;
       }
     }
 
