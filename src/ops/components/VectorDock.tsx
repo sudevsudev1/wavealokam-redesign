@@ -4,7 +4,7 @@ import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsOffline } from '../contexts/OpsOfflineContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Bot, X, Send, Copy, MessageSquare, Globe, Loader2, ChevronDown, Minimize2, Maximize2, GripHorizontal } from 'lucide-react';
+import { Bot, X, Send, Copy, MessageSquare, Loader2, Minimize2, Maximize2, GripHorizontal, Languages, Reply, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,32 +24,32 @@ export default function VectorDock() {
   const { networkStatus } = useOpsOffline();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
-  const [mode, setMode] = useState<'guest' | 'internal'>('guest');
-  const [guestMessages, setGuestMessages] = useState<Msg[]>([]);
+  const [mode, setMode] = useState<'quick' | 'internal'>('quick');
+  const [quickMessages, setQuickMessages] = useState<Msg[]>([]);
   const [internalMessages, setInternalMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [replyTo, setReplyTo] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Position & size state (desktop only)
-  const [pos, setPos] = useState({ x: -1, y: -1 }); // -1 = not yet initialized
+  const [pos, setPos] = useState({ x: -1, y: -1 });
   const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
   const dragging = useRef(false);
   const resizing = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const dockRef = useRef<HTMLDivElement>(null);
 
-  const messages = mode === 'guest' ? guestMessages : internalMessages;
-  const setMessages = mode === 'guest' ? setGuestMessages : setInternalMessages;
+  const messages = mode === 'quick' ? quickMessages : internalMessages;
+  const setMessages = mode === 'quick' ? setQuickMessages : setInternalMessages;
 
-  // Button position state (for dragging the closed icon)
+  // Button position state
   const [btnPos, setBtnPos] = useState({ x: -1, y: -1 });
   const btnDragging = useRef(false);
   const btnDragOffset = useRef({ x: 0, y: 0 });
   const btnMoved = useRef(false);
 
-  // Initialize position to bottom-right on first open
   useEffect(() => {
     if (open && pos.x === -1) {
       setPos({
@@ -69,7 +69,6 @@ export default function VectorDock() {
 
   // Drag handlers
   const onDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    // Only on desktop
     if (window.innerWidth < 640) return;
     dragging.current = true;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -78,7 +77,6 @@ export default function VectorDock() {
     e.preventDefault();
   }, [pos]);
 
-  // Resize handlers
   const onResizeStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (window.innerWidth < 640) return;
     resizing.current = true;
@@ -90,23 +88,21 @@ export default function VectorDock() {
     const onMove = (e: MouseEvent | TouchEvent) => {
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
       if (dragging.current) {
-        const newX = Math.max(0, Math.min(window.innerWidth - 100, clientX - dragOffset.current.x));
-        const newY = Math.max(0, Math.min(window.innerHeight - 40, clientY - dragOffset.current.y));
-        setPos({ x: newX, y: newY });
+        setPos({
+          x: Math.max(0, Math.min(window.innerWidth - 100, clientX - dragOffset.current.x)),
+          y: Math.max(0, Math.min(window.innerHeight - 40, clientY - dragOffset.current.y)),
+        });
       }
       if (resizing.current && dockRef.current) {
         const rect = dockRef.current.getBoundingClientRect();
-        const newW = Math.max(MIN_W, clientX - rect.left);
-        const newH = Math.max(MIN_H, clientY - rect.top);
-        setSize({ w: newW, h: newH });
+        setSize({
+          w: Math.max(MIN_W, clientX - rect.left),
+          h: Math.max(MIN_H, clientY - rect.top),
+        });
       }
     };
-    const onUp = () => {
-      dragging.current = false;
-      resizing.current = false;
-    };
+    const onUp = () => { dragging.current = false; resizing.current = false; };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove, { passive: false });
@@ -119,35 +115,48 @@ export default function VectorDock() {
     };
   }, []);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading || !profile) return;
+  // Get the last assistant message content for context
+  const getLastAssistantContent = useCallback((): string | null => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return messages[i].content;
+    }
+    return null;
+  }, [messages]);
 
-    setInput('');
+  // Core send function
+  const sendToVector = useCallback(async (text: string, systemInstruction?: string) => {
+    if (!text.trim() || loading || !profile) return;
+
     const userMsg: Msg = { role: 'user', content: text };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
+    setInput('');
+    setReplyTo(null);
     setLoading(true);
 
     if (networkStatus === 'offline') {
-      setMessages([...updatedMessages, { role: 'assistant', content: '⚠️ Offline. Vector needs a live connection to query data. Please try again when online.' }]);
+      setMessages([...updatedMessages, { role: 'assistant', content: '⚠️ Offline. Vector needs a live connection.' }]);
       setLoading(false);
       return;
     }
 
     try {
+      const sendMessages = systemInstruction
+        ? [{ role: 'system' as const, content: systemInstruction }, ...updatedMessages.map(m => ({ role: m.role, content: m.content }))]
+        : updatedMessages.map(m => ({ role: m.role, content: m.content }));
+
       const { data, error } = await supabase.functions.invoke('ops-vector', {
         body: {
-          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
-          mode,
+          messages: sendMessages,
+          mode: mode === 'quick' ? 'guest' : 'internal',
           branch_id: profile.branchId,
           user_id: profile.userId,
           is_admin: isAdmin,
+          ui_language: language,
         },
       });
 
       if (error) throw error;
-
       if (data?.error) {
         setMessages([...updatedMessages, { role: 'assistant', content: `⚠️ ${data.error}` }]);
       } else {
@@ -159,7 +168,34 @@ export default function VectorDock() {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, messages, mode, profile, isAdmin, networkStatus, setMessages]);
+  }, [loading, messages, mode, profile, isAdmin, networkStatus, setMessages, language]);
+
+  // Regular send
+  const sendMessage = useCallback(() => {
+    const text = replyTo ? `[Replying to: "${replyTo.slice(0, 100)}..."]\n\n${input.trim()}` : input.trim();
+    if (!text) return;
+    sendToVector(text);
+  }, [input, replyTo, sendToVector]);
+
+  // Quick action handlers
+  const handleQuickAction = useCallback((action: 'en_to_ml' | 'ml_to_en' | 'guest_reply') => {
+    const text = input.trim() || getLastAssistantContent() || '';
+    if (!text) {
+      toast.error(t('vector.noTextForAction'));
+      return;
+    }
+
+    const langLabel = language === 'ml' ? 'മലയാളം' : 'Malayalam';
+    const instructions: Record<string, string> = {
+      en_to_ml: `Translate the following text from English to Malayalam. Return ONLY the translated text, nothing else.`,
+      ml_to_en: `Translate the following text from Malayalam to English. Return ONLY the translated text, nothing else.`,
+      guest_reply: language === 'ml'
+        ? `You are drafting a professional, warm guest reply for a Kerala beach hostel (Wavealokam). The user will provide a guest query or context. Draft a clean, professional reply in English suitable for WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky. Return ONLY the reply text.`
+        : `You are drafting a professional, warm guest reply for a Kerala beach hostel (Wavealokam). The user will provide a guest query or context. Draft a clean, professional reply in English suitable for WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky. Return ONLY the reply text.`,
+    };
+
+    sendToVector(text, instructions[action]);
+  }, [input, getLastAssistantContent, sendToVector, language, t]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -211,8 +247,8 @@ export default function VectorDock() {
     };
   }, []);
 
-  // Floating button when closed
-  if (!open) {
+  // ─── CLOSED: just the icon ───
+  if (!open || minimized) {
     const btnStyle: React.CSSProperties = btnPos.x >= 0
       ? { position: 'fixed', left: btnPos.x, top: btnPos.y, bottom: 'auto', right: 'auto' }
       : { position: 'fixed', bottom: 16, right: 12 };
@@ -221,7 +257,7 @@ export default function VectorDock() {
         <button
           onMouseDown={onBtnDragStart}
           onTouchStart={onBtnDragStart}
-          onClick={() => { if (!btnMoved.current) setOpen(true); }}
+          onClick={() => { if (!btnMoved.current) { setOpen(true); setMinimized(false); } }}
           className="h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95 cursor-grab active:cursor-grabbing touch-none"
           aria-label="Open Vector"
         >
@@ -232,46 +268,7 @@ export default function VectorDock() {
     );
   }
 
-  // Minimized bar (desktop: positioned, mobile: fixed bottom)
-  if (minimized) {
-    return (
-      <div
-        ref={dockRef}
-        className="fixed z-50 sm:rounded-xl shadow-2xl border border-border bg-background"
-        style={{
-          // Mobile: full width bottom bar
-          ...(window.innerWidth < 640
-            ? { left: 0, right: 0, bottom: 0 }
-            : { left: pos.x, top: pos.y, width: size.w }),
-        }}
-      >
-        <div
-          className="flex items-center justify-between px-3 py-2 sm:rounded-xl cursor-grab active:cursor-grabbing bg-primary/5"
-          onMouseDown={onDragStart}
-          onTouchStart={onDragStart}
-        >
-          <div className="flex items-center gap-2">
-            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-            <img src="/images/vector-avatar.png" alt="Vector" className="h-6 w-6 rounded-full object-cover" />
-            <span className="font-bold text-sm">Vector</span>
-            <span className="text-[10px] text-muted-foreground">
-              {networkStatus === 'offline' ? '(Offline)' : 'Live'}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setMinimized(false)} className="p-1.5 hover:bg-muted rounded-md" title="Expand">
-              <Maximize2 className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => { setOpen(false); setMinimized(false); }} className="p-1.5 hover:bg-muted rounded-md" title="Close">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Full panel
+  // ─── FULL PANEL ───
   return (
     <div
       ref={dockRef}
@@ -282,7 +279,7 @@ export default function VectorDock() {
           : {}),
       }}
     >
-      {/* Draggable Header */}
+      {/* Header */}
       <div
         className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5 sm:rounded-t-xl sm:cursor-grab sm:active:cursor-grabbing select-none"
         onMouseDown={onDragStart}
@@ -307,11 +304,11 @@ export default function VectorDock() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={mode} onValueChange={(v) => setMode(v as 'guest' | 'internal')} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={mode} onValueChange={(v) => setMode(v as 'quick' | 'internal')} className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-3 mt-2 grid grid-cols-2">
-          <TabsTrigger value="guest" className="text-xs gap-1">
-            <Globe className="h-3 w-3" />
-            {t('vector.guestTab')}
+          <TabsTrigger value="quick" className="text-xs gap-1">
+            <Zap className="h-3 w-3" />
+            {t('vector.quickTab')}
           </TabsTrigger>
           <TabsTrigger value="internal" className="text-xs gap-1">
             <MessageSquare className="h-3 w-3" />
@@ -319,13 +316,14 @@ export default function VectorDock() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="guest" className="flex-1 flex flex-col min-h-0 m-0">
+        <TabsContent value="quick" className="flex-1 flex flex-col min-h-0 m-0">
           <ChatArea
-            messages={guestMessages}
+            messages={quickMessages}
             messagesEndRef={messagesEndRef}
-            mode="guest"
+            mode="quick"
             onCopy={copyToClipboard}
             onWhatsApp={openWhatsApp}
+            onReply={(text) => { setReplyTo(text); inputRef.current?.focus(); }}
             t={t}
           />
         </TabsContent>
@@ -336,10 +334,46 @@ export default function VectorDock() {
             mode="internal"
             onCopy={copyToClipboard}
             onWhatsApp={openWhatsApp}
+            onReply={(text) => { setReplyTo(text); inputRef.current?.focus(); }}
             t={t}
           />
         </TabsContent>
       </Tabs>
+
+      {/* Quick Action Buttons (only in quick tab) */}
+      {mode === 'quick' && (
+        <div className="border-t border-border px-2 py-1.5 flex gap-1.5 overflow-x-auto">
+          <QuickActionBtn
+            label={t('vector.actionEnToMl')}
+            icon={<Languages className="h-3 w-3" />}
+            onClick={() => handleQuickAction('en_to_ml')}
+            disabled={loading}
+          />
+          <QuickActionBtn
+            label={t('vector.actionMlToEn')}
+            icon={<Languages className="h-3 w-3" />}
+            onClick={() => handleQuickAction('ml_to_en')}
+            disabled={loading}
+          />
+          <QuickActionBtn
+            label={t('vector.actionGuestReply')}
+            icon={<Send className="h-3 w-3" />}
+            onClick={() => handleQuickAction('guest_reply')}
+            disabled={loading}
+          />
+        </div>
+      )}
+
+      {/* Reply indicator */}
+      {replyTo && (
+        <div className="px-3 py-1 bg-muted/50 border-t border-border flex items-center gap-2 text-xs text-muted-foreground">
+          <Reply className="h-3 w-3 shrink-0" />
+          <span className="truncate flex-1">{replyTo.slice(0, 80)}...</span>
+          <button onClick={() => setReplyTo(null)} className="shrink-0 hover:text-foreground">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
 
       {/* Input */}
       <div className="border-t border-border p-2 flex gap-2 items-center">
@@ -348,7 +382,7 @@ export default function VectorDock() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={mode === 'guest' ? t('vector.guestPlaceholder') : t('vector.internalPlaceholder')}
+          placeholder={mode === 'quick' ? t('vector.quickPlaceholder') : t('vector.internalPlaceholder')}
           className="flex-1 text-sm bg-muted/50 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary"
           disabled={loading}
         />
@@ -377,21 +411,35 @@ export default function VectorDock() {
   );
 }
 
-// ─── Chat area sub-component ───
+// ─── Quick Action Button ───
+function QuickActionBtn({ label, icon, onClick, disabled }: { label: string; icon: React.ReactNode; onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary px-2.5 py-1.5 rounded-full hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+    >
+      {icon} {label}
+    </button>
+  );
+}
 
+// ─── Chat area sub-component ───
 function ChatArea({
   messages,
   messagesEndRef,
   mode,
   onCopy,
   onWhatsApp,
+  onReply,
   t,
 }: {
   messages: Msg[];
   messagesEndRef: React.RefObject<HTMLDivElement>;
-  mode: 'guest' | 'internal';
+  mode: 'quick' | 'internal';
   onCopy: (text: string) => void;
   onWhatsApp: (text: string) => void;
+  onReply: (text: string) => void;
   t: (key: string) => string;
 }) {
   if (messages.length === 0) {
@@ -400,22 +448,15 @@ function ChatArea({
         <div className="space-y-2">
           <Bot className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <p className="text-xs text-muted-foreground">
-            {mode === 'guest' ? t('vector.guestEmpty') : t('vector.internalEmpty')}
+            {mode === 'quick' ? t('vector.quickEmpty') : t('vector.internalEmpty')}
           </p>
-          <div className="flex flex-wrap gap-1.5 justify-center mt-3">
-            {mode === 'internal' ? (
-              <>
-                <QuickChip text={t('vector.quickDueForOrder')} />
-                <QuickChip text={t('vector.quickOverdue')} />
-                <QuickChip text={t('vector.quickTodayReport')} />
-              </>
-            ) : (
-              <>
-                <QuickChip text={t('vector.quickRoomAvail')} />
-                <QuickChip text={t('vector.quickCheckIn')} />
-              </>
-            )}
-          </div>
+          {mode === 'internal' && (
+            <div className="flex flex-wrap gap-1.5 justify-center mt-3">
+              <QuickChip text={t('vector.quickDueForOrder')} />
+              <QuickChip text={t('vector.quickOverdue')} />
+              <QuickChip text={t('vector.quickTodayReport')} />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -424,41 +465,141 @@ function ChatArea({
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-3">
       {messages.map((msg, i) => (
-        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-          <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-            msg.role === 'user'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted'
-          }`}>
-            {msg.role === 'assistant' ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none [&_p]:mb-1 [&_p]:mt-0 [&_ul]:my-1 [&_li]:my-0">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-              </div>
-            ) : (
-              <p>{msg.content}</p>
-            )}
-            {msg.role === 'assistant' && (
-              <div className="flex gap-1 mt-2 pt-1.5 border-t border-border/50">
-                <button
-                  onClick={() => onCopy(msg.content)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-muted/80"
-                >
-                  <Copy className="h-3 w-3" /> {t('vector.copy')}
-                </button>
-                {mode === 'guest' && (
-                  <button
-                    onClick={() => onWhatsApp(msg.content)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-muted/80"
-                  >
-                    <Send className="h-3 w-3" /> WhatsApp
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <MessageBubble
+          key={i}
+          msg={msg}
+          mode={mode}
+          onCopy={onCopy}
+          onWhatsApp={onWhatsApp}
+          onReply={onReply}
+          t={t}
+        />
       ))}
       <div ref={messagesEndRef} />
+    </div>
+  );
+}
+
+// ─── Message Bubble with long-press ───
+function MessageBubble({
+  msg,
+  mode,
+  onCopy,
+  onWhatsApp,
+  onReply,
+  t,
+}: {
+  msg: Msg;
+  mode: 'quick' | 'internal';
+  onCopy: (text: string) => void;
+  onWhatsApp: (text: string) => void;
+  onReply: (text: string) => void;
+  t: (key: string) => string;
+}) {
+  const [showActions, setShowActions] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  const startLongPress = () => {
+    longPressTimer.current = setTimeout(() => {
+      setShowActions(true);
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  // Close actions on outside click
+  useEffect(() => {
+    if (!showActions) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
+        setShowActions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [showActions]);
+
+  return (
+    <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+      <div
+        ref={bubbleRef}
+        className={`relative max-w-[85%] rounded-lg px-3 py-2 text-sm select-text ${
+          msg.role === 'user'
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-muted'
+        }`}
+        onMouseDown={startLongPress}
+        onMouseUp={cancelLongPress}
+        onMouseLeave={cancelLongPress}
+        onTouchStart={startLongPress}
+        onTouchEnd={cancelLongPress}
+        onTouchCancel={cancelLongPress}
+        onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
+      >
+        {msg.role === 'assistant' ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none [&_p]:mb-1 [&_p]:mt-0 [&_ul]:my-1 [&_li]:my-0">
+            <ReactMarkdown>{msg.content}</ReactMarkdown>
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap">{msg.content}</p>
+        )}
+
+        {/* Long-press action popup */}
+        {showActions && (
+          <div className={`absolute z-10 ${msg.role === 'user' ? 'right-0' : 'left-0'} -top-9 flex gap-1 bg-background border border-border rounded-lg shadow-lg px-1 py-1`}>
+            <button
+              onClick={() => { onCopy(msg.content); setShowActions(false); }}
+              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded hover:bg-muted text-foreground"
+            >
+              <Copy className="h-3 w-3" /> {t('vector.copy')}
+            </button>
+            <button
+              onClick={() => { onReply(msg.content); setShowActions(false); }}
+              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded hover:bg-muted text-foreground"
+            >
+              <Reply className="h-3 w-3" /> {t('vector.reply')}
+            </button>
+            {msg.role === 'assistant' && mode === 'quick' && (
+              <button
+                onClick={() => { onWhatsApp(msg.content); setShowActions(false); }}
+                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded hover:bg-muted text-foreground"
+              >
+                <Send className="h-3 w-3" /> WA
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Inline actions for assistant messages (always visible) */}
+        {msg.role === 'assistant' && (
+          <div className="flex gap-1 mt-2 pt-1.5 border-t border-border/50">
+            <button
+              onClick={() => onCopy(msg.content)}
+              className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-muted/80"
+            >
+              <Copy className="h-3 w-3" /> {t('vector.copy')}
+            </button>
+            {mode === 'quick' && (
+              <button
+                onClick={() => onWhatsApp(msg.content)}
+                className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-muted/80"
+              >
+                <Send className="h-3 w-3" /> WhatsApp
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
