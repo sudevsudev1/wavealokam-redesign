@@ -898,6 +898,83 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         }
       }
       
+      case "create_task": {
+        const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").eq("branch_id", branchId).eq("is_active", true);
+        const assignedIds: string[] = [];
+        const resolvedNames: string[] = [];
+        for (const name of (args.assigned_to_names as string[])) {
+          const match = (profiles || []).find(p => p.display_name.toLowerCase().includes(name.toLowerCase()));
+          if (match) { assignedIds.push(match.user_id); resolvedNames.push(match.display_name); }
+          else return `No user found matching "${name}". Available: ${(profiles || []).map(p => p.display_name).join(", ")}`;
+        }
+
+        const { data: task, error } = await sb.from("ops_tasks").insert({
+          branch_id: branchId,
+          created_by: userId,
+          assigned_to: assignedIds,
+          title_original: args.title as string,
+          title_en: args.title as string,
+          description_original: (args.description as string) || null,
+          description_en: (args.description as string) || null,
+          original_language: "en",
+          category: (args.category as string) || "Operations",
+          priority: (args.priority as string) || "Medium",
+          status: "To Do",
+          due_datetime: (args.due_datetime as string) || null,
+          proof_required: false,
+          receipt_required: false,
+        }).select("id").single();
+        if (error) return `Error creating task: ${error.message}`;
+        return JSON.stringify({ success: true, task_id: task.id, title: args.title, assigned_to: resolvedNames, due: args.due_datetime || "No deadline", priority: args.priority || "Medium" });
+      }
+
+      case "add_to_purchase_list": {
+        const requestedItems = args.items as { name: string; quantity: number; unit?: string }[];
+        
+        // Get all inventory items for matching
+        const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit").eq("branch_id", branchId).eq("is_active", true);
+        
+        // Get or create active purchase list
+        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
+        let orderId: string;
+        if (orders && orders.length > 0) {
+          orderId = orders[0].id;
+        } else {
+          const { data: newOrder, error: oErr } = await sb.from("ops_purchase_orders").insert({ branch_id: branchId, requested_by: userId, status: "Active" }).select("id").single();
+          if (oErr) return `Error creating purchase list: ${oErr.message}`;
+          orderId = newOrder.id;
+        }
+
+        // Get existing items on the list
+        const { data: existingListItems } = await sb.from("ops_purchase_order_items").select("item_id, quantity, completed_at").eq("order_id", orderId);
+
+        const added: string[] = [];
+        const notFound: string[] = [];
+        const duplicates: string[] = [];
+
+        for (const ri of requestedItems) {
+          const match = (invItems || []).find(i => i.name_en.toLowerCase().includes(ri.name.toLowerCase()));
+          if (!match) { notFound.push(ri.name); continue; }
+
+          const existing = (existingListItems || []).find((e: any) => e.item_id === match.id && !e.completed_at);
+          if (existing) { duplicates.push(`${match.name_en} (already ${(existing as any).quantity} on list)`); continue; }
+
+          const { error } = await sb.from("ops_purchase_order_items").insert({
+            order_id: orderId, item_id: match.id, quantity: ri.quantity, branch_id: branchId, added_by: userId,
+          });
+          if (!error) {
+            added.push(`${match.name_en} ×${ri.quantity} ${match.unit}`);
+            // Audit log
+            await sb.from("ops_audit_log").insert({
+              entity_type: "purchase_list_item", entity_id: orderId, action: "add_item",
+              performed_by: userId, branch_id: branchId, after_json: { item_id: match.id, quantity: ri.quantity, source: "vector" },
+            });
+          }
+        }
+
+        return JSON.stringify({ success: true, added, not_found: notFound, duplicates });
+      }
+
       default:
         return `Unknown tool: ${name}`;
     }
