@@ -123,11 +123,12 @@ export default function VectorDock() {
     return null;
   }, [messages]);
 
-  // Core send function
-  const sendToVector = useCallback(async (text: string, systemInstruction?: string) => {
+  // Core send function — for quick actions, sends ONLY instruction + text (no history)
+  const sendToVector = useCallback(async (text: string, options?: { systemInstruction?: string; displayLabel?: string }) => {
     if (!text.trim() || loading || !profile) return;
 
-    const userMsg: Msg = { role: 'user', content: text };
+    const displayText = options?.displayLabel || text;
+    const userMsg: Msg = { role: 'user', content: displayText };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput('');
@@ -141,8 +142,13 @@ export default function VectorDock() {
     }
 
     try {
-      const sendMessages = systemInstruction
-        ? [{ role: 'system' as const, content: systemInstruction }, ...updatedMessages.map(m => ({ role: m.role, content: m.content }))]
+      // For quick actions: send ONLY the system instruction + the text to act on
+      // For regular chat: send the full conversation history
+      const sendMessages = options?.systemInstruction
+        ? [
+            { role: 'system' as const, content: options.systemInstruction },
+            { role: 'user' as const, content: text },
+          ]
         : updatedMessages.map(m => ({ role: m.role, content: m.content }));
 
       const { data, error } = await supabase.functions.invoke('ops-vector', {
