@@ -965,6 +965,11 @@ serve(async (req) => {
       }
     }
 
+    // Inject UI language preference
+    if (ui_language === 'ml') {
+      systemPrompt += `\n\n═══ LANGUAGE OVERRIDE ═══\nThe user's interface is set to Malayalam. Respond in Malayalam unless the task explicitly requires English output (e.g. "translate to English" or "guest reply in English").`;
+    }
+
     // Initial AI call with tools
     const aiMessages = [
       { role: "system", content: systemPrompt },
