@@ -1,545 +1,461 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
-import { useInventoryItems, usePurchaseOrders, useCreatePurchaseOrder, useUpdatePurchaseOrder, usePurchaseOrderItems } from '../hooks/useInventory';
-import { useOpsProfiles } from '../hooks/useTasks';
-import { ORDER_STATUS_COLORS } from '../lib/inventoryConstants';
+import { useInventoryItems, usePurchaseList, useAddToPurchaseList, useCompleteListItem, useUncompleteListItem, useEditListItemQty, useDeleteListItem, useCreateInventoryItem, PurchaseListItem } from '../hooks/useInventory';
+import { MASTER_CATALOG, levenshtein, CatalogEntry } from '../lib/masterCatalog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Camera, CheckCircle, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Search, Plus, Minus, Trash2, Pencil, X, AlertTriangle, PlusCircle, Loader2, Check, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, parseISO } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-
-// Sub-component to display order items inline
-function OrderItemsList({ orderId, items }: { orderId: string; items: { id: string; name_en: string; name_ml: string | null; unit: string }[] }) {
-  const { data: orderItems = [] } = usePurchaseOrderItems(orderId);
-  const { language } = useOpsLanguage();
-
-  if (orderItems.length === 0) return null;
-
-  const getName = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    if (!item) return itemId.slice(0, 6);
-    return language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
-  };
-
-  const getUnit = (itemId: string) => items.find(i => i.id === itemId)?.unit || '';
-
-  return (
-    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-      {orderItems.map(oi => (
-        <span key={oi.id} className="text-[10px] text-muted-foreground">
-          {getName(oi.item_id)} <span className="font-medium text-foreground">{oi.quantity}{getUnit(oi.item_id)}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// Sub-component for admin editing order items before approval
-function EditOrderItemsDialog({
-  orderId,
-  open,
-  onClose,
-  items,
-  branchId,
-  requestedBy,
-  onApprove,
-}: {
-  orderId: string;
-  open: boolean;
-  onClose: () => void;
-  items: { id: string; name_en: string; name_ml: string | null; unit: string }[];
-  branchId: string;
-  requestedBy: string;
-  onApprove: () => void;
-}) {
-  const { data: orderItems = [], refetch } = usePurchaseOrderItems(orderId);
-  const { language, t } = useOpsLanguage();
-  const { profile } = useOpsAuth();
-  const [editItems, setEditItems] = useState<{ id: string; item_id: string; quantity: number }[]>([]);
-  const [newItemId, setNewItemId] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open && orderItems.length > 0) {
-      setEditItems(orderItems.map(oi => ({ id: oi.id, item_id: oi.item_id, quantity: oi.quantity })));
-    }
-  }, [open, orderItems]);
-
-  const getName = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    if (!item) return itemId.slice(0, 6);
-    return language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
-  };
-
-  const updateQty = (id: string, qty: number) => {
-    setEditItems(prev => prev.map(e => e.id === id ? { ...e, quantity: Math.round(qty * 100) / 100 } : e));
-  };
-
-  const removeItem = (id: string) => {
-    setEditItems(prev => prev.filter(e => e.id !== id));
-  };
-
-  const addItem = (itemId: string) => {
-    if (!itemId || editItems.some(e => e.item_id === itemId)) return;
-    setEditItems(prev => [...prev, { id: `new-${crypto.randomUUID()}`, item_id: itemId, quantity: 1 }]);
-    setNewItemId('');
-  };
-
-  const handleSaveAndApprove = async () => {
-    if (editItems.length === 0) return;
-    setSaving(true);
-    try {
-      const original = orderItems;
-      const changes: string[] = [];
-
-      // Delete removed items
-      const removedIds = original.filter(o => !editItems.find(e => e.id === o.id)).map(o => o.id);
-      for (const rid of removedIds) {
-        const removed = original.find(o => o.id === rid);
-        if (removed) changes.push(`Removed: ${getName(removed.item_id)}`);
-        await supabase.from('ops_purchase_order_items').delete().eq('id', rid);
-      }
-
-      // Update existing & add new
-      for (const ei of editItems) {
-        if (ei.id.startsWith('new-')) {
-          // New item
-          await supabase.from('ops_purchase_order_items').insert({
-            order_id: orderId,
-            item_id: ei.item_id,
-            quantity: ei.quantity,
-            branch_id: branchId,
-          } as any);
-          changes.push(`Added: ${getName(ei.item_id)} ×${ei.quantity}`);
-        } else {
-          const orig = original.find(o => o.id === ei.id);
-          if (orig && orig.quantity !== ei.quantity) {
-            await supabase.from('ops_purchase_order_items').update({ quantity: ei.quantity } as any).eq('id', ei.id);
-            changes.push(`${getName(ei.item_id)}: ${orig.quantity}→${ei.quantity}`);
-          }
-        }
-      }
-
-      // If changes were made, send notification to order creator
-      if (changes.length > 0 && profile) {
-        await supabase.from('ops_notifications').insert({
-          branch_id: branchId,
-          user_id: requestedBy,
-          title: 'Purchase Order Modified',
-          body: `Your PO ${orderId.slice(0, 8)} was modified before approval: ${changes.join(', ')}`,
-          type: 'purchase',
-          action_url: '/ops/purchase',
-        } as any);
-      }
-
-      // Approve
-      onApprove();
-      await refetch();
-      onClose();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle className="text-sm">{t('purchase.reviewOrder')}</DialogTitle></DialogHeader>
-        <div className="space-y-2">
-          {editItems.map(ei => (
-            <div key={ei.id} className="flex items-center justify-between text-xs p-2 border rounded">
-              <span className="truncate mr-2">{getName(ei.item_id)}</span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Input
-                  type="number" min="0.25" step="0.01" value={ei.quantity}
-                  onChange={e => updateQty(ei.id, parseFloat(e.target.value) || 0.25)}
-                  className="w-16 h-7 text-center text-xs"
-                />
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeItem(ei.id)}>
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          <Select value={newItemId} onValueChange={addItem}>
-            <SelectTrigger className="text-xs"><SelectValue placeholder={t('purchase.addItem')} /></SelectTrigger>
-            <SelectContent>
-              {items.filter(i => !editItems.some(e => e.item_id === i.id)).map(i => (
-                <SelectItem key={i.id} value={i.id}>{getName(i.id)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button onClick={handleSaveAndApprove} disabled={editItems.length === 0 || saving} className="w-full text-xs">
-            {saving ? '...' : t('purchase.approveWithChanges')}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export default function PurchasePage() {
   const { t, language } = useOpsLanguage();
-  const { isAdmin, profile } = useOpsAuth();
-  const { data: items = [] } = useInventoryItems();
-  const { data: orders = [], isLoading } = usePurchaseOrders();
-  const { data: profiles = [] } = useOpsProfiles();
-  const createOrder = useCreatePurchaseOrder();
-  const updateOrder = useUpdatePurchaseOrder();
+  const { profile } = useOpsAuth();
+  const { data: inventoryItems = [] } = useInventoryItems();
+  const { data: listData, isLoading } = usePurchaseList();
+  const addToList = useAddToPurchaseList();
+  const completeItem = useCompleteListItem();
+  const uncompleteItem = useUncompleteListItem();
+  const editQty = useEditListItemQty();
+  const deleteItem = useDeleteListItem();
+  const createInventoryItem = useCreateInventoryItem();
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [cart, setCart] = useState<{ item_id: string; quantity: number }[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const [receiveProofFile, setReceiveProofFile] = useState<File | null>(null);
-  const [receiveNotes, setReceiveNotes] = useState('');
-  const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [editingItem, setEditingItem] = useState<{ id: string; qty: number } | null>(null);
+  const [duplicateDialog, setDuplicateDialog] = useState<{ item_id: string; name: string; existingQty: number; newQty: number } | null>(null);
+  const [newItemQty, setNewItemQty] = useState(1);
+
+  const items = listData?.items || [];
+  const pendingItems = items.filter(i => !i.completed_at);
+  const completedItems = items.filter(i => !!i.completed_at);
 
   const getName = (itemId: string) => {
-    const item = items.find((i) => i.id === itemId);
-    if (!item) return itemId;
+    const item = inventoryItems.find(i => i.id === itemId);
+    if (!item) return itemId.slice(0, 8);
     return language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
   };
 
-  const getProfileName = (userId: string) => {
-    const p = profiles.find((pr) => pr.user_id === userId);
-    return p?.display_name || userId.slice(0, 8);
-  };
+  const getUnit = (itemId: string) => inventoryItems.find(i => i.id === itemId)?.unit || '';
 
-  const addToCart = (itemId: string) => {
-    const existing = cart.find((c) => c.item_id === itemId);
+  // Search inventory + catalog
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+
+    const invMatches = inventoryItems.filter(i => {
+      const name = (language === 'ml' && i.name_ml ? i.name_ml : i.name_en).toLowerCase();
+      return name.includes(q) || i.name_en.toLowerCase().includes(q);
+    });
+
+    const invNames = new Set(inventoryItems.map(i => i.name_en.toLowerCase()));
+    const catMatches = MASTER_CATALOG.filter(c =>
+      !invNames.has(c.name.toLowerCase()) && c.name.toLowerCase().includes(q)
+    );
+
+    return { invMatches, catMatches };
+  }, [inventoryItems, search, language]);
+
+  // Typo detection
+  const typoMatches = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || q.length < 3) return null;
+    if (searchResults && (searchResults.invMatches.length > 0 || searchResults.catMatches.length > 0)) return null;
+
+    const allNames = [
+      ...inventoryItems.map(i => i.name_en),
+      ...MASTER_CATALOG.map(c => c.name),
+    ];
+    const threshold = q.length <= 4 ? 2 : 3;
+    return allNames
+      .map(n => ({ name: n, dist: levenshtein(q, n.toLowerCase()) }))
+      .filter(m => m.dist <= threshold)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 3);
+  }, [search, searchResults, inventoryItems]);
+
+  const handleAddInventoryItem = async (itemId: string) => {
+    // Check if already on pending list
+    const existing = pendingItems.find(i => i.item_id === itemId);
     if (existing) {
-      setCart(cart.map((c) => c.item_id === itemId ? { ...c, quantity: c.quantity + 1 } : c));
-    } else {
-      setCart([...cart, { item_id: itemId, quantity: 1 }]);
-    }
-  };
-
-  const removeFromCart = (itemId: string) => {
-    setCart(cart.filter((c) => c.item_id !== itemId));
-  };
-
-  const handleCreateOrder = async () => {
-    if (cart.length === 0) return;
-    try {
-      await createOrder.mutateAsync(cart);
-      toast.success(t('purchase.orderCreated'));
-      setCart([]);
-      setCreateOpen(false);
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    try {
-      const updates: Record<string, unknown> = { status: newStatus };
-      if (newStatus === 'Approved') updates.approved_by = profile?.userId;
-      if (newStatus === 'Ordered') updates.ordered_at = new Date().toISOString();
-      await updateOrder.mutateAsync({ id: orderId, updates });
-      toast.success(`Order ${newStatus.toLowerCase()}`);
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
-  const handleReceive = async (orderId: string) => {
-    if (!receiveProofFile) {
-      toast.error(t('purchase.proofRequired'));
+      const item = inventoryItems.find(i => i.id === itemId);
+      setDuplicateDialog({
+        item_id: itemId,
+        name: item ? getName(itemId) : itemId.slice(0, 8),
+        existingQty: existing.quantity,
+        newQty: 1,
+      });
       return;
     }
+
+    const item = inventoryItems.find(i => i.id === itemId);
+    const suggestedQty = item ? Math.max(1, item.par_level - item.current_stock) : 1;
+    
     try {
-      const filePath = `${profile!.branchId}/purchase/${orderId}/${crypto.randomUUID()}-${receiveProofFile.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('ops-attachments')
-        .upload(filePath, receiveProofFile);
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('ops-attachments')
-        .getPublicUrl(filePath);
-
-      const { data: orderItems, error: orderItemsError } = await supabase
-        .from('ops_purchase_order_items')
-        .select('item_id, quantity, received_quantity')
-        .eq('order_id', orderId);
-      if (orderItemsError) throw orderItemsError;
-
-      if (orderItems && orderItems.length > 0) {
-        for (const oi of orderItems) {
-          const addQty = Math.max(0, Number((oi as any).received_quantity ?? (oi as any).quantity ?? 0));
-          if (!addQty) continue;
-
-          const { data: inv, error: invError } = await supabase
-            .from('ops_inventory_items')
-            .select('current_stock')
-            .eq('id', (oi as any).item_id)
-            .single();
-          if (invError) throw invError;
-
-          const { error: updateStockError } = await supabase
-            .from('ops_inventory_items')
-            .update({ current_stock: ((inv as any).current_stock as number) + addQty, last_received_at: new Date().toISOString() } as any)
-            .eq('id', (oi as any).item_id);
-          if (updateStockError) throw updateStockError;
-
-          const { error: txError } = await supabase
-            .from('ops_inventory_transactions')
-            .insert({
-              branch_id: profile!.branchId,
-              item_id: (oi as any).item_id,
-              type: 'in',
-              quantity: addQty,
-              notes: `PO received: ${orderId.slice(0, 8)}`,
-              performed_by: profile!.userId,
-              related_order_id: orderId,
-            } as any);
-          if (txError) throw txError;
-        }
-      }
-
-      // Build item summary for the auto-task
-      const order = orders.find(o => o.id === orderId);
-      const itemSummary = (orderItems || []).map(oi => {
-        const name = getName((oi as any).item_id);
-        const qty = (oi as any).received_quantity ?? (oi as any).quantity ?? 0;
-        return `${name} ×${qty}`;
-      }).join(', ');
-
-      await updateOrder.mutateAsync({
-        id: orderId,
-        updates: {
-          status: 'Received',
-          received_at: new Date().toISOString(),
-          receive_proof_url: urlData.publicUrl,
-          receive_notes: receiveNotes || null,
-        },
-      });
-
-      // Auto-create task for the order creator
-      if (order && profile) {
-        await supabase.from('ops_tasks').insert({
-          branch_id: profile.branchId,
-          created_by: profile.userId,
-          assigned_to: [order.requested_by],
-          title_original: `PO ${orderId.slice(0, 8)} received – verify & store`,
-          title_en: `PO ${orderId.slice(0, 8)} received – verify & store`,
-          description_en: `Purchase order received. Items: ${itemSummary}. Please verify quantities and store properly.`,
-          description_original: `Purchase order received. Items: ${itemSummary}. Please verify quantities and store properly.`,
-          original_language: 'en',
-          category: 'Inventory',
-          priority: 'Medium',
-          status: 'To Do',
-          proof_required: false,
-          receipt_required: false,
-        } as any);
-      }
-
-      toast.success(t('purchase.received'));
-      setSelectedOrder(null);
-      setReceiveProofFile(null);
-      setReceiveNotes('');
+      await addToList.mutateAsync([{ item_id: itemId, quantity: suggestedQty }]);
+      toast.success(t('purchase.addedToList'));
+      setSearch('');
     } catch (e: any) {
       toast.error(e.message);
     }
   };
 
-  const reorderItems = items.filter((i) => i.current_stock <= i.reorder_point);
+  const handleAddCatalogItem = async (entry: CatalogEntry) => {
+    try {
+      const newItem = await createInventoryItem.mutateAsync({
+        name_en: entry.name,
+        category: entry.category,
+        unit: entry.unit,
+        par_level: Math.ceil(entry.defaultQty),
+        reorder_point: Math.max(1, Math.ceil(entry.defaultQty * 0.3)),
+        expiry_warn_days: entry.shelfLifeDays <= 7 ? 1 : entry.shelfLifeDays <= 30 ? 3 : 7,
+      });
+      await addToList.mutateAsync([{ item_id: newItem.id, quantity: entry.defaultQty }]);
+      toast.success(`${entry.name} added to inventory & purchase list`);
+      setSearch('');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleAddOneTime = async () => {
+    const name = search.trim();
+    if (!name) return;
+    try {
+      const newItem = await createInventoryItem.mutateAsync({
+        name_en: name,
+        category: 'F&B',
+        unit: 'pcs',
+        par_level: 5,
+        reorder_point: 2,
+        expiry_warn_days: null,
+      });
+      await addToList.mutateAsync([{ item_id: newItem.id, quantity: newItemQty }]);
+      toast.success(`"${name}" added to inventory & purchase list`);
+      setSearch('');
+      setNewItemQty(1);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDuplicateAction = async (action: 'add_more' | 'change_qty') => {
+    if (!duplicateDialog) return;
+    const existing = pendingItems.find(i => i.item_id === duplicateDialog.item_id && !i.completed_at);
+    if (!existing) return;
+
+    if (action === 'add_more') {
+      await editQty.mutateAsync({
+        itemRowId: existing.id,
+        newQty: existing.quantity + duplicateDialog.newQty,
+        oldQty: existing.quantity,
+      });
+      toast.success('Quantity updated');
+    } else {
+      await editQty.mutateAsync({
+        itemRowId: existing.id,
+        newQty: duplicateDialog.newQty,
+        oldQty: existing.quantity,
+      });
+      toast.success('Quantity changed');
+    }
+    setDuplicateDialog(null);
+  };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-bold">{t('purchase.title')}</h1>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="text-xs"><Plus className="h-3.5 w-3.5 mr-1" />{t('purchase.newOrder')}</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle className="text-sm">{t('purchase.newOrder')}</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              {reorderItems.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground mb-1">{t('purchase.suggestedItems')}</p>
-                  <div className="space-y-1">
-                    {reorderItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between text-xs p-2 rounded bg-orange-50 border border-orange-200">
-                        <span className="truncate mr-2">{getName(item.id)} <span className="text-muted-foreground">({item.current_stock}/{item.par_level})</span></span>
-                        <Button size="sm" variant="outline" onClick={() => addToCart(item.id)} className="h-6 w-6 p-0 shrink-0">
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Select onValueChange={(val) => addToCart(val)}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder={t('purchase.addItem')} /></SelectTrigger>
-                <SelectContent>
-                  {items.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {getName(i.id)} ({i.current_stock} {i.unit})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {cart.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-medium">{t('purchase.cart')} ({cart.length})</p>
-                  {cart.map((c) => (
-                    <div key={c.item_id} className="flex items-center justify-between text-xs p-2 border rounded">
-                      <span className="truncate mr-2">{getName(c.item_id)}</span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Input
-                          type="number" min="0.25" step="0.01" value={c.quantity}
-                          onChange={(e) => setCart(cart.map((x) => x.item_id === c.item_id ? { ...x, quantity: parseFloat(e.target.value) || 0.25 } : x))}
-                          className="w-14 h-7 text-center text-xs"
-                        />
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.item_id)}>
-                          <Trash2 className="h-3 w-3 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <Button onClick={handleCreateOrder} disabled={cart.length === 0 || createOrder.isPending} className="w-full text-xs">
-                {createOrder.isPending ? '...' : t('purchase.submitOrder')}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <h1 className="text-base font-bold flex items-center gap-1.5">
+          <ShoppingCart className="h-4 w-4" />
+          {t('purchase.title')}
+          {pendingItems.length > 0 && (
+            <Badge variant="default" className="text-[10px] h-5 px-1.5">{pendingItems.length}</Badge>
+          )}
+        </h1>
       </div>
 
-      {/* Orders list */}
-      <div className="space-y-2">
-        {orders.map((order) => (
-          <Card key={order.id}>
-            <CardContent className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-mono text-[10px] text-muted-foreground">{order.id.slice(0, 8)}</span>
-                    <Badge variant="outline" className={`text-[10px] ${ORDER_STATUS_COLORS[order.status] || ''}`}>
-                      {order.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs mt-0.5">{getProfileName(order.requested_by)} · {format(parseISO(order.created_at), 'dd/MM/yyyy')}</p>
-                  {/* Inline items list */}
-                  <OrderItemsList orderId={order.id} items={items} />
-                </div>
-                <div className="flex gap-1 shrink-0 flex-wrap justify-end">
-                  {isAdmin && order.status === 'Requested' && (
-                    <>
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => setEditOrderId(order.id)}>
-                        <Pencil className="h-3 w-3 mr-0.5" />{t('purchase.review')}
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleStatusChange(order.id, 'Approved')}>
-                        {t('purchase.approve')}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-destructive" onClick={() => handleStatusChange(order.id, 'Cancelled')}>
-                        ✕
-                      </Button>
-                    </>
-                  )}
-                  {isAdmin && order.status === 'Approved' && (
-                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleStatusChange(order.id, 'Ordered')}>
-                      {t('purchase.markOrdered')}
-                    </Button>
-                  )}
-                  {order.status === 'Ordered' && (
-                    <Button size="sm" variant="default" className="h-6 text-[10px] px-2" onClick={() => setSelectedOrder(order.id)}>
-                      <Camera className="h-3 w-3 mr-1" />{t('purchase.receive')}
-                    </Button>
-                  )}
-                  {order.status === 'Received' && order.receive_proof_url && (
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" asChild>
-                      <a href={order.receive_proof_url} target="_blank" rel="noopener noreferrer">
-                        <CheckCircle className="h-3 w-3 mr-1" />Proof
-                      </a>
-                    </Button>
-                  )}
-                </div>
+      {/* Search to add items */}
+      <Card>
+        <CardContent className="p-3 space-y-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Type item name to add..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 h-9 text-xs"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2.5 top-2.5">
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+
+          {/* Typo suggestions */}
+          {typoMatches && typoMatches.length > 0 && (
+            <div className="bg-accent/50 border border-accent rounded-lg p-2 space-y-1">
+              <p className="text-[10px] text-accent-foreground flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Did you mean:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {typoMatches.map(m => (
+                  <button key={m.name} onClick={() => setSearch(m.name)}
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground hover:bg-accent/80">
+                    {m.name}
+                  </button>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-        {orders.length === 0 && (
-          <div className="text-center text-muted-foreground py-8 text-sm">{t('purchase.noOrders')}</div>
-        )}
-      </div>
+            </div>
+          )}
 
-      {/* Edit Order Items Dialog (admin review before approval) */}
-      {editOrderId && (
-        <EditOrderItemsDialog
-          orderId={editOrderId}
-          open={!!editOrderId}
-          onClose={() => setEditOrderId(null)}
-          items={items}
-          branchId={profile?.branchId || ''}
-          requestedBy={orders.find(o => o.id === editOrderId)?.requested_by || ''}
-          onApprove={() => handleStatusChange(editOrderId, 'Approved')}
-        />
+          {/* Add new option */}
+          {search.trim().length >= 2 && searchResults && searchResults.invMatches.length === 0 && searchResults.catMatches.length === 0 && (
+            <div className="border border-dashed border-primary/30 rounded-lg p-2 space-y-1.5">
+              <p className="text-[10px] text-muted-foreground">"{search.trim()}" not found. Add as new item:</p>
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))}
+                    className="h-5 w-5 rounded bg-muted flex items-center justify-center">
+                    <Minus className="h-2.5 w-2.5" />
+                  </button>
+                  <Input type="number" min="1" value={newItemQty}
+                    onChange={e => setNewItemQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="h-5 w-10 text-[10px] text-center px-0.5" />
+                  <button onClick={() => setNewItemQty(newItemQty + 1)}
+                    className="h-5 w-5 rounded bg-muted flex items-center justify-center">
+                    <Plus className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+                <button onClick={handleAddOneTime}
+                  className="text-[9px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-0.5">
+                  <PlusCircle className="h-3 w-3" /> Add to list
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Search results */}
+          {search.trim() && searchResults && (
+            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+              {searchResults.invMatches.slice(0, 10).map(item => (
+                <div key={item.id} className="flex items-center justify-between p-2 rounded-lg border border-border">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate block">
+                      {language === 'ml' && item.name_ml ? item.name_ml : item.name_en}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {item.current_stock}/{item.par_level} {item.unit}
+                    </span>
+                  </div>
+                  <button onClick={() => handleAddInventoryItem(item.id)}
+                    className="h-7 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-medium flex items-center gap-0.5 hover:bg-primary/20 active:scale-95 shrink-0">
+                    <Plus className="h-3 w-3" /> Add
+                  </button>
+                </div>
+              ))}
+              {searchResults.catMatches.slice(0, 5).map(entry => (
+                <div key={entry.name} className="flex items-center justify-between p-2 rounded-lg border border-dashed border-accent bg-accent/10">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate block">{entry.name}</span>
+                    <span className="text-[10px] text-muted-foreground">{entry.category} · {entry.unit} · new</span>
+                  </div>
+                  <button onClick={() => handleAddCatalogItem(entry)}
+                    className="h-7 px-2 rounded-md bg-accent/30 text-accent-foreground text-[10px] font-medium flex items-center gap-0.5 hover:bg-accent/50 active:scale-95 shrink-0">
+                    <PlusCircle className="h-3 w-3" /> Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Pending items (the list) */}
+      {pendingItems.length > 0 && (
+        <Card>
+          <CardContent className="p-3 space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+              {t('purchase.pending')} ({pendingItems.length})
+            </p>
+            {pendingItems.map(item => (
+              <PurchaseListRow
+                key={item.id}
+                item={item}
+                name={getName(item.item_id)}
+                unit={getUnit(item.item_id)}
+                isEditing={editingItem?.id === item.id}
+                editQty={editingItem?.id === item.id ? editingItem.qty : item.quantity}
+                onToggleComplete={() => completeItem.mutate({
+                  itemRowId: item.id,
+                  itemId: item.item_id,
+                  quantity: item.quantity,
+                })}
+                onStartEdit={() => setEditingItem({ id: item.id, qty: item.quantity })}
+                onEditQty={(qty) => setEditingItem({ id: item.id, qty })}
+                onSaveEdit={() => {
+                  if (editingItem) {
+                    editQty.mutate({ itemRowId: item.id, newQty: editingItem.qty, oldQty: item.quantity });
+                    setEditingItem(null);
+                  }
+                }}
+                onCancelEdit={() => setEditingItem(null)}
+                onDelete={() => deleteItem.mutate({
+                  itemRowId: item.id,
+                  itemId: item.item_id,
+                  quantity: item.quantity,
+                })}
+                completed={false}
+              />
+            ))}
+          </CardContent>
+        </Card>
       )}
 
-      {/* Receive Dialog */}
-      <Dialog open={!!selectedOrder} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
-        <DialogContent>
+      {/* Completed items (strikethrough) */}
+      {completedItems.length > 0 && (
+        <Card>
+          <CardContent className="p-3 space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+              {t('purchase.done')} ({completedItems.length})
+            </p>
+            {completedItems.map(item => (
+              <PurchaseListRow
+                key={item.id}
+                item={item}
+                name={getName(item.item_id)}
+                unit={getUnit(item.item_id)}
+                isEditing={false}
+                editQty={item.quantity}
+                onToggleComplete={() => uncompleteItem.mutate({
+                  itemRowId: item.id,
+                  itemId: item.item_id,
+                  quantity: item.quantity,
+                })}
+                onStartEdit={() => {}}
+                onEditQty={() => {}}
+                onSaveEdit={() => {}}
+                onCancelEdit={() => {}}
+                onDelete={() => deleteItem.mutate({
+                  itemRowId: item.id,
+                  itemId: item.item_id,
+                  quantity: item.quantity,
+                })}
+                completed={true}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {items.length === 0 && (
+        <div className="text-center text-muted-foreground py-8 text-sm">{t('purchase.noItems')}</div>
+      )}
+
+      {/* Duplicate item dialog */}
+      <Dialog open={!!duplicateDialog} onOpenChange={o => { if (!o) setDuplicateDialog(null); }}>
+        <DialogContent className="max-w-xs">
           <DialogHeader>
-            <DialogTitle className="text-sm">{t('purchase.receiveOrder')}</DialogTitle>
+            <DialogTitle className="text-sm">{t('purchase.itemExists')}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium">{t('purchase.proofPhoto')} *</label>
-              <Input
-                type="file" accept="image/*" capture="environment"
-                onChange={(e) => setReceiveProofFile(e.target.files?.[0] || null)}
-                className="mt-1 text-xs"
-              />
-              {!receiveProofFile && (
-                <p className="text-[10px] text-destructive mt-1">{t('purchase.proofRequired')}</p>
-              )}
+          {duplicateDialog && (
+            <div className="space-y-3">
+              <p className="text-xs">
+                <strong>{duplicateDialog.name}</strong> is already on the list with quantity <strong>{duplicateDialog.existingQty}</strong>.
+              </p>
+              <div className="flex items-center gap-2">
+                <label className="text-xs">New qty:</label>
+                <Input type="number" min="0.25" step="0.01"
+                  value={duplicateDialog.newQty}
+                  onChange={e => setDuplicateDialog({ ...duplicateDialog, newQty: parseFloat(e.target.value) || 1 })}
+                  className="w-20 h-7 text-xs text-center" />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 text-xs" onClick={() => handleDuplicateAction('add_more')}>
+                  {t('purchase.addMore')} (+{duplicateDialog.newQty})
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => handleDuplicateAction('change_qty')}>
+                  {t('purchase.changeQty')} (→{duplicateDialog.newQty})
+                </Button>
+              </div>
+              <Button size="sm" variant="ghost" className="w-full text-xs" onClick={() => setDuplicateDialog(null)}>
+                Cancel
+              </Button>
             </div>
-            <div>
-              <label className="text-xs font-medium">{t('purchase.notes')}</label>
-              <Input
-                value={receiveNotes}
-                onChange={(e) => setReceiveNotes(e.target.value)}
-                placeholder={t('purchase.notesPlaceholder')}
-                className="mt-1 text-xs"
-              />
-            </div>
-            <Button
-              onClick={() => selectedOrder && handleReceive(selectedOrder)}
-              disabled={!receiveProofFile || updateOrder.isPending}
-              className="w-full text-xs"
-            >
-              {updateOrder.isPending ? '...' : t('purchase.confirmReceive')}
-            </Button>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PurchaseListRow({
+  item, name, unit, isEditing, editQty, completed,
+  onToggleComplete, onStartEdit, onEditQty, onSaveEdit, onCancelEdit, onDelete,
+}: {
+  item: PurchaseListItem;
+  name: string;
+  unit: string;
+  isEditing: boolean;
+  editQty: number;
+  completed: boolean;
+  onToggleComplete: () => void;
+  onStartEdit: () => void;
+  onEditQty: (qty: number) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
+      completed ? 'border-border/50 bg-muted/30' : 'border-border'
+    }`}>
+      <Checkbox
+        checked={completed}
+        onCheckedChange={onToggleComplete}
+        className="shrink-0"
+      />
+      <div className={`min-w-0 flex-1 ${completed ? 'line-through opacity-50' : ''}`}>
+        <span className="text-xs font-medium truncate block">{name}</span>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {isEditing ? (
+          <>
+            <Input type="number" min="0.25" step="0.01" value={editQty}
+              onChange={e => onEditQty(parseFloat(e.target.value) || 0.25)}
+              className="w-14 h-6 text-xs text-center" />
+            <button onClick={onSaveEdit} className="h-6 w-6 rounded bg-primary/10 text-primary flex items-center justify-center">
+              <Check className="h-3 w-3" />
+            </button>
+            <button onClick={onCancelEdit} className="h-6 w-6 rounded bg-muted flex items-center justify-center">
+              <X className="h-3 w-3" />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="text-xs font-mono text-muted-foreground">{item.quantity} {unit}</span>
+            {!completed && (
+              <button onClick={onStartEdit} className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center">
+                <Pencil className="h-3 w-3 text-muted-foreground" />
+              </button>
+            )}
+            <button onClick={onDelete} className="h-6 w-6 rounded hover:bg-destructive/10 flex items-center justify-center">
+              <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
