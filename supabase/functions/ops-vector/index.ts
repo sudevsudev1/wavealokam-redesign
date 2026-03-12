@@ -353,51 +353,6 @@ const VECTOR_TOOLS = [
       },
     },
   },
-  {
-    type: "function",
-    function: {
-      name: "create_task",
-      description: "Create a new task. Use when user says 'add task', types [ADD_TASK], or describes work to assign. Parse natural language: 'anandhu - clean kitchen by 2pm' → assign to Anandhu, title='Clean kitchen', due=today 2pm IST. If assignee/deadline/priority missing, ASK the user with clear options before calling this tool.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Task title (short, actionable)" },
-          description: { type: "string", description: "Optional longer description" },
-          assigned_to_names: { type: "array", items: { type: "string" }, description: "Display names of assignees" },
-          due_datetime: { type: "string", description: "ISO datetime for deadline (convert IST to UTC). Null if no deadline." },
-          priority: { type: "string", description: "Low, Medium, High, or Urgent. Default Medium." },
-          category: { type: "string", description: "Task category. Default Operations." },
-        },
-        required: ["title", "assigned_to_names"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_to_purchase_list",
-      description: "Add items to the shared purchase list. Use when user says 'add to list', types [ADD_TO_PURCHASE_LIST], or mentions buying/purchasing items. Parse natural language: '2 kg onion, 1 kg tomato' → items with quantities. Matches against inventory items by name.",
-      parameters: {
-        type: "object",
-        properties: {
-          items: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string", description: "Item name to search in inventory" },
-                quantity: { type: "number", description: "Quantity to add" },
-                unit: { type: "string", description: "Unit (kg, pcs, etc.)" },
-              },
-              required: ["name", "quantity"],
-            },
-            description: "Items to add to the purchase list",
-          },
-        },
-        required: ["items"],
-      },
-    },
-  },
 ];
 
 // ─── Tool execution ───
