@@ -294,6 +294,36 @@ const VECTOR_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_knowledge",
+      description: "Search Vector's knowledge base for specific topics, corrections, or operational facts that have been saved by admins. Always check this before answering factual questions about Wavealokam services, policies, or offerings.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search term or topic to look up" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_knowledge",
+      description: "Add or update a knowledge base entry. ADMIN ONLY. Use when an admin tells you to remember, note, correct, or update a fact. The topic should be a short searchable label, content is the full detail.",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: { type: "string", description: "Short, searchable topic label (e.g. 'surfing courses', 'checkout policy', 'pet rules')" },
+          content: { type: "string", description: "The full factual content to remember" },
+          existing_id: { type: "string", description: "If updating an existing entry, provide its ID" },
+        },
+        required: ["topic", "content"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
