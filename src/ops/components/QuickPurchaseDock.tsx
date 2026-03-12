@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
-import { useInventoryItems, useCreatePurchaseOrder, usePurchaseTemplates, InventoryItem, PurchaseTemplate } from '../hooks/useInventory';
+import { useInventoryItems, useAddToPurchaseList, usePurchaseTemplates, InventoryItem, PurchaseTemplate } from '../hooks/useInventory';
 import { useCreateInventoryItem } from '../hooks/useInventory';
 import { MASTER_CATALOG, levenshtein, CatalogEntry, calculateExpiryDate } from '../lib/masterCatalog';
 import { saveDraft, getDraft, deleteDraft } from '../lib/offlineDb';
@@ -35,7 +35,7 @@ export default function QuickPurchaseDock() {
   const navigate = useNavigate();
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: templates = [] } = usePurchaseTemplates();
-  const createOrder = useCreatePurchaseOrder();
+  const createOrder = useAddToPurchaseList();
   const createItem = useCreateInventoryItem();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);

@@ -311,16 +311,45 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
-      name: "upsert_knowledge",
-      description: "Add or update a knowledge base entry. ADMIN ONLY. Use when an admin tells you to remember, note, correct, or update a fact. The topic should be a short searchable label, content is the full detail.",
+      name: "create_task",
+      description: "Create a new task. Use when user says 'add task', types [ADD_TASK], or describes work to assign. Parse natural language: 'anandhu - clean kitchen by 2pm' → assign to Anandhu, title='Clean kitchen', due=today 2pm IST. If assignee/deadline/priority missing, ASK the user with clear options before calling this tool.",
       parameters: {
         type: "object",
         properties: {
-          topic: { type: "string", description: "Short, searchable topic label (e.g. 'surfing courses', 'checkout policy', 'pet rules')" },
-          content: { type: "string", description: "The full factual content to remember" },
-          existing_id: { type: "string", description: "If updating an existing entry, provide its ID" },
+          title: { type: "string", description: "Task title (short, actionable)" },
+          description: { type: "string", description: "Optional longer description" },
+          assigned_to_names: { type: "array", items: { type: "string" }, description: "Display names of assignees" },
+          due_datetime: { type: "string", description: "ISO datetime for deadline (convert IST to UTC). Null if no deadline." },
+          priority: { type: "string", description: "Low, Medium, High, or Urgent. Default Medium." },
+          category: { type: "string", description: "Task category. Default Operations." },
         },
-        required: ["topic", "content"],
+        required: ["title", "assigned_to_names"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_to_purchase_list",
+      description: "Add items to the shared purchase list. Use when user says 'add to list', types [ADD_TO_PURCHASE_LIST], or mentions buying/purchasing items. Parse natural language: '2 kg onion, 1 kg tomato' → items with quantities. Matches against inventory items by name.",
+      parameters: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Item name to search in inventory" },
+                quantity: { type: "number", description: "Quantity to add" },
+                unit: { type: "string", description: "Unit (kg, pcs, etc.)" },
+              },
+              required: ["name", "quantity"],
+            },
+            description: "Items to add to the purchase list",
+          },
+        },
+        required: ["items"],
       },
     },
   },
@@ -869,6 +898,83 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         }
       }
       
+      case "create_task": {
+        const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").eq("branch_id", branchId).eq("is_active", true);
+        const assignedIds: string[] = [];
+        const resolvedNames: string[] = [];
+        for (const name of (args.assigned_to_names as string[])) {
+          const match = (profiles || []).find(p => p.display_name.toLowerCase().includes(name.toLowerCase()));
+          if (match) { assignedIds.push(match.user_id); resolvedNames.push(match.display_name); }
+          else return `No user found matching "${name}". Available: ${(profiles || []).map(p => p.display_name).join(", ")}`;
+        }
+
+        const { data: task, error } = await sb.from("ops_tasks").insert({
+          branch_id: branchId,
+          created_by: userId,
+          assigned_to: assignedIds,
+          title_original: args.title as string,
+          title_en: args.title as string,
+          description_original: (args.description as string) || null,
+          description_en: (args.description as string) || null,
+          original_language: "en",
+          category: (args.category as string) || "Operations",
+          priority: (args.priority as string) || "Medium",
+          status: "To Do",
+          due_datetime: (args.due_datetime as string) || null,
+          proof_required: false,
+          receipt_required: false,
+        }).select("id").single();
+        if (error) return `Error creating task: ${error.message}`;
+        return JSON.stringify({ success: true, task_id: task.id, title: args.title, assigned_to: resolvedNames, due: args.due_datetime || "No deadline", priority: args.priority || "Medium" });
+      }
+
+      case "add_to_purchase_list": {
+        const requestedItems = args.items as { name: string; quantity: number; unit?: string }[];
+        
+        // Get all inventory items for matching
+        const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit").eq("branch_id", branchId).eq("is_active", true);
+        
+        // Get or create active purchase list
+        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
+        let orderId: string;
+        if (orders && orders.length > 0) {
+          orderId = orders[0].id;
+        } else {
+          const { data: newOrder, error: oErr } = await sb.from("ops_purchase_orders").insert({ branch_id: branchId, requested_by: userId, status: "Active" }).select("id").single();
+          if (oErr) return `Error creating purchase list: ${oErr.message}`;
+          orderId = newOrder.id;
+        }
+
+        // Get existing items on the list
+        const { data: existingListItems } = await sb.from("ops_purchase_order_items").select("item_id, quantity, completed_at").eq("order_id", orderId);
+
+        const added: string[] = [];
+        const notFound: string[] = [];
+        const duplicates: string[] = [];
+
+        for (const ri of requestedItems) {
+          const match = (invItems || []).find(i => i.name_en.toLowerCase().includes(ri.name.toLowerCase()));
+          if (!match) { notFound.push(ri.name); continue; }
+
+          const existing = (existingListItems || []).find((e: any) => e.item_id === match.id && !e.completed_at);
+          if (existing) { duplicates.push(`${match.name_en} (already ${(existing as any).quantity} on list)`); continue; }
+
+          const { error } = await sb.from("ops_purchase_order_items").insert({
+            order_id: orderId, item_id: match.id, quantity: ri.quantity, branch_id: branchId, added_by: userId,
+          });
+          if (!error) {
+            added.push(`${match.name_en} ×${ri.quantity} ${match.unit}`);
+            // Audit log
+            await sb.from("ops_audit_log").insert({
+              entity_type: "purchase_list_item", entity_id: orderId, action: "add_item",
+              performed_by: userId, branch_id: branchId, after_json: { item_id: match.id, quantity: ri.quantity, source: "vector" },
+            });
+          }
+        }
+
+        return JSON.stringify({ success: true, added, not_found: notFound, duplicates });
+      }
+
       default:
         return `Unknown tool: ${name}`;
     }
@@ -983,6 +1089,21 @@ When a team member asks about handling a tough guest — this is absolutely your
 - For "remind me" requests, the user_display_name should match the person chatting. Since you know the user via context, resolve their name.
 - At end of day, you send follow-up notifications for pending reminders. When a user tells you they didn't do it, ask why and when they can — then use update_reminder to reschedule.
 - If a reminder keeps getting postponed (3+ times), gently call it out: "This one keeps sliding. What's actually in the way?"
+
+═══ TASK CREATION ═══
+- When you see [ADD_TASK] prefix or user asks to add/create a task, parse the text for: assignee name, task title, deadline, priority.
+- If assignee is missing, ask "Who should I assign this to?" and list team members as clickable options.
+- If deadline is missing, ask "Any deadline?" with options: "No deadline", "Today EOD", "Tomorrow", or "Let me specify".
+- If priority is missing, default to Medium without asking.
+- Once you have at least title + assignee, call create_task. Convert IST times to UTC (IST = UTC+5:30).
+- Examples: "anandhu - clean kitchen by 2pm" → title="Clean kitchen", assignee=Anandhu, due=today 14:00 IST
+- "get chechis to clean kitchen" → title="Get chechis to clean kitchen", then ask assignee and deadline.
+
+═══ PURCHASE LIST ═══
+- When you see [ADD_TO_PURCHASE_LIST] prefix or user mentions buying/adding items to purchase, parse items with quantities.
+- Call add_to_purchase_list with parsed items. Match names against inventory.
+- Examples: "2 kg onion, 1 kg tomato" → [{name:"onion", quantity:2, unit:"kg"}, {name:"tomato", quantity:1, unit:"kg"}]
+- If an item isn't found in inventory, tell the user and suggest similar items.
 
 ═══ LANGUAGE ═══
 - Respond in the language the user writes in. If they write in Malayalam, respond in Malayalam.

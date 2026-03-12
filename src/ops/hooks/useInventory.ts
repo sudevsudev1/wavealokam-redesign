@@ -277,95 +277,324 @@ export function usePurchaseOrderItems(orderId: string) {
   });
 }
 
-export function useCreatePurchaseOrder() {
+export interface PurchaseListItem extends PurchaseOrderItem {
+  completed_at: string | null;
+  completed_by: string | null;
+  added_by: string | null;
+}
+
+// Get or create the single active purchase list for the branch
+export function usePurchaseList() {
+  const { profile } = useOpsAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['ops_purchase_list'],
+    queryFn: async () => {
+      if (!profile) return { order: null, items: [] };
+
+      // Find the active (non-received, non-cancelled) order
+      const { data: orders } = await supabase
+        .from('ops_purchase_orders')
+        .select('*')
+        .eq('branch_id', profile.branchId)
+        .in('status', ['Active'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const order = (orders && orders.length > 0) ? orders[0] as unknown as PurchaseOrder : null;
+      
+      if (!order) return { order: null, items: [] };
+
+      const { data: items } = await supabase
+        .from('ops_purchase_order_items')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('completed_at', { ascending: true, nullsFirst: true });
+
+      return { order, items: (items || []) as unknown as PurchaseListItem[] };
+    },
+    enabled: !!profile,
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('ops_purchase_list_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ops_purchase_order_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ops_purchase_orders' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  return query;
+}
+
+// Ensures an active purchase list exists, returns the order id
+async function ensureActiveList(branchId: string, userId: string): Promise<string> {
+  const { data: orders } = await supabase
+    .from('ops_purchase_orders')
+    .select('id')
+    .eq('branch_id', branchId)
+    .eq('status', 'Active')
+    .limit(1);
+
+  if (orders && orders.length > 0) return (orders[0] as any).id;
+
+  const { data: newOrder, error } = await supabase
+    .from('ops_purchase_orders')
+    .insert({
+      branch_id: branchId,
+      requested_by: userId,
+      status: 'Active',
+    } as any)
+    .select()
+    .single();
+  if (error) throw error;
+  return (newOrder as any).id;
+}
+
+export function useAddToPurchaseList() {
   const queryClient = useQueryClient();
   const { profile } = useOpsAuth();
 
   return useMutation({
-    mutationFn: async (items: { item_id: string; quantity: number }[]) => {
+    mutationFn: async (items: { item_id: string; quantity: number; name?: string }[]) => {
       if (!profile) throw new Error('Not authenticated');
 
-      // Check if there's already a "Requested" order from this user — club into it
-      const { data: existingOrders } = await supabase
-        .from('ops_purchase_orders')
-        .select('id')
-        .eq('branch_id', profile.branchId)
-        .eq('requested_by', profile.userId)
-        .eq('status', 'Requested')
-        .order('created_at', { ascending: false })
-        .limit(1);
+      const orderId = await ensureActiveList(profile.branchId, profile.userId);
 
-      let orderId: string;
+      // Get existing items to check for duplicates
+      const { data: existingItems } = await supabase
+        .from('ops_purchase_order_items')
+        .select('id, item_id, quantity, completed_at')
+        .eq('order_id', orderId);
 
-      if (existingOrders && existingOrders.length > 0) {
-        // Club into existing order
-        orderId = (existingOrders[0] as any).id;
+      const duplicates: { item_id: string; name?: string; existingQty: number }[] = [];
+      const newItems: { item_id: string; quantity: number }[] = [];
 
-        // Get existing items to merge quantities
-        const { data: existingItems } = await supabase
-          .from('ops_purchase_order_items')
-          .select('id, item_id, quantity')
-          .eq('order_id', orderId);
-
-        for (const newItem of items) {
-          const existing = (existingItems || []).find((ei: any) => ei.item_id === newItem.item_id);
-          if (existing) {
-            // Update quantity (add to existing)
-            await supabase
-              .from('ops_purchase_order_items')
-              .update({ quantity: (existing as any).quantity + newItem.quantity } as any)
-              .eq('id', (existing as any).id);
-          } else {
-            await supabase
-              .from('ops_purchase_order_items')
-              .insert({
-                order_id: orderId,
-                item_id: newItem.item_id,
-                quantity: newItem.quantity,
-                branch_id: profile.branchId,
-              } as any);
-          }
+      for (const item of items) {
+        const existing = (existingItems || []).find((ei: any) => ei.item_id === item.item_id && !ei.completed_at);
+        if (existing) {
+          duplicates.push({ item_id: item.item_id, name: item.name, existingQty: (existing as any).quantity });
+        } else {
+          newItems.push(item);
         }
+      }
 
-        // Touch updated_at
-        await supabase
-          .from('ops_purchase_orders')
-          .update({ updated_at: new Date().toISOString() } as any)
-          .eq('id', orderId);
-
-        return existingOrders[0];
-      } else {
-        // Create new order
-        const { data: order, error: orderError } = await supabase
-          .from('ops_purchase_orders')
-          .insert({
-            branch_id: profile.branchId,
-            requested_by: profile.userId,
-            status: 'Requested',
-          } as any)
-          .select()
-          .single();
-        if (orderError) throw orderError;
-
-        const orderItems = items.map((i) => ({
-          order_id: (order as any).id,
+      // Insert non-duplicate items
+      if (newItems.length > 0) {
+        const insertPayload = newItems.map(i => ({
+          order_id: orderId,
           item_id: i.item_id,
           quantity: i.quantity,
           branch_id: profile.branchId,
+          added_by: profile.userId,
         }));
-
-        const { error: itemsError } = await supabase
-          .from('ops_purchase_order_items')
-          .insert(orderItems as any);
-        if (itemsError) throw itemsError;
-
-        return order;
+        const { error } = await supabase.from('ops_purchase_order_items').insert(insertPayload as any);
+        if (error) throw error;
       }
+
+      // Log to audit
+      for (const item of newItems) {
+        await supabase.from('ops_audit_log').insert({
+          entity_type: 'purchase_list_item',
+          entity_id: orderId,
+          action: 'add_item',
+          performed_by: profile.userId,
+          branch_id: profile.branchId,
+          after_json: { item_id: item.item_id, quantity: item.quantity },
+        } as any);
+      }
+
+      return { added: newItems.length, duplicates };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ops_purchase_orders'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
     },
   });
+}
+
+export function useCompleteListItem() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async ({ itemRowId, itemId, quantity }: { itemRowId: string; itemId: string; quantity: number }) => {
+      if (!profile) throw new Error('Not authenticated');
+
+      // Mark item as completed
+      const { error } = await supabase
+        .from('ops_purchase_order_items')
+        .update({ completed_at: new Date().toISOString(), completed_by: profile.userId } as any)
+        .eq('id', itemRowId);
+      if (error) throw error;
+
+      // Add to inventory
+      const { data: inv } = await supabase
+        .from('ops_inventory_items')
+        .select('current_stock')
+        .eq('id', itemId)
+        .single();
+
+      if (inv) {
+        const newStock = ((inv as any).current_stock as number) + quantity;
+        await supabase
+          .from('ops_inventory_items')
+          .update({ current_stock: newStock, last_received_at: new Date().toISOString() } as any)
+          .eq('id', itemId);
+
+        // Log inventory transaction
+        await supabase.from('ops_inventory_transactions').insert({
+          branch_id: profile.branchId,
+          item_id: itemId,
+          type: 'in',
+          quantity,
+          notes: 'Added from purchase list',
+          performed_by: profile.userId,
+        } as any);
+      }
+
+      // Audit log
+      await supabase.from('ops_audit_log').insert({
+        entity_type: 'purchase_list_item',
+        entity_id: itemRowId,
+        action: 'complete_item',
+        performed_by: profile.userId,
+        branch_id: profile.branchId,
+        after_json: { item_id: itemId, quantity },
+      } as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_transactions'] });
+    },
+  });
+}
+
+export function useUncompleteListItem() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async ({ itemRowId, itemId, quantity }: { itemRowId: string; itemId: string; quantity: number }) => {
+      if (!profile) throw new Error('Not authenticated');
+
+      // Unmark completion
+      const { error } = await supabase
+        .from('ops_purchase_order_items')
+        .update({ completed_at: null, completed_by: null } as any)
+        .eq('id', itemRowId);
+      if (error) throw error;
+
+      // Reverse inventory addition
+      const { data: inv } = await supabase
+        .from('ops_inventory_items')
+        .select('current_stock')
+        .eq('id', itemId)
+        .single();
+
+      if (inv) {
+        const newStock = Math.max(0, ((inv as any).current_stock as number) - quantity);
+        await supabase
+          .from('ops_inventory_items')
+          .update({ current_stock: newStock } as any)
+          .eq('id', itemId);
+
+        await supabase.from('ops_inventory_transactions').insert({
+          branch_id: profile.branchId,
+          item_id: itemId,
+          type: 'out',
+          quantity,
+          notes: 'Reversed: unchecked from purchase list',
+          performed_by: profile.userId,
+        } as any);
+      }
+
+      await supabase.from('ops_audit_log').insert({
+        entity_type: 'purchase_list_item',
+        entity_id: itemRowId,
+        action: 'uncomplete_item',
+        performed_by: profile.userId,
+        branch_id: profile.branchId,
+        after_json: { item_id: itemId, quantity },
+      } as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_transactions'] });
+    },
+  });
+}
+
+export function useEditListItemQty() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async ({ itemRowId, newQty, oldQty }: { itemRowId: string; newQty: number; oldQty: number }) => {
+      if (!profile) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('ops_purchase_order_items')
+        .update({ quantity: newQty } as any)
+        .eq('id', itemRowId);
+      if (error) throw error;
+
+      await supabase.from('ops_audit_log').insert({
+        entity_type: 'purchase_list_item',
+        entity_id: itemRowId,
+        action: 'edit_quantity',
+        performed_by: profile.userId,
+        branch_id: profile.branchId,
+        before_json: { quantity: oldQty },
+        after_json: { quantity: newQty },
+      } as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
+    },
+  });
+}
+
+export function useDeleteListItem() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async ({ itemRowId, itemId, quantity }: { itemRowId: string; itemId: string; quantity: number }) => {
+      if (!profile) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('ops_purchase_order_items')
+        .delete()
+        .eq('id', itemRowId);
+      if (error) throw error;
+
+      await supabase.from('ops_audit_log').insert({
+        entity_type: 'purchase_list_item',
+        entity_id: itemRowId,
+        action: 'delete_item',
+        performed_by: profile.userId,
+        branch_id: profile.branchId,
+        before_json: { item_id: itemId, quantity },
+      } as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
+    },
+  });
+}
+
+// Keep legacy hook for backward compatibility
+export function useCreatePurchaseOrder() {
+  const addToList = useAddToPurchaseList();
+  return addToList;
 }
 
 export function useUpdatePurchaseOrder() {
