@@ -13,6 +13,7 @@ import GuestLogPage from './pages/GuestLogPage';
 import GuestSelfCheckIn from './pages/GuestSelfCheckIn';
 import ShiftPunchPage from './pages/ShiftPunchPage';
 import DailyReportPage from './pages/DailyReportPage';
+import LaundryPage from './pages/LaundryPage';
 import AdminConsolePage from './pages/AdminConsolePage';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 
