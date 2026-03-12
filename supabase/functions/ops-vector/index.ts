@@ -807,6 +807,67 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         if (error) return `Error: ${error.message}`;
         return JSON.stringify({ success: true, action, reminder_id: remId });
       }
+
+      case "search_knowledge": {
+        const query = (args.query as string || "").toLowerCase();
+        const { data, error } = await sb.from("ops_vector_knowledge")
+          .select("*")
+          .eq("branch_id", branchId)
+          .eq("is_active", true)
+          .order("updated_at", { ascending: false });
+        if (error) return `Error: ${error.message}`;
+        
+        // Client-side search since we need fuzzy matching
+        const results = (data || []).filter(entry => 
+          entry.topic.toLowerCase().includes(query) || 
+          entry.content.toLowerCase().includes(query)
+        );
+        
+        if (results.length === 0) return JSON.stringify({ found: false, message: "No knowledge base entries found for this topic." });
+        return JSON.stringify({ found: true, entries: results.map(e => ({ id: e.id, topic: e.topic, content: e.content, updated_at: e.updated_at })) });
+      }
+
+      case "upsert_knowledge": {
+        if (!isAdmin) return "Error: Only admins can update the knowledge base.";
+        
+        const topic = args.topic as string;
+        const content = args.content as string;
+        const existingId = args.existing_id as string | undefined;
+        
+        if (existingId) {
+          const { error } = await sb.from("ops_vector_knowledge")
+            .update({ content, topic, updated_by: userId, updated_at: new Date().toISOString() })
+            .eq("id", existingId)
+            .eq("branch_id", branchId);
+          if (error) return `Error: ${error.message}`;
+          return JSON.stringify({ success: true, action: "updated", id: existingId, topic });
+        } else {
+          // Check if topic already exists
+          const { data: existing } = await sb.from("ops_vector_knowledge")
+            .select("id")
+            .eq("branch_id", branchId)
+            .ilike("topic", topic)
+            .eq("is_active", true)
+            .limit(1);
+          
+          if (existing && existing.length > 0) {
+            // Update existing
+            const { error } = await sb.from("ops_vector_knowledge")
+              .update({ content, updated_by: userId, updated_at: new Date().toISOString() })
+              .eq("id", existing[0].id);
+            if (error) return `Error: ${error.message}`;
+            return JSON.stringify({ success: true, action: "updated_existing", id: existing[0].id, topic });
+          }
+          
+          // Create new
+          const { data: newEntry, error } = await sb.from("ops_vector_knowledge")
+            .insert({ branch_id: branchId, topic, content, created_by: userId! })
+            .select("id")
+            .single();
+          if (error) return `Error: ${error.message}`;
+          return JSON.stringify({ success: true, action: "created", id: newEntry.id, topic });
+        }
+      }
       
       default:
         return `Unknown tool: ${name}`;
