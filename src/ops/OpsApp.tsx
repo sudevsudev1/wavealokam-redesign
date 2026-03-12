@@ -48,6 +48,7 @@ export default function OpsApp() {
               <Route path="guest-log" element={<GuestLogPage />} />
               <Route path="shift-punch" element={<ShiftPunchPage />} />
               <Route path="daily-report" element={<DailyReportPage />} />
+              <Route path="laundry" element={<LaundryPage />} />
               <Route path="admin" element={<AdminConsolePage />} />
             </Route>
             <Route path="*" element={<Navigate to="/ops" replace />} />
