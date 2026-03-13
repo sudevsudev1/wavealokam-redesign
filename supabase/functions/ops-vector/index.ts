@@ -58,9 +58,13 @@ async function getLatestActiveOrderId(sb: ReturnType<typeof getSupabase>, branch
   return orders?.[0]?.id ?? null;
 }
 
-async function getOrCreateActiveOrderId(sb: ReturnType<typeof getSupabase>, branchId: string, userId: string) {
+async function getOrCreateActiveOrderId(sb: ReturnType<typeof getSupabase>, branchId: string, userId?: string) {
   const existingOrderId = await getLatestActiveOrderId(sb, branchId);
   if (existingOrderId) return existingOrderId;
+
+  if (!userId) {
+    throw new Error("Missing user context for creating purchase list");
+  }
 
   const { data: newOrder, error: orderError } = await sb
     .from("ops_purchase_orders")
