@@ -536,6 +536,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
           mfg_offset_days: newMfgOffset,
           category,
           unit,
+          last_received_at: lastPurchased ? new Date(lastPurchased).toISOString() : null,
         },
       });
 
