@@ -119,6 +119,7 @@ export function useCreateTask() {
       receipt_required: boolean;
       related_room_id?: string;
       template_id?: string;
+      is_hidden?: boolean;
     }) => {
       if (!profile) throw new Error('Not authenticated');
 
