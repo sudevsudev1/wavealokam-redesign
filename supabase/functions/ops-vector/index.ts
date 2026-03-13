@@ -75,8 +75,22 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "bulk_delete_tasks",
+      description: "Delete multiple tasks at once. Use get_tasks_summary or search_tasks first to collect IDs, then pass them here. Confirms count before executing.",
+      parameters: {
+        type: "object",
+        properties: {
+          task_ids: { type: "array", items: { type: "string" }, description: "Array of task UUIDs to delete" },
+        },
+        required: ["task_ids"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_tasks_summary",
-      description: "Get task summary for a user or all users.",
+      description: "Get task summary for a user or all users. Use to list tasks before bulk operations like delete.",
       parameters: {
         type: "object",
         properties: {
@@ -692,7 +706,6 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
 
       case "delete_task": {
         const taskId = args.task_id as string;
-        // Get task before deleting for audit
         const { data: existing } = await sb.from("ops_tasks").select("title_en, title_original").eq("id", taskId).eq("branch_id", branchId).single();
         if (!existing) return `Task not found: ${taskId}`;
         
@@ -705,6 +718,29 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         });
         
         return JSON.stringify({ success: true, deleted: existing.title_en || existing.title_original });
+      }
+
+      case "bulk_delete_tasks": {
+        const taskIds = args.task_ids as string[];
+        if (!taskIds || taskIds.length === 0) return "No task IDs provided.";
+        
+        // Fetch all tasks first for audit
+        const { data: tasks } = await sb.from("ops_tasks").select("id, title_en, title_original").eq("branch_id", branchId).in("id", taskIds);
+        if (!tasks || tasks.length === 0) return "No matching tasks found in this branch.";
+        
+        const { error } = await sb.from("ops_tasks").delete().eq("branch_id", branchId).in("id", taskIds);
+        if (error) return `Error bulk deleting: ${error.message}`;
+        
+        // Audit log
+        for (const t of tasks) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "task", entity_id: t.id, action: "bulk_delete",
+            performed_by: userId, branch_id: branchId, before_json: { title: t.title_en || t.title_original },
+          });
+        }
+        
+        const titles = tasks.map(t => t.title_en || t.title_original);
+        return JSON.stringify({ success: true, deleted_count: tasks.length, deleted_titles: titles });
       }
 
       case "get_tasks_summary": {
@@ -1647,6 +1683,13 @@ Track linen: 8 total sets, 5 rooms. Turnaround = 2 days (before noon cutoff).
 Run laundry_forecast daily to proactively flag shortages.
 "Sent 3 sets to laundry" → send_laundry.
 "Laundry came back" → receive_laundry (need batch_id, get from forecast data).
+
+═══ BULK OPERATIONS ═══
+When asked to do something across "all" tasks/items (e.g., "delete all pending tasks"):
+1. Use get_tasks_summary (with status filter if applicable) to get the list and IDs
+2. Confirm with the user: "Found X tasks with status Y. Shall I delete all of them?" — list titles briefly
+3. On confirmation, use bulk_delete_tasks with all the IDs
+NEVER say you can't do bulk operations. You CAN. Chain your tools: query first, then act.
 
 ═══ ANSWERING RULES ═══
 - ALWAYS use tools. Never guess data. Never fabricate stock levels, guest counts, or task statuses.
