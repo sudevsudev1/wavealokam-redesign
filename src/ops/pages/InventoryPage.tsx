@@ -814,7 +814,7 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
 }
 
 /* ─── Tab 2: Due For Order ─── */
-function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expiryBatches: import('../hooks/useInventory').InventoryExpiry[] }) {
+function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expiryBatches: InventoryExpiry[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
   const addToList = useAddToPurchaseList();
