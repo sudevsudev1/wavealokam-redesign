@@ -112,7 +112,7 @@ export default function HomeShiftWidget() {
                 </span>
               )}
             </p>
-            <LiveTimer clockInAt={activeShift.clock_in_at} breakMinutes={activeShift.total_break_minutes} />
+            
           </div>
           <div className="flex flex-col gap-1.5">
             <BreakButton shiftId={activeShift.id} />
