@@ -2116,6 +2116,42 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ success: true, action: "created", topic });
       }
 
+      case "create_issue_template": {
+        const templateName = args.name as string;
+        const templateItemsInput = args.items as { name: string; quantity: number }[];
+        if (!templateItemsInput?.length) return "No items specified for the issue template.";
+
+        const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit").eq("branch_id", branchId).eq("is_active", true);
+        const resolvedItems: { item_id: string; quantity: number; name: string }[] = [];
+        const missing: string[] = [];
+
+        for (const item of templateItemsInput) {
+          const match = findInventoryMatch(invItems || [], item.name);
+          if (match) {
+            resolvedItems.push({ item_id: match.id, quantity: item.quantity, name: match.name_en });
+          } else {
+            missing.push(item.name);
+          }
+        }
+
+        if (missing.length > 0) {
+          return `These items were not found in the catalog: ${missing.join(", ")}. Add them first or check spelling.`;
+        }
+
+        // Insert each item as a row in ops_room_refill_templates with room_type = template name
+        for (const ri of resolvedItems) {
+          const { error } = await sb.from("ops_room_refill_templates").insert({
+            branch_id: branchId,
+            room_type: templateName,
+            item_id: ri.item_id,
+            quantity: ri.quantity,
+          });
+          if (error) return `Error adding ${ri.name}: ${error.message}`;
+        }
+
+        return JSON.stringify({ success: true, template_name: templateName, items: resolvedItems.map(r => ({ name: r.name, quantity: r.quantity })) });
+      }
+
       case "create_purchase_template": {
         const templateName = args.name as string;
         const description = (args.description as string) || null;
