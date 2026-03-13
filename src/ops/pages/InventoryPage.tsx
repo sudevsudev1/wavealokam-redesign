@@ -369,6 +369,16 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
       {showAddItem && (
         <AddItemDialog onClose={() => setShowAddItem(false)} />
       )}
+
+      {showBulkEdit && (
+        <BulkEditDialog
+          itemIds={Array.from(selectedIds)}
+          items={items}
+          isSingleCategory={categoryFilter !== 'all'}
+          onClose={() => setShowBulkEdit(false)}
+          onDone={() => { setShowBulkEdit(false); setSelectedIds(new Set()); }}
+        />
+      )}
     </div>
   );
 }
