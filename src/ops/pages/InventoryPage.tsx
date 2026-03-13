@@ -5,7 +5,7 @@ import { useOpsAuth } from '../contexts/OpsAuthContext';
 import {
   useInventoryItems, useExpiryItems, useAddExpiry, useDisposeExpiry,
   useUpdateStock, useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
-  useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
+  useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate, useUpdatePurchaseTemplate,
   useCreateRefillTemplate, useDeleteRefillTemplate, useAddToPurchaseList, useCreateInventoryItem,
   InventoryItem, InventoryTransaction, PurchaseTemplate, InventoryExpiry,
 } from '../hooks/useInventory';
