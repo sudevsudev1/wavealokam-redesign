@@ -1258,7 +1258,7 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         
         const item = invItems[0];
         const itemIds = invItems.map(i => i.id);
-        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orders[0].id).in("item_id", itemIds).is("completed_at", null).limit(1);
+        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orderId).in("item_id", itemIds).is("completed_at", null).limit(1);
         if (!listItem?.length) return `"${args.item_name}" is not on the current purchase list`;
         
         const receivedQty = (args.received_quantity as number) || listItem[0].quantity;
