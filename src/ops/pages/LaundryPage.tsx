@@ -361,6 +361,7 @@ export default function LaundryPage() {
   const [editSets, setEditSets] = useState(TOTAL_SETS);
   const [editTurnaround, setEditTurnaround] = useState(TURNAROUND_DAYS);
   const [editRooms, setEditRooms] = useState(TOTAL_ROOMS);
+  const [editSetComposition, setEditSetComposition] = useState<Record<string, number>>(SET_COMPOSITION);
 
   if (isLoading || linensLoading) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
