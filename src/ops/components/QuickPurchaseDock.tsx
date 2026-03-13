@@ -160,23 +160,39 @@ export default function QuickPurchaseDock() {
   const getCartQty = (itemId: string) =>
     cart.find(c => c.item_id === itemId)?.quantity || 0;
 
-  const updateCart = useCallback((itemId: string, name: string, unit: string, delta: number, parLevel?: number, currentStock?: number) => {
+  const addToCartDirect = useCallback((itemId: string, name: string, unit: string, qty: number) => {
     setCart(prev => {
       const existing = prev.find(c => c.item_id === itemId);
       if (existing) {
-        const newQty = Math.round((existing.quantity + delta) * 100) / 100;
+        const newQty = Math.round((existing.quantity + qty) * 100) / 100;
         if (newQty <= 0) return prev.filter(c => c.item_id !== itemId);
         return prev.map(c => c.item_id === itemId ? { ...c, quantity: newQty } : c);
       }
-      if (delta > 0) {
-        const suggestedQty = parLevel && currentStock !== undefined
-          ? Math.max(0.25, parLevel - currentStock)
-          : 1;
-        return [...prev, { item_id: itemId, name, unit, quantity: delta > 1 ? delta : suggestedQty }];
+      if (qty > 0) {
+        return [...prev, { item_id: itemId, name, unit, quantity: qty }];
       }
       return prev;
     });
   }, []);
+
+  const updateCart = useCallback((itemId: string, name: string, unit: string, delta: number, parLevel?: number, currentStock?: number) => {
+    // Check if this is a new addition (not already in cart) and would exceed par
+    const existingInCart = cart.find(c => c.item_id === itemId);
+    if (!existingInCart && delta > 0 && parLevel && currentStock !== undefined) {
+      const suggestedQty = Math.max(0.25, parLevel - currentStock);
+      const totalAfter = currentStock + suggestedQty;
+      if (totalAfter > parLevel && currentStock >= parLevel) {
+        // Stock is already at or above par — ask the user
+        setParExceedInfo({ itemId, name, unit, currentStock, parLevel, requestedQty: suggestedQty });
+        setParExceedChoice('over');
+        return;
+      }
+      addToCartDirect(itemId, name, unit, delta > 1 ? delta : suggestedQty);
+      return;
+    }
+    // Existing item or decrement — just update
+    addToCartDirect(itemId, name, unit, existingInCart ? delta : (delta > 0 ? 1 : delta));
+  }, [cart, addToCartDirect]);
 
   const setCartQty = useCallback((itemId: string, qty: number) => {
     setCart(prev => {
