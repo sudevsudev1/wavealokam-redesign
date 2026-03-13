@@ -842,6 +842,34 @@ const VECTOR_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "create_purchase_template",
+      description: "Create a purchase list template from the current purchase list or from specified items. When user says 'save current list as template' or 'create template from purchase list', use this. Can also create from scratch with item names.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Template name" },
+          description: { type: "string", description: "Optional description" },
+          from_current_list: { type: "boolean", description: "If true, copies all pending items from the current purchase list into the template" },
+          items: {
+            type: "array",
+            description: "Manual item list (used if from_current_list is false)",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                quantity: { type: "number" },
+              },
+              required: ["name", "quantity"],
+            },
+          },
+        },
+        required: ["name"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
@@ -2060,6 +2088,51 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const { data: newEntry, error } = await sb.from("ops_vector_knowledge").insert({ branch_id: branchId, topic, content, created_by: userId! }).select("id").single();
         if (error) return `Error: ${error.message}`;
         return JSON.stringify({ success: true, action: "created", topic });
+      }
+
+      case "create_purchase_template": {
+        const templateName = args.name as string;
+        const description = (args.description as string) || null;
+        const fromCurrentList = args.from_current_list as boolean | undefined;
+
+        let templateItems: { item_id: string; quantity: number }[] = [];
+
+        if (fromCurrentList) {
+          const orderId = await getLatestActiveOrderId(sb, branchId);
+          if (!orderId) return "No active purchase list found to create template from.";
+
+          const { data: orderItems } = await sb
+            .from("ops_purchase_order_items")
+            .select("item_id, quantity")
+            .eq("order_id", orderId)
+            .is("completed_at", null);
+
+          if (!orderItems?.length) return "Purchase list is empty — nothing to create a template from.";
+          templateItems = orderItems.map(oi => ({ item_id: oi.item_id, quantity: oi.quantity }));
+        } else if (args.items) {
+          const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit").eq("branch_id", branchId).eq("is_active", true);
+          for (const item of (args.items as { name: string; quantity: number }[])) {
+            const match = findInventoryMatch(invItems || [], item.name);
+            if (match) {
+              templateItems.push({ item_id: match.id, quantity: item.quantity });
+            } else {
+              return `Item "${item.name}" not found in inventory catalog. Add it first or check spelling.`;
+            }
+          }
+        }
+
+        if (templateItems.length === 0) return "No items resolved for the template.";
+
+        const { error } = await sb.from("ops_purchase_templates").insert({
+          branch_id: branchId,
+          name: templateName,
+          description,
+          items_json: templateItems,
+          created_by: userId!,
+        });
+        if (error) return `Error creating template: ${error.message}`;
+
+        return JSON.stringify({ success: true, name: templateName, item_count: templateItems.length });
       }
 
       default:

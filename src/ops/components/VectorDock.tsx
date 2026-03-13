@@ -475,7 +475,7 @@ export default function VectorDock() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={mode === 'quick' ? `${t('vector.quickPlaceholder')} (Enter = new line, Ctrl/Cmd+Enter = send)` : `${t('vector.internalPlaceholder')} (Enter = new line, Ctrl/Cmd+Enter = send)`}
+          placeholder=""
           className="flex-1 text-sm bg-muted/50 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary resize-none min-h-9 max-h-32"
           rows={1}
           disabled={loading}
@@ -572,8 +572,8 @@ function ChatArea({
   }
 
   return (
-    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 flex flex-col justify-end min-h-0">
-      <div className="space-y-3">
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 min-h-0">
+      <div className="space-y-3 flex flex-col justify-end" style={{ minHeight: '100%' }}>
         {messages.map((msg, i) => (
           <MessageBubble
             key={i}
@@ -665,7 +665,7 @@ function MessageBubble({
           <p className="whitespace-pre-wrap">{msg.content}</p>
         )}
 
-        {/* Long-press action popup */}
+        {/* Long-press action popup (both user and assistant) */}
         {showActions && (
           <div className={`absolute z-10 ${msg.role === 'user' ? 'right-0' : 'left-0'} -top-9 flex gap-1 bg-background border border-border rounded-lg shadow-lg px-1 py-1`}>
             <button

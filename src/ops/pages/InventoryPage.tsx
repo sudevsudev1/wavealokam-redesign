@@ -189,7 +189,7 @@ export default function InventoryPage() {
         </Card>
       </div>
 
-      {/* 4-Tab Interface */}
+      {/* 3-Tab Interface */}
       <Tabs defaultValue={searchParams.get('tab') || 'overview'}>
         <TabsList className="w-full flex overflow-x-auto scrollbar-hide">
           <TabsTrigger value="overview" className="flex-shrink-0 text-xs px-3">{t('inv.overviewTab')}</TabsTrigger>
@@ -197,13 +197,11 @@ export default function InventoryPage() {
             {t('inv.dueTab')}
             {lowStockCount > 0 && <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{lowStockCount}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="log" className="flex-shrink-0 text-xs px-3">{t('inv.logTab')}</TabsTrigger>
           <TabsTrigger value="templates" className="flex-shrink-0 text-xs px-3">Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
         <TabsContent value="due"><DueForOrderTab items={items} expiryBatches={expiryBatches} /></TabsContent>
-        <TabsContent value="log"><LogUsageTab items={items} /></TabsContent>
         <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
       </Tabs>
     </div>
@@ -1198,9 +1196,47 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
   );
 }
 
-/* ─── Tab 3: Log Usage / Refill ─── */
-function LogUsageTab({ items }: { items: InventoryItem[] }) {
-  const { t, language } = useOpsLanguage();
+
+
+/* ─── Tab 3: Templates (Issue + Purchase List) ─── */
+function TemplatesTab({ items }: { items: InventoryItem[] }) {
+  const { language } = useOpsLanguage();
+  const { isAdmin } = useOpsAuth();
+  const [templateType, setTemplateType] = useState<'issue' | 'purchase'>('issue');
+
+  return (
+    <div className="space-y-3 mt-2">
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant={templateType === 'issue' ? 'default' : 'outline'}
+          className="flex-1 text-xs"
+          onClick={() => setTemplateType('issue')}
+        >
+          Issue Templates
+        </Button>
+        <Button
+          size="sm"
+          variant={templateType === 'purchase' ? 'default' : 'outline'}
+          className="flex-1 text-xs"
+          onClick={() => setTemplateType('purchase')}
+        >
+          Purchase Templates
+        </Button>
+      </div>
+
+      {templateType === 'issue' ? (
+        <IssueTemplatesSection items={items} />
+      ) : (
+        <PurchaseTemplatesSection items={items} />
+      )}
+    </div>
+  );
+}
+
+/* ─── Issue Templates Section (Room Refill Templates) ─── */
+function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
+  const { language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
   const { data: rooms = [] } = useRooms();
   const { data: refillTemplates = [] } = useRefillTemplates();
@@ -1209,10 +1245,6 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
   const createRefillTemplate = useCreateRefillTemplate();
   const deleteRefillTemplate = useDeleteRefillTemplate();
 
-  const [logType, setLogType] = useState<'issue' | 'damage' | 'waste' | 'refill'>('issue');
-  const [selectedItem, setSelectedItem] = useState('');
-  const [logQty, setLogQty] = useState('1');
-  const [logNote, setLogNote] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [templateRoomType, setTemplateRoomType] = useState('');
@@ -1241,25 +1273,6 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
 
   const roomTypes = [...new Set(rooms.map(r => r.room_type))];
 
-  const handleQuickLog = async () => {
-    if (!selectedItem || !logQty) return;
-    try {
-      const type = logType === 'issue' ? 'out' : logType;
-      await updateStock.mutateAsync({
-        itemId: selectedItem,
-        quantity: parseInt(logQty) || 1,
-        type: type as any,
-        notes: logNote || `${logType}${selectedRoom ? ` - Room ${selectedRoom}` : ''}`,
-      });
-      toast.success(`${logType} logged`);
-      setSelectedItem('');
-      setLogQty('1');
-      setLogNote('');
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
   const handleRoomRefill = async () => {
     if (!selectedRoom) return;
     const room = rooms.find(r => r.id === selectedRoom);
@@ -1281,7 +1294,7 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
         item_id: templateItemId,
         quantity: parseInt(templateQty) || 1,
       });
-      toast.success('Item added to refill template');
+      toast.success('Item added to issue template');
       setTemplateItemId('');
       setTemplateQty('1');
     } catch (e: any) {
@@ -1303,14 +1316,16 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
     : refillTemplates;
 
   return (
-    <div className="space-y-3 mt-2">
-      {/* Room Refill Section */}
+    <div className="space-y-3">
+      <p className="text-[10px] text-muted-foreground">Issue templates deduct grouped items from inventory (e.g., room refresh, kitchen daily).</p>
+
+      {/* Quick Apply */}
       <Card>
         <CardHeader className="py-2.5 px-3">
           <CardTitle className="text-sm flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Package className="h-4 w-4 text-primary" />
-              {t('inv.refillRoom')}
+              Apply Issue Template
             </span>
             {isAdmin && (
               <Button
@@ -1320,14 +1335,14 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
                 onClick={() => setShowTemplateManager(prev => !prev)}
               >
                 <Pencil className="h-3 w-3 mr-1" />
-                {showTemplateManager ? 'Close' : 'Manage Templates'}
+                {showTemplateManager ? 'Close' : 'Manage'}
               </Button>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-3 space-y-2">
           <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-            <SelectTrigger className="text-xs"><SelectValue placeholder={t('inv.selectRoom')} /></SelectTrigger>
+            <SelectTrigger className="text-xs"><SelectValue placeholder="Select room to refill" /></SelectTrigger>
             <SelectContent>
               {rooms.map(r => (
                 <SelectItem key={r.id} value={r.id}>Room {r.id} ({r.room_type})</SelectItem>
@@ -1341,18 +1356,18 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
             variant="outline"
           >
             {applyRefill.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-            {t('inv.applyTemplate')}
+            Issue Items
           </Button>
         </CardContent>
       </Card>
 
-      {/* Refill Template Manager (Admin only) */}
+      {/* Template Manager */}
       {isAdmin && showTemplateManager && (
         <Card>
           <CardHeader className="py-2.5 px-3">
             <CardTitle className="text-sm flex items-center gap-1.5">
               <ListPlus className="h-4 w-4 text-primary" />
-              Room Refill Templates
+              Issue Template Items
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 space-y-3">
@@ -1446,128 +1461,12 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
           </CardContent>
         </Card>
       )}
-
-      {/* Quick Log Section */}
-      <Card>
-        <CardHeader className="py-2.5 px-3">
-          <CardTitle className="text-sm flex items-center gap-1.5">
-            <ClipboardList className="h-4 w-4 text-primary" />
-            {t('inv.quickLog')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-3 space-y-2">
-          <div className="flex gap-1">
-            {(['issue', 'damage', 'waste'] as const).map(type => (
-              <Button
-                key={type}
-                size="sm"
-                variant={logType === type ? 'default' : 'outline'}
-                className="flex-1 text-[10px] h-7"
-                onClick={() => setLogType(type)}
-              >
-                {t(`inv.${type}`)}
-              </Button>
-            ))}
-          </div>
-
-          <Select value={selectedItem} onValueChange={setSelectedItem}>
-            <SelectTrigger className="text-xs"><SelectValue placeholder={t('inv.selectItem')} /></SelectTrigger>
-            <SelectContent>
-              {items.map(i => (
-                <SelectItem key={i.id} value={i.id}>
-                  {getName(i)} ({i.current_stock} {i.unit})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex gap-2">
-            <Input
-              type="number" min="1" value={logQty}
-              onChange={e => setLogQty(e.target.value)}
-              placeholder={t('inv.quantity')}
-              className="w-20 text-xs"
-            />
-            <Input
-              value={logNote}
-              onChange={e => setLogNote(e.target.value)}
-              placeholder={t('inv.logNote')}
-              className="flex-1 text-xs"
-            />
-          </div>
-
-          <Button
-            onClick={handleQuickLog}
-            disabled={!selectedItem || updateStock.isPending}
-            className="w-full text-xs gap-1.5"
-          >
-            {updateStock.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-            {t('inv.quickLog')}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Recent Transactions */}
-      <Card>
-        <CardHeader className="py-2.5 px-3">
-          <CardTitle className="text-sm">{t('inv.ledger')}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-3">
-          <RecentTransactions items={items} />
-        </CardContent>
-      </Card>
     </div>
   );
 }
 
-function RecentTransactions({ items }: { items: InventoryItem[] }) {
-  const { t, language } = useOpsLanguage();
-  const { data: txns, isLoading } = useInventoryTransactions();
-  const { data: profiles } = useOpsProfiles();
-  const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
-
-  const getName = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    if (!item) return itemId.slice(0, 6);
-    return language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
-  };
-
-  if (isLoading) return <Loader2 className="h-4 w-4 animate-spin mx-auto" />;
-
-  return (
-    <div className="space-y-1">
-      {(!txns || txns.length === 0) ? (
-        <p className="text-xs text-muted-foreground py-3 text-center">{t('inv.noTransactions')}</p>
-      ) : (
-        txns.slice(0, 20).map(tx => (
-          <div key={tx.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border last:border-0">
-            <div className="min-w-0 flex-1">
-              <span className="font-medium truncate block">{getName(tx.item_id)}</span>
-              <span className="text-[10px] text-muted-foreground">
-                {tx.type} · {profileMap.get(tx.performed_by) || '?'} {tx.notes ? `· ${tx.notes}` : ''}
-              </span>
-            </div>
-            <div className="text-right shrink-0">
-              {(() => {
-                const isDeduction = ['out', 'expire', 'refill', 'damage', 'waste'].includes(tx.type);
-                const displayQty = isDeduction ? -Math.abs(tx.quantity) : Math.abs(tx.quantity);
-                return (
-                  <span className={`font-mono font-medium ${isDeduction ? 'text-orange-600' : 'text-emerald-600'}`}>
-                    {isDeduction ? '' : '+'}{displayQty}
-                  </span>
-                );
-              })()}
-              <p className="text-[10px] text-muted-foreground">{format(parseISO(tx.created_at), 'dd MMM HH:mm')}</p>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-/* ─── Tab 4: Templates ─── */
-function TemplatesTab({ items }: { items: InventoryItem[] }) {
+/* ─── Purchase List Templates Section ─── */
+function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
   const { language } = useOpsLanguage();
   const { data: templates = [], isLoading } = usePurchaseTemplates();
   const { data: profiles = [] } = useOpsProfiles();
@@ -1579,6 +1478,7 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
   const [templateDesc, setTemplateDesc] = useState('');
   const [templateItems, setTemplateItems] = useState<{ item_id: string; quantity: number }[]>([]);
   const [searchItem, setSearchItem] = useState('');
+  const [creatingFromList, setCreatingFromList] = useState(false);
 
   const getName = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
@@ -1610,6 +1510,45 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
 
   const updateTemplateQty = (itemId: string, qty: number) => {
     setTemplateItems(prev => prev.map(ti => ti.item_id === itemId ? { ...ti, quantity: Math.max(1, qty) } : ti));
+  };
+
+  const handleCreateFromCurrentList = async () => {
+    setCreatingFromList(true);
+    try {
+      const { data: orders } = await supabase
+        .from('ops_purchase_orders')
+        .select('id')
+        .in('status', ['Draft', 'Requested', 'Approved', 'Ordered', 'Active'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!orders?.[0]) {
+        toast.error('No active purchase list found');
+        setCreatingFromList(false);
+        return;
+      }
+
+      const { data: orderItems } = await supabase
+        .from('ops_purchase_order_items')
+        .select('item_id, quantity')
+        .eq('order_id', orders[0].id)
+        .is('completed_at', null);
+
+      if (!orderItems?.length) {
+        toast.error('Purchase list is empty');
+        setCreatingFromList(false);
+        return;
+      }
+
+      setTemplateItems(orderItems.map(oi => ({ item_id: oi.item_id, quantity: oi.quantity })));
+      setShowCreate(true);
+      setTemplateName('');
+      setTemplateDesc('From current purchase list');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setCreatingFromList(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -1652,16 +1591,29 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
   if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
-    <div className="space-y-3 mt-2">
-      <Button onClick={() => setShowCreate(true)} className="w-full text-xs gap-1.5" variant="outline">
-        <ListPlus className="h-3.5 w-3.5" /> Create Template
-      </Button>
+    <div className="space-y-3">
+      <p className="text-[10px] text-muted-foreground">Purchase templates add all items to the purchase list at once.</p>
+
+      <div className="flex gap-2">
+        <Button onClick={() => { setShowCreate(true); setTemplateItems([]); }} className="flex-1 text-xs gap-1.5" variant="outline">
+          <ListPlus className="h-3.5 w-3.5" /> Create Template
+        </Button>
+        <Button
+          onClick={handleCreateFromCurrentList}
+          disabled={creatingFromList}
+          className="flex-1 text-xs gap-1.5"
+          variant="outline"
+        >
+          {creatingFromList ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+          From Current List
+        </Button>
+      </div>
 
       {templates.length === 0 && !showCreate && (
         <Card>
           <CardContent className="py-8 text-center">
             <ListPlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No templates yet. Create one for quick recurring orders.</p>
+            <p className="text-sm text-muted-foreground">No purchase templates yet.</p>
           </CardContent>
         </Card>
       )}
@@ -1669,12 +1621,12 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
       {showCreate && (
         <Card>
           <CardHeader className="py-2.5 px-3">
-            <CardTitle className="text-sm">New Template</CardTitle>
+            <CardTitle className="text-sm">New Purchase Template</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 space-y-2">
             <Input
               value={templateName} onChange={e => setTemplateName(e.target.value)}
-              placeholder="Template name (e.g., Daily Kitchen)" className="text-sm"
+              placeholder="Template name (e.g., Weekly Groceries)" className="text-sm"
             />
             <Input
               value={templateDesc} onChange={e => setTemplateDesc(e.target.value)}
