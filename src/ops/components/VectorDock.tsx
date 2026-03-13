@@ -475,7 +475,7 @@ export default function VectorDock() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={mode === 'quick' ? `${t('vector.quickPlaceholder')} (Enter = new line, Ctrl/Cmd+Enter = send)` : `${t('vector.internalPlaceholder')} (Enter = new line, Ctrl/Cmd+Enter = send)`}
+          placeholder=""
           className="flex-1 text-sm bg-muted/50 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary resize-none min-h-9 max-h-32"
           rows={1}
           disabled={loading}
