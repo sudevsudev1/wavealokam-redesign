@@ -3,13 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
+import BulkActionBar from '../components/BulkActionBar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, Send, Package, ArrowDownToLine, AlertTriangle, Settings, Clock, CalendarDays } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Send, Package, ArrowDownToLine, AlertTriangle, Settings, Clock, CalendarDays, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInHours, differenceInDays, parseISO, addDays } from 'date-fns';
 
@@ -43,6 +45,8 @@ export default function LaundryPage() {
   const [sendNotes, setSendNotes] = useState('');
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
 
   // Fetch config
   const { data: configData } = useQuery({
@@ -319,14 +323,47 @@ export default function LaundryPage() {
         {/* Status Tab */}
         <TabsContent value="status" className="space-y-3 mt-3">
           <h3 className="text-sm font-semibold flex items-center gap-1"><Clock className="h-4 w-4" /> {t('laundry.inTransit')}</h3>
+          {isAdmin && selectedBatchIds.size > 0 && (
+            <BulkActionBar
+              selectedCount={selectedBatchIds.size}
+              totalCount={inTransit.length}
+              onSelectAll={() => setSelectedBatchIds(new Set(inTransit.map(b => b.id)))}
+              onDeselectAll={() => setSelectedBatchIds(new Set())}
+              actions={[{ label: 'Mark all received', value: 'receive' }]}
+              onAction={async () => {
+                setBulkPending(true);
+                try {
+                  const ids = Array.from(selectedBatchIds);
+                  for (const id of ids) { await receiveMutation.mutateAsync(id); }
+                  setSelectedBatchIds(new Set());
+                  toast.success(`Received ${ids.length} batches`);
+                } catch (e: any) { toast.error(e.message); }
+                finally { setBulkPending(false); }
+              }}
+              isPending={bulkPending}
+            />
+          )}
           {inTransit.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('laundry.noneInTransit')}</p>
           ) : (
             <div className="space-y-2">
               {inTransit.map(batch => (
                 <Card key={batch.id}>
-                  <CardContent className="p-3 flex items-center justify-between">
-                    <div>
+                  <CardContent className="p-3 flex items-center gap-2">
+                    {isAdmin && (
+                      <Checkbox
+                        checked={selectedBatchIds.has(batch.id)}
+                        onCheckedChange={() => {
+                          setSelectedBatchIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(batch.id)) next.delete(batch.id); else next.add(batch.id);
+                            return next;
+                          });
+                        }}
+                        className="shrink-0"
+                      />
+                    )}
+                    <div className="flex-1">
                       <div className="font-medium text-sm">{batch.sets_count} {t('laundry.sets')}</div>
                       <div className="text-xs text-muted-foreground">
                         {t('laundry.sentBy')} {nameMap[batch.sent_by] || '?'} · {format(parseISO(batch.sent_at), 'MMM d, h:mm a')}

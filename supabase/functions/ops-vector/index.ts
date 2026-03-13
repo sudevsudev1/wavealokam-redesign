@@ -89,6 +89,72 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "bulk_update_tasks",
+      description: "Update multiple tasks at once (e.g., cancel all blocked tasks, mark several as done). Use get_tasks_summary first to collect IDs.",
+      parameters: {
+        type: "object",
+        properties: {
+          task_ids: { type: "array", items: { type: "string" }, description: "Array of task UUIDs" },
+          updates: {
+            type: "object",
+            properties: {
+              status: { type: "string", description: "To Do, Doing, Done, Blocked, Cancelled" },
+              priority: { type: "string" },
+              category: { type: "string" },
+            },
+          },
+        },
+        required: ["task_ids", "updates"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_delete_purchase_items",
+      description: "Delete multiple items from the purchase list at once.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_ids: { type: "array", items: { type: "string" }, description: "Array of purchase order item row UUIDs" },
+        },
+        required: ["item_ids"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_update_laundry",
+      description: "Update multiple laundry batches at once (e.g., mark all as returned).",
+      parameters: {
+        type: "object",
+        properties: {
+          batch_ids: { type: "array", items: { type: "string" }, description: "Array of laundry batch UUIDs" },
+          action: { type: "string", description: "receive (mark as returned)" },
+        },
+        required: ["batch_ids", "action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_update_inventory",
+      description: "Bulk deactivate or reactivate inventory items.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_ids: { type: "array", items: { type: "string" }, description: "Array of inventory item UUIDs" },
+          action: { type: "string", description: "deactivate or reactivate" },
+        },
+        required: ["item_ids", "action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_tasks_summary",
       description: "Get task summary for a user or all users. Use to list tasks before bulk operations like delete.",
       parameters: {
@@ -741,6 +807,92 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         
         const titles = tasks.map(t => t.title_en || t.title_original);
         return JSON.stringify({ success: true, deleted_count: tasks.length, deleted_titles: titles });
+      }
+
+      case "bulk_update_tasks": {
+        if (!isAdmin) return "Only admins can perform bulk updates.";
+        const taskIds = args.task_ids as string[];
+        const updates = args.updates as Record<string, unknown>;
+        if (!taskIds?.length) return "No task IDs provided.";
+        
+        const { data: tasks } = await sb.from("ops_tasks").select("id, title_en, title_original, status").eq("branch_id", branchId).in("id", taskIds);
+        if (!tasks?.length) return "No matching tasks found.";
+        
+        const dbUpdates: any = { updated_at: new Date().toISOString() };
+        if (updates.status) dbUpdates.status = updates.status;
+        if (updates.priority) dbUpdates.priority = updates.priority;
+        if (updates.category) dbUpdates.category = updates.category;
+        
+        const { error } = await sb.from("ops_tasks").update(dbUpdates).eq("branch_id", branchId).in("id", taskIds);
+        if (error) return `Error: ${error.message}`;
+        
+        for (const t of tasks) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "task", entity_id: t.id, action: "bulk_update",
+            performed_by: userId, branch_id: branchId,
+            before_json: { status: t.status }, after_json: dbUpdates,
+          });
+        }
+        
+        return JSON.stringify({ success: true, updated_count: tasks.length, updates: Object.keys(dbUpdates).filter(k => k !== "updated_at"), titles: tasks.map(t => t.title_en || t.title_original) });
+      }
+
+      case "bulk_delete_purchase_items": {
+        if (!isAdmin) return "Only admins can bulk delete purchase items.";
+        const itemIds = args.item_ids as string[];
+        if (!itemIds?.length) return "No item IDs provided.";
+        
+        const { data: items } = await sb.from("ops_purchase_order_items").select("id, item_id, quantity, ops_inventory_items(name_en)").in("id", itemIds);
+        if (!items?.length) return "No matching items found.";
+        
+        const { error } = await sb.from("ops_purchase_order_items").delete().in("id", itemIds);
+        if (error) return `Error: ${error.message}`;
+        
+        for (const i of items) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "purchase_list_item", entity_id: i.id, action: "bulk_delete",
+            performed_by: userId, branch_id: branchId,
+            before_json: { item: (i.ops_inventory_items as any)?.name_en, quantity: i.quantity },
+          });
+        }
+        
+        return JSON.stringify({ success: true, deleted_count: items.length, items: items.map(i => (i.ops_inventory_items as any)?.name_en) });
+      }
+
+      case "bulk_update_laundry": {
+        const batchIds = args.batch_ids as string[];
+        const action = args.action as string;
+        if (!batchIds?.length) return "No batch IDs provided.";
+        
+        if (action === "receive") {
+          const now = new Date().toISOString();
+          const { error } = await sb.from("ops_laundry_batches").update({
+            actual_return_at: now, status: "returned", received_by: userId,
+          }).eq("branch_id", branchId).in("id", batchIds);
+          if (error) return `Error: ${error.message}`;
+          return JSON.stringify({ success: true, action: "received", count: batchIds.length });
+        }
+        return `Unknown laundry action: ${action}`;
+      }
+
+      case "bulk_update_inventory": {
+        if (!isAdmin) return "Only admins can bulk update inventory.";
+        const itemIds = args.item_ids as string[];
+        const action = args.action as string;
+        if (!itemIds?.length) return "No item IDs provided.";
+        
+        const isActive = action === "reactivate";
+        const { error } = await sb.from("ops_inventory_items").update({ is_active: isActive, updated_at: new Date().toISOString() }).eq("branch_id", branchId).in("id", itemIds);
+        if (error) return `Error: ${error.message}`;
+        
+        for (const id of itemIds) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "inventory_item", entity_id: id, action: `bulk_${action}`,
+            performed_by: userId, branch_id: branchId, after_json: { is_active: isActive },
+          });
+        }
+        
+        return JSON.stringify({ success: true, action, count: itemIds.length });
       }
 
       case "get_tasks_summary": {
@@ -1685,10 +1837,16 @@ Run laundry_forecast daily to proactively flag shortages.
 "Laundry came back" → receive_laundry (need batch_id, get from forecast data).
 
 ═══ BULK OPERATIONS ═══
-When asked to do something across "all" tasks/items (e.g., "delete all pending tasks"):
-1. Use get_tasks_summary (with status filter if applicable) to get the list and IDs
-2. Confirm with the user: "Found X tasks with status Y. Shall I delete all of them?" — list titles briefly
-3. On confirmation, use bulk_delete_tasks with all the IDs
+When asked to do something across "all" tasks/items (e.g., "delete all pending tasks", "cancel all blocked tasks"):
+1. Query first: get_tasks_summary, get_purchase_list, laundry_forecast, get_inventory_status
+2. Confirm: "Found X items matching. Shall I proceed?" — list briefly
+3. Execute: bulk_delete_tasks, bulk_update_tasks, bulk_delete_purchase_items, bulk_update_laundry, bulk_update_inventory
+Available bulk tools:
+- bulk_update_tasks: change status/priority/category of multiple tasks
+- bulk_delete_tasks: delete multiple tasks
+- bulk_delete_purchase_items: remove multiple items from purchase list
+- bulk_update_laundry: mark multiple batches as received
+- bulk_update_inventory: deactivate/reactivate multiple inventory items
 NEVER say you can't do bulk operations. You CAN. Chain your tools: query first, then act.
 
 ═══ ANSWERING RULES ═══
