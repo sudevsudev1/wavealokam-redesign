@@ -573,8 +573,7 @@ function ChatArea({
 
   return (
     <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 min-h-0">
-      <div className="space-y-3" style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div className="flex-1" />
+      <div className="space-y-3">
         {messages.map((msg, i) => (
           <MessageBubble
             key={i}

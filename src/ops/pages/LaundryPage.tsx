@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Send, Package, ArrowDownToLine, AlertTriangle, Settings, Clock, CalendarDays, Trash2 } from 'lucide-react';
+import { Loader2, Send, Package, ArrowDownToLine, AlertTriangle, Settings, Clock, CalendarDays, Trash2, Plus, Shirt, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInHours, differenceInDays, parseISO, addDays } from 'date-fns';
 
@@ -30,7 +31,32 @@ interface LaundryBatch {
   created_at: string;
 }
 
-// Default constants — admin can override via config registry
+interface LinenItem {
+  id: string;
+  branch_id: string;
+  item_type: string;
+  item_label: string | null;
+  room_id: string | null;
+  guest_id: string | null;
+  status: string;
+  expected_free_at: string | null;
+  status_changed_at: string;
+  status_changed_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const LINEN_TYPES = ['Bedsheet', 'Pillow Cover', 'Towel', 'Bath Towel', 'Hand Towel', 'Blanket', 'Duvet Cover', 'Mattress Protector'] as const;
+const LINEN_STATUSES = ['fresh', 'in_use', 'need_laundry', 'awaiting_return'] as const;
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
+  fresh: { label: 'Fresh / Ready', color: 'bg-green-100 text-green-800', emoji: '✅' },
+  in_use: { label: 'In Use', color: 'bg-blue-100 text-blue-800', emoji: '🛏️' },
+  need_laundry: { label: 'Need Laundry', color: 'bg-orange-100 text-orange-800', emoji: '🧺' },
+  awaiting_return: { label: 'Awaiting Return', color: 'bg-purple-100 text-purple-800', emoji: '⏳' },
+};
+
 const DEFAULT_TOTAL_SETS = 8;
 const DEFAULT_TURNAROUND_DAYS = 2;
 const DEFAULT_TOTAL_ROOMS = 5;
@@ -84,7 +110,33 @@ export default function LaundryPage() {
     enabled: !!branchId,
   });
 
-  // Fetch profiles for name resolution
+  // Fetch linen items
+  const { data: linens = [], isLoading: linensLoading } = useQuery({
+    queryKey: ['ops_linen_items', branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ops_linen_items')
+        .select('*')
+        .eq('branch_id', branchId!)
+        .order('item_type', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as LinenItem[];
+    },
+    enabled: !!branchId,
+  });
+
+  // Realtime for linen items
+  useEffect(() => {
+    const channel = supabase
+      .channel('ops_linen_items_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ops_linen_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ops_linen_items'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  // Fetch profiles
   const { data: profiles } = useQuery({
     queryKey: ['ops_user_profiles', branchId],
     queryFn: async () => {
@@ -97,7 +149,7 @@ export default function LaundryPage() {
     enabled: !!branchId,
   });
 
-  // Fetch upcoming guests for forecast
+  // Fetch upcoming guests
   const { data: upcomingGuests } = useQuery({
     queryKey: ['ops_guest_forecast', branchId],
     queryFn: async () => {
@@ -113,6 +165,16 @@ export default function LaundryPage() {
     enabled: !!branchId,
   });
 
+  // Fetch rooms
+  const { data: rooms = [] } = useQuery({
+    queryKey: ['ops_rooms', branchId],
+    queryFn: async () => {
+      const { data } = await supabase.from('ops_rooms').select('*').eq('branch_id', branchId!).eq('is_active', true);
+      return data || [];
+    },
+    enabled: !!branchId,
+  });
+
   const nameMap = useMemo(() => {
     const m: Record<string, string> = {};
     (profiles || []).forEach(p => { m[p.user_id] = p.display_name; });
@@ -123,6 +185,17 @@ export default function LaundryPage() {
   const returned = useMemo(() => (batches || []).filter(b => b.status === 'returned'), [batches]);
   const setsInLaundry = useMemo(() => inTransit.reduce((s, b) => s + b.sets_count, 0), [inTransit]);
   const setsAvailable = TOTAL_SETS - setsInLaundry;
+
+  // Linen stats
+  const linenStats = useMemo(() => {
+    const stats = { fresh: 0, in_use: 0, need_laundry: 0, awaiting_return: 0, total: linens.length };
+    for (const l of linens) {
+      if (stats[l.status as keyof typeof stats] !== undefined) {
+        (stats as any)[l.status]++;
+      }
+    }
+    return stats;
+  }, [linens]);
 
   // Forecast
   const forecast = useMemo(() => {
@@ -161,7 +234,7 @@ export default function LaundryPage() {
       const istHour = now.getUTCHours() + 5.5;
       const beforeNoon = istHour < 12;
       const returnDate = addDays(now, beforeNoon ? TURNAROUND_DAYS : TURNAROUND_DAYS + 1);
-      returnDate.setUTCHours(6, 30, 0, 0); // noon IST
+      returnDate.setUTCHours(6, 30, 0, 0);
 
       const { error } = await supabase.from('ops_laundry_batches').insert({
         branch_id: branchId!, sets_count: sets,
@@ -199,6 +272,61 @@ export default function LaundryPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Linen mutations
+  const addLinenMutation = useMutation({
+    mutationFn: async (payload: { item_type: string; item_label?: string; room_id?: string; status?: string }) => {
+      const { error } = await supabase.from('ops_linen_items').insert({
+        branch_id: branchId!,
+        item_type: payload.item_type,
+        item_label: payload.item_label || null,
+        room_id: payload.room_id || null,
+        status: payload.status || 'fresh',
+        status_changed_by: profile!.userId,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_linen_items'] });
+      toast.success('Linen item added');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateLinenStatusMutation = useMutation({
+    mutationFn: async ({ id, status, room_id, guest_id, expected_free_at, notes }: {
+      id: string; status: string; room_id?: string | null; guest_id?: string | null;
+      expected_free_at?: string | null; notes?: string | null;
+    }) => {
+      const { error } = await supabase.from('ops_linen_items').update({
+        status,
+        room_id: room_id !== undefined ? room_id : undefined,
+        guest_id: guest_id !== undefined ? guest_id : undefined,
+        expected_free_at: expected_free_at !== undefined ? expected_free_at : undefined,
+        status_changed_at: new Date().toISOString(),
+        status_changed_by: profile!.userId,
+        notes: notes !== undefined ? notes : undefined,
+        updated_at: new Date().toISOString(),
+      } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_linen_items'] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteLinenMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ops_linen_items').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_linen_items'] });
+      toast.success('Linen item removed');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   // Save config (admin only)
   const saveConfigMutation = useMutation({
     mutationFn: async (configs: Record<string, number>) => {
@@ -222,7 +350,7 @@ export default function LaundryPage() {
   const [editTurnaround, setEditTurnaround] = useState(TURNAROUND_DAYS);
   const [editRooms, setEditRooms] = useState(TOTAL_ROOMS);
 
-  if (isLoading) {
+  if (isLoading || linensLoading) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
@@ -313,15 +441,37 @@ export default function LaundryPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="status">
-        <TabsList className="w-full">
-          <TabsTrigger value="status" className="flex-1">{t('laundry.statusTab')}</TabsTrigger>
-          <TabsTrigger value="forecast" className="flex-1">{t('laundry.forecastTab')}</TabsTrigger>
-          <TabsTrigger value="history" className="flex-1">{t('guest.history')}</TabsTrigger>
+      <Tabs defaultValue="linens">
+        <TabsList className="w-full flex overflow-x-auto scrollbar-hide">
+          <TabsTrigger value="linens" className="flex-1 text-xs">
+            <Shirt className="h-3 w-3 mr-1" /> Linens
+            {linenStats.need_laundry > 0 && <Badge variant="destructive" className="ml-1 h-4 min-w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{linenStats.need_laundry}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="batches" className="flex-1 text-xs">
+            <Package className="h-3 w-3 mr-1" /> Batches
+            {inTransit.length > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{inTransit.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="forecast" className="flex-1 text-xs">
+            <CalendarDays className="h-3 w-3 mr-1" /> Forecast
+          </TabsTrigger>
         </TabsList>
 
-        {/* Status Tab */}
-        <TabsContent value="status" className="space-y-3 mt-3">
+        {/* Linens Tab */}
+        <TabsContent value="linens" className="mt-3">
+          <LinenTracker
+            linens={linens}
+            rooms={rooms}
+            nameMap={nameMap}
+            onAdd={(payload) => addLinenMutation.mutate(payload)}
+            onUpdateStatus={(payload) => updateLinenStatusMutation.mutate(payload)}
+            onDelete={(id) => deleteLinenMutation.mutate(id)}
+            addPending={addLinenMutation.isPending}
+            profile={profile}
+          />
+        </TabsContent>
+
+        {/* Batches Tab */}
+        <TabsContent value="batches" className="space-y-3 mt-3">
           <h3 className="text-sm font-semibold flex items-center gap-1"><Clock className="h-4 w-4" /> {t('laundry.inTransit')}</h3>
           {isAdmin && selectedBatchIds.size > 0 && (
             <BulkActionBar
@@ -381,6 +531,32 @@ export default function LaundryPage() {
               ))}
             </div>
           )}
+
+          {/* History */}
+          <h3 className="text-sm font-semibold mt-4">{t('guest.history')}</h3>
+          {returned.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('laundry.noHistory')}</p>
+          ) : (
+            returned.slice(0, 20).map(batch => (
+              <Card key={batch.id}>
+                <CardContent className="p-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium text-sm">{batch.sets_count} {t('laundry.sets')}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {t('laundry.sentBy')} {nameMap[batch.sent_by] || '?'} · {format(parseISO(batch.sent_at), 'MMM d')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {t('laundry.receivedAt')} {batch.actual_return_at ? format(parseISO(batch.actual_return_at), 'MMM d, h:mm a') : '-'}
+                        {batch.received_by && ` · ${nameMap[batch.received_by] || '?'}`}
+                      </div>
+                    </div>
+                    <Badge variant="secondary">{t('laundry.returned')}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
 
         {/* Forecast Tab */}
@@ -418,34 +594,288 @@ export default function LaundryPage() {
             </div>
           )}
         </TabsContent>
-
-        {/* History Tab */}
-        <TabsContent value="history" className="space-y-2 mt-3">
-          {returned.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('laundry.noHistory')}</p>
-          ) : (
-            returned.slice(0, 20).map(batch => (
-              <Card key={batch.id}>
-                <CardContent className="p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium text-sm">{batch.sets_count} {t('laundry.sets')}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {t('laundry.sentBy')} {nameMap[batch.sent_by] || '?'} · {format(parseISO(batch.sent_at), 'MMM d')}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {t('laundry.receivedAt')} {batch.actual_return_at ? format(parseISO(batch.actual_return_at), 'MMM d, h:mm a') : '-'}
-                        {batch.received_by && ` · ${nameMap[batch.received_by] || '?'}`}
-                      </div>
-                    </div>
-                    <Badge variant="secondary">{t('laundry.returned')}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+/* ─── Linen Tracker Component ─── */
+function LinenTracker({
+  linens,
+  rooms,
+  nameMap,
+  onAdd,
+  onUpdateStatus,
+  onDelete,
+  addPending,
+  profile,
+}: {
+  linens: LinenItem[];
+  rooms: any[];
+  nameMap: Record<string, string>;
+  onAdd: (payload: { item_type: string; item_label?: string; room_id?: string; status?: string }) => void;
+  onUpdateStatus: (payload: { id: string; status: string; room_id?: string | null; guest_id?: string | null; expected_free_at?: string | null; notes?: string | null }) => void;
+  onDelete: (id: string) => void;
+  addPending: boolean;
+  profile: any;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newType, setNewType] = useState('Bedsheet');
+  const [newLabel, setNewLabel] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Group linens by status
+  const grouped = useMemo(() => {
+    const groups: Record<string, LinenItem[]> = {
+      in_use: [],
+      need_laundry: [],
+      awaiting_return: [],
+      fresh: [],
+    };
+    for (const l of linens) {
+      if (groups[l.status]) groups[l.status].push(l);
+      else groups[l.status] = [l];
+    }
+    return groups;
+  }, [linens]);
+
+  const filteredStatuses = statusFilter === 'all' 
+    ? ['in_use', 'need_laundry', 'awaiting_return', 'fresh'] 
+    : [statusFilter];
+
+  const handleAdd = () => {
+    onAdd({ item_type: newType, item_label: newLabel || undefined });
+    setNewLabel('');
+    setShowAdd(false);
+  };
+
+  // Next status mapping for quick transitions
+  const getNextStatuses = (current: string): string[] => {
+    switch (current) {
+      case 'fresh': return ['in_use'];
+      case 'in_use': return ['need_laundry'];
+      case 'need_laundry': return ['awaiting_return'];
+      case 'awaiting_return': return ['fresh'];
+      default: return [];
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Summary strip */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {(['fresh', 'in_use', 'need_laundry', 'awaiting_return'] as const).map(s => {
+          const cfg = STATUS_CONFIG[s];
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(prev => prev === s ? 'all' : s)}
+              className={`p-2 rounded-lg text-center transition-all ${statusFilter === s ? 'ring-2 ring-primary' : ''} ${cfg.color}`}
+            >
+              <div className="text-lg font-bold">{grouped[s]?.length || 0}</div>
+              <div className="text-[9px] font-medium leading-tight">{cfg.label}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Add button */}
+      <Button onClick={() => setShowAdd(true)} variant="outline" className="w-full text-xs gap-1.5">
+        <Plus className="h-3.5 w-3.5" /> Add Linen Item
+      </Button>
+
+      {showAdd && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Select value={newType} onValueChange={setNewType}>
+              <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {LINEN_TYPES.map(lt => <SelectItem key={lt} value={lt}>{lt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Input
+              value={newLabel} onChange={e => setNewLabel(e.target.value)}
+              placeholder="Label (optional, e.g. #1, Blue)" className="text-xs h-8"
+            />
+            <div className="flex gap-2">
+              <Button variant="ghost" className="flex-1 text-xs" onClick={() => setShowAdd(false)}>Cancel</Button>
+              <Button className="flex-1 text-xs" onClick={handleAdd} disabled={addPending}>
+                {addPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Grouped linen items */}
+      {filteredStatuses.map(status => {
+        const items = grouped[status] || [];
+        if (items.length === 0) return null;
+        const cfg = STATUS_CONFIG[status];
+
+        return (
+          <div key={status}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-sm">{cfg.emoji}</span>
+              <h3 className="text-sm font-semibold">{cfg.label}</h3>
+              <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
+            </div>
+            <div className="space-y-1">
+              {items.map(item => (
+                <LinenItemCard
+                  key={item.id}
+                  item={item}
+                  nameMap={nameMap}
+                  rooms={rooms}
+                  onUpdateStatus={onUpdateStatus}
+                  onDelete={onDelete}
+                  nextStatuses={getNextStatuses(item.status)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {linens.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Shirt className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No linen items tracked yet.</p>
+            <p className="text-xs text-muted-foreground">Add items to start tracking their laundry lifecycle.</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ─── Individual Linen Item Card ─── */
+function LinenItemCard({
+  item,
+  nameMap,
+  rooms,
+  onUpdateStatus,
+  onDelete,
+  nextStatuses,
+}: {
+  item: LinenItem;
+  nameMap: Record<string, string>;
+  rooms: any[];
+  onUpdateStatus: (payload: { id: string; status: string; room_id?: string | null; guest_id?: string | null; expected_free_at?: string | null; notes?: string | null }) => void;
+  onDelete: (id: string) => void;
+  nextStatuses: string[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [assignRoom, setAssignRoom] = useState(item.room_id || '');
+
+  const handleQuickTransition = (newStatus: string) => {
+    const payload: any = { id: item.id, status: newStatus };
+    
+    // If transitioning to fresh, clear room assignment
+    if (newStatus === 'fresh') {
+      payload.room_id = null;
+      payload.guest_id = null;
+      payload.expected_free_at = null;
+    }
+    
+    // If assigning to in_use and a room is selected
+    if (newStatus === 'in_use' && assignRoom) {
+      payload.room_id = assignRoom;
+    }
+    
+    onUpdateStatus(payload);
+    setExpanded(false);
+  };
+
+  const handleFullStatusChange = (newStatus: string) => {
+    onUpdateStatus({ id: item.id, status: newStatus });
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-2.5">
+        <div className="flex items-center gap-2">
+          <button className="flex-1 text-left" onClick={() => setExpanded(!expanded)}>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-xs">{item.item_type}</span>
+              {item.item_label && <span className="text-[10px] text-muted-foreground">({item.item_label})</span>}
+              {item.room_id && (
+                <Badge variant="outline" className="text-[9px] h-4 px-1">{item.room_id}</Badge>
+              )}
+            </div>
+            {item.expected_free_at && item.status === 'in_use' && (
+              <p className="text-[10px] text-muted-foreground">
+                Until {format(parseISO(item.expected_free_at), 'MMM d')}
+              </p>
+            )}
+          </button>
+
+          {/* Quick transition buttons */}
+          <div className="flex gap-1 shrink-0">
+            {nextStatuses.map(ns => {
+              const cfg = STATUS_CONFIG[ns];
+              return (
+                <Button
+                  key={ns}
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[9px] px-1.5 gap-0.5"
+                  onClick={(e) => { e.stopPropagation(); handleQuickTransition(ns); }}
+                  title={`Move to ${cfg.label}`}
+                >
+                  {cfg.emoji} {cfg.label.split(' ')[0]}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        {expanded && (
+          <div className="mt-2 pt-2 border-t border-border space-y-2">
+            <div className="text-[10px] text-muted-foreground">
+              Last changed: {format(parseISO(item.status_changed_at), 'MMM d, h:mm a')}
+              {item.status_changed_by && ` by ${nameMap[item.status_changed_by] || '?'}`}
+            </div>
+
+            {/* Room assignment for in_use */}
+            {item.status === 'fresh' && (
+              <div className="flex gap-1 items-center">
+                <Select value={assignRoom} onValueChange={setAssignRoom}>
+                  <SelectTrigger className="h-7 text-[10px] flex-1"><SelectValue placeholder="Assign room" /></SelectTrigger>
+                  <SelectContent>
+                    {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.id}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" className="h-7 text-[10px]" onClick={() => handleQuickTransition('in_use')}>
+                  Issue to Room
+                </Button>
+              </div>
+            )}
+
+            {/* Manual status change */}
+            <div className="flex gap-1 flex-wrap">
+              {LINEN_STATUSES.filter(s => s !== item.status).map(s => {
+                const cfg = STATUS_CONFIG[s];
+                return (
+                  <Button
+                    key={s} size="sm" variant="outline"
+                    className="h-6 text-[9px] px-2 gap-0.5"
+                    onClick={() => handleFullStatusChange(s)}
+                  >
+                    {cfg.emoji} {cfg.label}
+                  </Button>
+                );
+              })}
+              <Button size="sm" variant="ghost" className="h-6 text-[9px] px-2 text-destructive" onClick={() => onDelete(item.id)}>
+                <Trash2 className="h-3 w-3" /> Remove
+              </Button>
+            </div>
+
+            {item.notes && <p className="text-[10px] text-muted-foreground italic">{item.notes}</p>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

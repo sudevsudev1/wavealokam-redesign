@@ -1345,11 +1345,9 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
     <div className="space-y-3">
       <p className="text-[10px] text-muted-foreground">Issue templates deduct grouped items from inventory (e.g., room refresh, kitchen daily, office).</p>
 
-      {isAdmin && (
-        <Button onClick={() => { setShowCreate(true); setNewTemplateItems([]); setNewTemplateName(''); }} className="w-full text-xs gap-1.5" variant="outline">
-          <Plus className="h-3.5 w-3.5" /> Create Issue Template
-        </Button>
-      )}
+      <Button onClick={() => { setShowCreate(true); setNewTemplateItems([]); setNewTemplateName(''); }} className="w-full text-xs gap-1.5" variant="outline">
+        <Plus className="h-3.5 w-3.5" /> Create Issue Template
+      </Button>
 
       {/* Create New Template */}
       {showCreate && (
@@ -1445,9 +1443,7 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
               {templateItems.map((rt: any) => (
                 <Badge key={rt.id} variant="secondary" className="text-[10px] gap-0.5">
                   {getItemName(rt.item_id)} ×{rt.quantity}
-                  {isAdmin && (
-                    <button className="ml-0.5 hover:text-destructive" onClick={() => handleDeleteTemplateItem(rt.id)}>×</button>
-                  )}
+                  <button className="ml-0.5 hover:text-destructive" onClick={() => handleDeleteTemplateItem(rt.id)}>×</button>
                 </Badge>
               ))}
             </div>

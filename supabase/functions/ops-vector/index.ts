@@ -896,6 +896,81 @@ const VECTOR_TOOLS = [
       },
     },
   },
+
+  // ═══ LINEN LIFECYCLE ═══
+  {
+    type: "function",
+    function: {
+      name: "get_linen_status",
+      description: "Get all linen items grouped by status (fresh, in_use, need_laundry, awaiting_return). Use for 'how many bedsheets are clean?', 'linen status', 'what's in laundry?'",
+      parameters: {
+        type: "object",
+        properties: {
+          status_filter: { type: "string", description: "Optional: fresh, in_use, need_laundry, awaiting_return" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_linen_status",
+      description: "Change the status of one or more linen items. Use for 'bedsheet from 102 is now in laundry', 'mark all need_laundry items as awaiting_return', 'room 102 linens need washing'. Can target by item type, room, or specific IDs.",
+      parameters: {
+        type: "object",
+        properties: {
+          target: { type: "string", description: "How to find items: 'room:102', 'type:Bedsheet', 'status:need_laundry', or 'id:<uuid>'" },
+          new_status: { type: "string", description: "fresh, in_use, need_laundry, or awaiting_return" },
+          room_id: { type: "string", description: "Optional: assign/change room (set null to clear)" },
+          notes: { type: "string", description: "Optional note" },
+        },
+        required: ["target", "new_status"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "issue_linens_to_room",
+      description: "Issue fresh linens to a room. Changes their status to in_use and assigns the room. Links to guest if one is checked into that room. Use for 'issued linens to 102', 'room 102 got fresh sheets'.",
+      parameters: {
+        type: "object",
+        properties: {
+          room_id: { type: "string", description: "Room ID e.g. '102'" },
+          items: {
+            type: "array",
+            description: "Specific items to issue. If empty, issues all available fresh items needed.",
+            items: {
+              type: "object",
+              properties: {
+                item_type: { type: "string" },
+                count: { type: "number" },
+              },
+              required: ["item_type"],
+            },
+          },
+        },
+        required: ["room_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_linen_item",
+      description: "Add a new linen item to the tracking system. Use for 'add 2 bedsheets to linen inventory', 'we got new towels'.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_type: { type: "string", description: "Bedsheet, Pillow Cover, Towel, Bath Towel, Hand Towel, Blanket, Duvet Cover, Mattress Protector" },
+          count: { type: "number", description: "How many to add. Default 1." },
+          label: { type: "string", description: "Optional label (e.g., '#1', 'Blue')" },
+        },
+        required: ["item_type"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
@@ -2197,6 +2272,156 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ success: true, name: templateName, item_count: templateItems.length });
       }
 
+      // ═══ LINEN LIFECYCLE ═══
+
+      case "get_linen_status": {
+        const statusFilter = args.status_filter as string | undefined;
+        let q = sb.from("ops_linen_items").select("*").eq("branch_id", branchId);
+        if (statusFilter) q = q.eq("status", statusFilter);
+        const { data, error } = await q.order("item_type");
+        if (error) return `Error: ${error.message}`;
+        
+        const items = data || [];
+        const grouped: Record<string, typeof items> = { fresh: [], in_use: [], need_laundry: [], awaiting_return: [] };
+        for (const item of items) {
+          if (grouped[item.status]) grouped[item.status].push(item);
+        }
+        
+        const summary = Object.entries(grouped)
+          .filter(([_, v]) => v.length > 0)
+          .map(([status, items]) => {
+            const labels: Record<string, string> = { fresh: "✅ Fresh/Ready", in_use: "🛏️ In Use", need_laundry: "🧺 Need Laundry", awaiting_return: "⏳ Awaiting Return" };
+            const itemList = items.map(i => `  - ${i.item_type}${i.item_label ? ` (${i.item_label})` : ""}${i.room_id ? ` → Room ${i.room_id}` : ""}`).join("\n");
+            return `${labels[status] || status} (${items.length}):\n${itemList}`;
+          }).join("\n\n");
+        
+        return summary || "No linen items tracked.";
+      }
+
+      case "update_linen_status": {
+        const target = args.target as string;
+        const newStatus = args.new_status as string;
+        const roomId = args.room_id as string | undefined;
+        const notes = args.notes as string | undefined;
+        
+        let q = sb.from("ops_linen_items").select("*").eq("branch_id", branchId);
+        
+        if (target.startsWith("room:")) {
+          q = q.eq("room_id", target.replace("room:", ""));
+        } else if (target.startsWith("type:")) {
+          q = q.ilike("item_type", `%${target.replace("type:", "")}%`);
+        } else if (target.startsWith("status:")) {
+          q = q.eq("status", target.replace("status:", ""));
+        } else if (target.startsWith("id:")) {
+          q = q.eq("id", target.replace("id:", ""));
+        } else {
+          // Try to match by type name
+          q = q.ilike("item_type", `%${target}%`);
+        }
+        
+        const { data: items, error: fetchErr } = await q;
+        if (fetchErr) return `Error: ${fetchErr.message}`;
+        if (!items?.length) return `No linen items found matching "${target}".`;
+        
+        const updatePayload: Record<string, any> = {
+          status: newStatus,
+          status_changed_at: new Date().toISOString(),
+          status_changed_by: userId,
+          updated_at: new Date().toISOString(),
+        };
+        if (roomId !== undefined) updatePayload.room_id = roomId === "null" ? null : roomId;
+        if (notes) updatePayload.notes = notes;
+        if (newStatus === "fresh") {
+          updatePayload.room_id = null;
+          updatePayload.guest_id = null;
+          updatePayload.expected_free_at = null;
+        }
+        
+        const ids = items.map(i => i.id);
+        const { error: updateErr } = await sb.from("ops_linen_items").update(updatePayload).in("id", ids);
+        if (updateErr) return `Error: ${updateErr.message}`;
+        
+        return JSON.stringify({ success: true, updated: ids.length, items: items.map(i => `${i.item_type}${i.item_label ? ` (${i.item_label})` : ""}`), new_status: newStatus });
+      }
+
+      case "issue_linens_to_room": {
+        const roomId = args.room_id as string;
+        const specificItems = args.items as { item_type: string; count?: number }[] | undefined;
+        
+        // Find guest in this room
+        const { data: guests } = await sb.from("ops_guest_log").select("id, guest_name, expected_check_out")
+          .eq("branch_id", branchId).eq("room_id", roomId).eq("status", "checked_in").limit(1);
+        const guest = guests?.[0];
+        
+        // Find fresh items to issue
+        let freshQuery = sb.from("ops_linen_items").select("*").eq("branch_id", branchId).eq("status", "fresh");
+        const { data: freshItems, error } = await freshQuery;
+        if (error) return `Error: ${error.message}`;
+        if (!freshItems?.length) return "No fresh linen items available to issue.";
+        
+        let toIssue: typeof freshItems = [];
+        
+        if (specificItems?.length) {
+          for (const spec of specificItems) {
+            const count = spec.count || 1;
+            const matching = freshItems.filter(f => f.item_type.toLowerCase().includes(spec.item_type.toLowerCase()) && !toIssue.some(ti => ti.id === f.id));
+            toIssue.push(...matching.slice(0, count));
+          }
+        } else {
+          // Issue one of each type available
+          const seen = new Set<string>();
+          for (const f of freshItems) {
+            if (!seen.has(f.item_type)) {
+              toIssue.push(f);
+              seen.add(f.item_type);
+            }
+          }
+        }
+        
+        if (toIssue.length === 0) return "No matching fresh linen items found.";
+        
+        const ids = toIssue.map(i => i.id);
+        const updatePayload: Record<string, any> = {
+          status: "in_use",
+          room_id: roomId,
+          status_changed_at: new Date().toISOString(),
+          status_changed_by: userId,
+          updated_at: new Date().toISOString(),
+        };
+        if (guest) {
+          updatePayload.guest_id = guest.id;
+          if (guest.expected_check_out) updatePayload.expected_free_at = guest.expected_check_out;
+        }
+        
+        const { error: updateErr } = await sb.from("ops_linen_items").update(updatePayload).in("id", ids);
+        if (updateErr) return `Error: ${updateErr.message}`;
+        
+        const summary = toIssue.map(i => i.item_type).join(", ");
+        return JSON.stringify({ success: true, room: roomId, issued: toIssue.length, items: summary, guest: guest?.guest_name || "No guest" });
+      }
+
+      case "add_linen_item": {
+        const itemType = args.item_type as string;
+        const count = (args.count as number) || 1;
+        const label = args.label as string | undefined;
+        
+        const inserts = [];
+        for (let i = 0; i < count; i++) {
+          inserts.push({
+            branch_id: branchId,
+            item_type: itemType,
+            item_label: label ? (count > 1 ? `${label} #${i + 1}` : label) : (count > 1 ? `#${i + 1}` : null),
+            status: "fresh",
+            status_changed_by: userId,
+          });
+        }
+        
+        const { error } = await sb.from("ops_linen_items").insert(inserts);
+        if (error) return `Error: ${error.message}`;
+        
+        return JSON.stringify({ success: true, added: count, type: itemType });
+      }
+
       default:
         return `Unknown tool: ${name}`;
     }
@@ -2294,8 +2519,17 @@ When user says "got it", "received", "tick off" → tick_off_purchase_item.
 When user says "room X refreshed" or "cleaned room X" → issue_room_items. You know the template.
 When user says "used 2 tissue rolls" → issue_item.
 
-═══ LAUNDRY ═══
-Track linen: 8 total sets, 5 rooms. Turnaround = 2 days (before noon cutoff).
+═══ LAUNDRY & LINEN LIFECYCLE ═══
+Track individual linen items through their lifecycle: fresh → in_use → need_laundry → awaiting_return → fresh.
+- "Issued linens to 102" → issue_linens_to_room. Links to current guest, sets expected_free_at to checkout date.
+- "Room 102 checked out, linens need washing" → update_linen_status target:room:102 new_status:need_laundry.
+- "Sent bedsheets to laundry" → update_linen_status target:type:Bedsheet new_status:awaiting_return (for items in need_laundry).
+- "Laundry returned the towels" → update_linen_status target:type:Towel new_status:fresh (for items awaiting_return).
+- "How many clean bedsheets?" → get_linen_status status_filter:fresh.
+- Guest checkout should trigger linens moving to need_laundry.
+- Guest stay extension should update expected_free_at.
+- Individual items can have different statuses — e.g., laundry returned without one bedsheet, so only update the ones that came back.
+Track linen sets (legacy): 8 total sets, 5 rooms. Turnaround = 2 days (before noon cutoff).
 Run laundry_forecast daily to proactively flag shortages.
 "Sent 3 sets to laundry" → send_laundry.
 "Laundry came back" → receive_laundry (need batch_id, get from forecast data).
