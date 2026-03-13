@@ -145,6 +145,7 @@ export function useCreateTask() {
         receipt_required: task.receipt_required,
         related_room_id: task.related_room_id || null,
         template_id: task.template_id || null,
+        is_hidden: task.is_hidden || false,
       } as any).select().single();
 
       if (error) throw error;
