@@ -198,11 +198,13 @@ export default function InventoryPage() {
             {lowStockCount > 0 && <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{lowStockCount}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex-shrink-0 text-xs px-3">Templates</TabsTrigger>
+          <TabsTrigger value="ledger" className="flex-shrink-0 text-xs px-3">Ledger</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
         <TabsContent value="due"><DueForOrderTab items={items} expiryBatches={expiryBatches} /></TabsContent>
         <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
+        <TabsContent value="ledger"><FullLedgerTab items={items} /></TabsContent>
       </Tabs>
     </div>
   );
