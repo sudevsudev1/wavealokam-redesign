@@ -857,29 +857,24 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
 
   const isConsumable = (category: string) => CONSUMABLE_CATEGORIES.includes(category);
 
-  const dueItems = useMemo(() => {
-    return items.filter(i => {
-      if (isConsumable(i.category)) {
-        // Consumable: due when any active batch expires within 1 day
-        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
-        if (batches.length === 0 && i.current_stock > 0) {
-          // Has stock but no tracked batches — flag it
-        } else if (batches.length === 0) {
-          return false;
-        } else {
-          const isDue = batches.some(b => b.expiry_date <= tomorrow);
-          if (!isDue) return false;
-        }
-      } else {
-        // Non-consumable: quantity-based
-        if (i.current_stock > i.reorder_point) return false;
-      }
-      const name = getName(i);
-      const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || i.name_en.toLowerCase().includes(search.toLowerCase());
-      const matchesCat = categoryFilter === 'all' || i.category === categoryFilter;
-      return matchesSearch && matchesCat;
-    });
-  }, [items, expiryBatches, search, categoryFilter, language, tomorrow]);
+  const dueItemsWithReason = useMemo(() => {
+    return items
+      .map(i => ({ item: i, reason: getDueReason(i, expiryBatches) }))
+      .filter(({ item, reason }) => {
+        if (!reason) return false;
+        const name = getName(item);
+        const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || item.name_en.toLowerCase().includes(search.toLowerCase());
+        const matchesCat = categoryFilter === 'all' || item.category === categoryFilter;
+        return matchesSearch && matchesCat;
+      });
+  }, [items, expiryBatches, search, categoryFilter, language]);
+
+  const dueItems = useMemo(() => dueItemsWithReason.map(d => d.item), [dueItemsWithReason]);
+  const dueReasonMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    dueItemsWithReason.forEach(d => { m[d.item.id] = d.reason!; });
+    return m;
+  }, [dueItemsWithReason]);
 
   const toggleItem = (id: string) => {
     const next = new Set(selectedItems);
