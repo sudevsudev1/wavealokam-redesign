@@ -89,6 +89,72 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "bulk_update_tasks",
+      description: "Update multiple tasks at once (e.g., cancel all blocked tasks, mark several as done). Use get_tasks_summary first to collect IDs.",
+      parameters: {
+        type: "object",
+        properties: {
+          task_ids: { type: "array", items: { type: "string" }, description: "Array of task UUIDs" },
+          updates: {
+            type: "object",
+            properties: {
+              status: { type: "string", description: "To Do, Doing, Done, Blocked, Cancelled" },
+              priority: { type: "string" },
+              category: { type: "string" },
+            },
+          },
+        },
+        required: ["task_ids", "updates"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_delete_purchase_items",
+      description: "Delete multiple items from the purchase list at once.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_ids: { type: "array", items: { type: "string" }, description: "Array of purchase order item row UUIDs" },
+        },
+        required: ["item_ids"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_update_laundry",
+      description: "Update multiple laundry batches at once (e.g., mark all as returned).",
+      parameters: {
+        type: "object",
+        properties: {
+          batch_ids: { type: "array", items: { type: "string" }, description: "Array of laundry batch UUIDs" },
+          action: { type: "string", description: "receive (mark as returned)" },
+        },
+        required: ["batch_ids", "action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_update_inventory",
+      description: "Bulk deactivate or reactivate inventory items.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_ids: { type: "array", items: { type: "string" }, description: "Array of inventory item UUIDs" },
+          action: { type: "string", description: "deactivate or reactivate" },
+        },
+        required: ["item_ids", "action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_tasks_summary",
       description: "Get task summary for a user or all users. Use to list tasks before bulk operations like delete.",
       parameters: {
