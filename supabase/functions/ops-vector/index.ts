@@ -706,7 +706,6 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
 
       case "delete_task": {
         const taskId = args.task_id as string;
-        // Get task before deleting for audit
         const { data: existing } = await sb.from("ops_tasks").select("title_en, title_original").eq("id", taskId).eq("branch_id", branchId).single();
         if (!existing) return `Task not found: ${taskId}`;
         
@@ -719,6 +718,29 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         });
         
         return JSON.stringify({ success: true, deleted: existing.title_en || existing.title_original });
+      }
+
+      case "bulk_delete_tasks": {
+        const taskIds = args.task_ids as string[];
+        if (!taskIds || taskIds.length === 0) return "No task IDs provided.";
+        
+        // Fetch all tasks first for audit
+        const { data: tasks } = await sb.from("ops_tasks").select("id, title_en, title_original").eq("branch_id", branchId).in("id", taskIds);
+        if (!tasks || tasks.length === 0) return "No matching tasks found in this branch.";
+        
+        const { error } = await sb.from("ops_tasks").delete().eq("branch_id", branchId).in("id", taskIds);
+        if (error) return `Error bulk deleting: ${error.message}`;
+        
+        // Audit log
+        for (const t of tasks) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "task", entity_id: t.id, action: "bulk_delete",
+            performed_by: userId, branch_id: branchId, before_json: { title: t.title_en || t.title_original },
+          });
+        }
+        
+        const titles = tasks.map(t => t.title_en || t.title_original);
+        return JSON.stringify({ success: true, deleted_count: tasks.length, deleted_titles: titles });
       }
 
       case "get_tasks_summary": {
