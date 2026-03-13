@@ -594,7 +594,155 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
   );
 }
 
-function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) {
+/* ─── Bulk Edit Dialog ─── */
+function BulkEditDialog({ itemIds, items, isSingleCategory, onClose, onDone }: {
+  itemIds: string[];
+  items: InventoryItem[];
+  isSingleCategory: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const updateItem = useUpdateInventoryItem();
+  const selectedItems = items.filter(i => itemIds.includes(i.id));
+
+  // Track which fields the user wants to apply
+  const [applyFields, setApplyFields] = useState<Record<string, boolean>>({});
+  const [parLevel, setParLevel] = useState('');
+  const [reorderPoint, setReorderPoint] = useState('');
+  const [currentStock, setCurrentStock] = useState('');
+  const [expiryWarnDays, setExpiryWarnDays] = useState('');
+  const [mfgOffsetDays, setMfgOffsetDays] = useState('');
+  const [category, setCategory] = useState(selectedItems[0]?.category || 'F&B');
+  const [unit, setUnit] = useState(selectedItems[0]?.unit || 'pcs');
+  const [saving, setSaving] = useState(false);
+
+  const toggleField = (field: string) => setApplyFields(prev => ({ ...prev, [field]: !prev[field] }));
+
+  const handleSave = async () => {
+    const activeFields = Object.entries(applyFields).filter(([, v]) => v).map(([k]) => k);
+    if (activeFields.length === 0) { toast.error('Check at least one field to update'); return; }
+
+    const confirmed = window.confirm(`Update ${activeFields.join(', ')} for ${itemIds.length} item(s)?`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      for (const id of itemIds) {
+        const updates: Record<string, unknown> = {};
+        if (applyFields.par_level) updates.par_level = parseInt(parLevel) || 1;
+        if (applyFields.reorder_point) updates.reorder_point = parseInt(reorderPoint) || 0;
+        if (applyFields.current_stock) updates.current_stock = Math.max(0, parseInt(currentStock) || 0);
+        if (applyFields.expiry_warn_days) updates.expiry_warn_days = expiryWarnDays ? parseInt(expiryWarnDays) : null;
+        if (applyFields.mfg_offset_days) updates.mfg_offset_days = parseInt(mfgOffsetDays) || 2;
+        if (applyFields.category && isSingleCategory) updates.category = category;
+        if (applyFields.unit && isSingleCategory) updates.unit = unit;
+
+        await updateItem.mutateAsync({ id, updates: updates as any });
+
+        // Recalculate batches if offsets changed
+        if (applyFields.mfg_offset_days || applyFields.expiry_warn_days) {
+          const newMfgOffset = applyFields.mfg_offset_days ? (parseInt(mfgOffsetDays) || 2) : undefined;
+          const newShelfLife = applyFields.expiry_warn_days ? (expiryWarnDays ? parseInt(expiryWarnDays) : null) : undefined;
+
+          const { data: batches } = await supabase
+            .from('ops_inventory_expiry')
+            .select('id, received_date')
+            .eq('item_id', id)
+            .eq('is_disposed', false);
+          if (batches) {
+            for (const batch of batches) {
+              if (batch.received_date) {
+                const rcvd = new Date(batch.received_date);
+                const batchUpdates: Record<string, unknown> = {};
+                if (newMfgOffset !== undefined) {
+                  const mfgDate = new Date(rcvd);
+                  mfgDate.setDate(mfgDate.getDate() - newMfgOffset);
+                  batchUpdates.mfg_date = mfgDate.toISOString().split('T')[0];
+                }
+                if (newShelfLife !== undefined && newShelfLife) {
+                  const expDate = new Date(rcvd);
+                  expDate.setDate(expDate.getDate() + newShelfLife);
+                  batchUpdates.expiry_date = expDate.toISOString().split('T')[0];
+                }
+                if (Object.keys(batchUpdates).length > 0) {
+                  await supabase.from('ops_inventory_expiry').update(batchUpdates as any).eq('id', batch.id);
+                }
+              }
+            }
+          }
+        }
+      }
+      toast.success(`${itemIds.length} item(s) updated`);
+      onDone();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldRow = (field: string, label: string, input: React.ReactNode, disabled = false) => (
+    <div className={`flex items-center gap-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+      <Checkbox checked={!!applyFields[field]} onCheckedChange={() => !disabled && toggleField(field)} />
+      <div className="flex-1">
+        <label className="text-xs font-medium text-muted-foreground">{label}</label>
+        {input}
+      </div>
+    </div>
+  );
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm">Bulk Edit ({itemIds.length} items)</DialogTitle>
+        </DialogHeader>
+        <p className="text-[11px] text-muted-foreground -mt-2">Check the fields you want to update across all selected items.</p>
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          {fieldRow('current_stock', 'Current Stock',
+            <Input type="number" min="0" value={currentStock} onChange={e => setCurrentStock(e.target.value)} className="mt-1 text-sm" placeholder="New value" />
+          )}
+          {fieldRow('par_level', 'Par Level',
+            <Input type="number" min="1" value={parLevel} onChange={e => setParLevel(e.target.value)} className="mt-1 text-sm" placeholder="New value" />
+          )}
+          {fieldRow('reorder_point', 'Reorder Point',
+            <Input type="number" min="0" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="mt-1 text-sm" placeholder="New value" />
+          )}
+          {fieldRow('expiry_warn_days', 'Shelf Life (days)',
+            <Input type="number" min="0" value={expiryWarnDays} onChange={e => setExpiryWarnDays(e.target.value)} className="mt-1 text-sm" placeholder="Optional" />
+          )}
+          {fieldRow('mfg_offset_days', 'Mfg Offset (days)',
+            <Input type="number" min="0" value={mfgOffsetDays} onChange={e => setMfgOffsetDays(e.target.value)} className="mt-1 text-sm" placeholder="Default: 2" />
+          )}
+          {fieldRow('category', 'Category',
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {INVENTORY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>,
+            !isSingleCategory
+          )}
+          {fieldRow('unit', 'Unit',
+            <Select value={unit} onValueChange={setUnit}>
+              <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {INVENTORY_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              </SelectContent>
+            </Select>,
+            !isSingleCategory
+          )}
+        </div>
+        <Button onClick={handleSave} disabled={saving} className="w-full text-xs gap-1.5">
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          Apply to {itemIds.length} Item(s)
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
   const { t } = useOpsLanguage();
   const { data: txns, isLoading } = useInventoryTransactions(itemId);
   const { data: profiles } = useOpsProfiles();
