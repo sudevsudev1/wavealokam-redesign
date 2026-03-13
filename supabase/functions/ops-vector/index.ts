@@ -1299,7 +1299,7 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const orderId = await getLatestActiveOrderId(sb, branchId);
         if (!orderId) return JSON.stringify({ items: [], message: "No active purchase list" });
         
-        const { data: items } = await sb.from("ops_purchase_order_items").select("*, ops_inventory_items(name_en, unit)").eq("order_id", orders[0].id).order("completed_at", { ascending: true, nullsFirst: true });
+        const { data: items } = await sb.from("ops_purchase_order_items").select("*, ops_inventory_items(name_en, unit)").eq("order_id", orderId).order("completed_at", { ascending: true, nullsFirst: true });
         
         const userIds = [...new Set((items || []).map(i => i.added_by).filter(Boolean))];
         const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").in("user_id", userIds.length ? userIds : ["none"]);
