@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Loader2, Filter, Trash2, ArrowRight } from 'lucide-react';
+import { ClipboardList, Loader2, Filter, Trash2, ArrowRight, Printer, Copy } from 'lucide-react';
 import { TASK_STATUSES, TASK_CATEGORIES, TASK_PRIORITIES } from '../lib/taskConstants';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
