@@ -1081,9 +1081,6 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
                   </div>
                 </CardContent>
               </Card>
-                  </div>
-                </CardContent>
-              </Card>
             );
           })}
         </>
