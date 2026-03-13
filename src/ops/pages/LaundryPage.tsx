@@ -3,13 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
+import BulkActionBar from '../components/BulkActionBar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, Send, Package, ArrowDownToLine, AlertTriangle, Settings, Clock, CalendarDays } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Send, Package, ArrowDownToLine, AlertTriangle, Settings, Clock, CalendarDays, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInHours, differenceInDays, parseISO, addDays } from 'date-fns';
 
