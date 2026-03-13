@@ -58,22 +58,39 @@ export default function InventoryPage() {
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: expiryBatches = [], isLoading: expiryLoading } = useExpiryItems();
 
-  // For consumable categories, "due" means earliest active batch expires within 1 day
-  // For non-consumable categories, "due" means current_stock <= reorder_point
-  const lowStockCount = useMemo(() => {
+  // Unified due-for-order logic:
+  // Consumables: expiry-based (1 day before)
+  // Non-consumables: whichever comes first — low quantity OR nearing expiry
+  const getDueReason = (item: InventoryItem, batches: InventoryExpiry[]): string | null => {
+    const todayStr = new Date().toISOString().slice(0, 10);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const activeBatches = batches.filter(b => b.item_id === item.id && !b.is_disposed);
+    const isConsumable = CONSUMABLE_CATEGORIES.includes(item.category);
 
-    return items.filter((i) => {
-      if (CONSUMABLE_CATEGORIES.includes(i.category)) {
-        // Check if any active batch expires within 1 day (or already expired)
-        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
-        if (batches.length === 0) return i.current_stock > 0; // has stock but no batches tracked = show
-        return batches.some(b => b.expiry_date <= tomorrowStr);
-      }
-      return i.current_stock <= i.reorder_point;
-    }).length;
+    if (isConsumable) {
+      if (activeBatches.length === 0 && item.current_stock > 0) return 'untracked';
+      if (activeBatches.length === 0) return null;
+      const hasExpired = activeBatches.some(b => b.expiry_date <= todayStr);
+      if (hasExpired) return 'expired';
+      const nearExpiry = activeBatches.some(b => b.expiry_date <= tomorrowStr);
+      if (nearExpiry) return 'nearing_expiry';
+      return null;
+    }
+
+    // Non-consumable: whichever comes first
+    const lowQty = item.current_stock <= item.reorder_point;
+    const hasExpired = activeBatches.some(b => b.expiry_date <= todayStr);
+    const nearExpiry = activeBatches.some(b => b.expiry_date <= tomorrowStr);
+    if (hasExpired) return 'expired';
+    if (nearExpiry) return 'nearing_expiry';
+    if (lowQty) return 'low_quantity';
+    return null;
+  };
+
+  const lowStockCount = useMemo(() => {
+    return items.filter(i => getDueReason(i, expiryBatches) !== null).length;
   }, [items, expiryBatches]);
 
   if (isLoading || expiryLoading) {
