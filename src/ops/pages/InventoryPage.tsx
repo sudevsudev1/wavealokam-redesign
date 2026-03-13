@@ -10,7 +10,7 @@ import {
   InventoryItem, InventoryTransaction, PurchaseTemplate,
 } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
-import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS } from '../lib/inventoryConstants';
+import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS, CONSUMABLE_CATEGORIES } from '../lib/inventoryConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
