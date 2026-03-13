@@ -60,7 +60,7 @@ export default function VectorDock() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Position & size state (desktop only)
   const [pos, setPos] = useState({ x: -1, y: -1 });
@@ -255,8 +255,8 @@ export default function VectorDock() {
     sendToVector(text, { systemInstruction: instructions[action], displayLabel: labels[action] });
   }, [input, getLastAssistantContent, sendToVector, t]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       sendMessage();
     }
@@ -469,14 +469,15 @@ export default function VectorDock() {
       )}
 
       {/* Input */}
-      <div className="border-t border-border p-2 flex gap-2 items-center shrink-0">
-        <input
+      <div className="border-t border-border p-2 flex gap-2 items-end shrink-0">
+        <textarea
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={mode === 'quick' ? t('vector.quickPlaceholder') : t('vector.internalPlaceholder')}
-          className="flex-1 text-sm bg-muted/50 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary"
+          placeholder={mode === 'quick' ? `${t('vector.quickPlaceholder')} (Enter = new line, Ctrl/Cmd+Enter = send)` : `${t('vector.internalPlaceholder')} (Enter = new line, Ctrl/Cmd+Enter = send)`}
+          className="flex-1 text-sm bg-muted/50 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary resize-none min-h-9 max-h-32"
+          rows={1}
           disabled={loading}
         />
         <Button

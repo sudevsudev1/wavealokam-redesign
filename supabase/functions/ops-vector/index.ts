@@ -13,6 +13,72 @@ function getSupabase() {
   );
 }
 
+const ACTIVE_PURCHASE_ORDER_STATUSES = ["Draft", "Requested", "Approved", "Ordered", "Active"] as const;
+
+type PurchaseItemInput = { name: string; quantity: number; unit?: string };
+type MissingResolutionInput = {
+  name: string;
+  action: "catalog" | "one_time";
+  category?: string;
+  unit?: string;
+  par_level?: number;
+  reorder_point?: number;
+  expiry_warn_days?: number | null;
+};
+
+function normalizeText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function findInventoryMatch(items: { id: string; name_en: string; unit: string }[], query: string) {
+  const q = normalizeText(query);
+  if (!q) return null;
+
+  const exact = items.find((item) => normalizeText(item.name_en) === q);
+  if (exact) return exact;
+
+  const includes = items.find((item) => normalizeText(item.name_en).includes(q) || q.includes(normalizeText(item.name_en)));
+  return includes || null;
+}
+
+function getMissingResolution(missingResolutions: MissingResolutionInput[], itemName: string) {
+  const target = normalizeText(itemName);
+  return missingResolutions.find((r) => normalizeText(r.name) === target || target.includes(normalizeText(r.name)) || normalizeText(r.name).includes(target)) || null;
+}
+
+async function getLatestActiveOrderId(sb: ReturnType<typeof getSupabase>, branchId: string) {
+  const { data: orders } = await sb
+    .from("ops_purchase_orders")
+    .select("id")
+    .eq("branch_id", branchId)
+    .in("status", [...ACTIVE_PURCHASE_ORDER_STATUSES])
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  return orders?.[0]?.id ?? null;
+}
+
+async function getOrCreateActiveOrderId(sb: ReturnType<typeof getSupabase>, branchId: string, userId?: string) {
+  const existingOrderId = await getLatestActiveOrderId(sb, branchId);
+  if (existingOrderId) return existingOrderId;
+
+  if (!userId) {
+    throw new Error("Missing user context for creating purchase list");
+  }
+
+  const { data: newOrder, error: orderError } = await sb
+    .from("ops_purchase_orders")
+    .insert({ branch_id: branchId, requested_by: userId, status: "Draft" })
+    .select("id")
+    .single();
+
+  if (orderError || !newOrder) {
+    throw new Error(orderError?.message || "Failed to create purchase list");
+  }
+
+  return newOrder.id;
+}
+
 // ─── Tool definitions ───
 
 const VECTOR_TOOLS = [
@@ -191,7 +257,7 @@ const VECTOR_TOOLS = [
     type: "function",
     function: {
       name: "add_to_purchase_list",
-      description: "Add items to the shared purchase list. Parse: '2 kg onion, 1 kg tomato' → items array. Matches against inventory catalog. One-time items can be added too.",
+      description: "Add items to the shared purchase list. Parse: '2 kg onion, 1 kg tomato' → items array. If an item is missing from inventory, first ask user: add to catalog or one-time, then call this tool again with missing_resolution.",
       parameters: {
         type: "object",
         properties: {
@@ -205,6 +271,23 @@ const VECTOR_TOOLS = [
                 unit: { type: "string" },
               },
               required: ["name", "quantity"],
+            },
+          },
+          missing_resolution: {
+            type: "array",
+            description: "Optional decisions for previously missing items. Use after user confirms catalog vs one-time.",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                action: { type: "string", description: "catalog or one_time" },
+                category: { type: "string" },
+                unit: { type: "string" },
+                par_level: { type: "number" },
+                reorder_point: { type: "number" },
+                expiry_warn_days: { type: "number" },
+              },
+              required: ["name", "action"],
             },
           },
         },
@@ -1012,47 +1095,134 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
       // ═══ PURCHASE LIST ═══
 
       case "add_to_purchase_list": {
-        const requestedItems = args.items as { name: string; quantity: number; unit?: string }[];
-        const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit").eq("branch_id", branchId).eq("is_active", true);
-        
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        let orderId: string;
-        if (orders && orders.length > 0) {
-          orderId = orders[0].id;
-        } else {
-          const { data: newOrder, error: oErr } = await sb.from("ops_purchase_orders").insert({ branch_id: branchId, requested_by: userId, status: "Active" }).select("id").single();
-          if (oErr) return `Error creating purchase list: ${oErr.message}`;
-          orderId = newOrder.id;
+        const requestedItems = (args.items as PurchaseItemInput[]) || [];
+        const missingResolutions = ((args.missing_resolution as MissingResolutionInput[]) || []);
+
+        if (!requestedItems.length) {
+          return JSON.stringify({ success: false, error: "No items provided" });
         }
 
-        const { data: existingListItems } = await sb.from("ops_purchase_order_items").select("item_id, quantity, completed_at").eq("order_id", orderId);
-        const added: string[] = [];
-        const notFound: string[] = [];
-        const duplicates: string[] = [];
+        const { data: invItems } = await sb
+          .from("ops_inventory_items")
+          .select("id, name_en, unit")
+          .eq("branch_id", branchId)
+          .eq("is_active", true);
 
-        for (const ri of requestedItems) {
-          const match = (invItems || []).find(i => i.name_en.toLowerCase().includes(ri.name.toLowerCase()));
-          if (!match) { notFound.push(ri.name); continue; }
-          const existing = (existingListItems || []).find((e: any) => e.item_id === match.id && !e.completed_at);
-          if (existing) { duplicates.push(`${match.name_en} (already ${(existing as any).quantity} on list)`); continue; }
-          const { error } = await sb.from("ops_purchase_order_items").insert({ order_id: orderId, item_id: match.id, quantity: ri.quantity, branch_id: branchId, added_by: userId });
-          if (!error) {
-            added.push(`${match.name_en} ×${ri.quantity} ${match.unit}`);
-            await sb.from("ops_audit_log").insert({ entity_type: "purchase_list_item", entity_id: orderId, action: "add_item", performed_by: userId, branch_id: branchId, after_json: { item: match.name_en, quantity: ri.quantity } });
+        const inventoryItems = [...(invItems || [])];
+        const orderId = await getOrCreateActiveOrderId(sb, branchId, userId);
+
+        const { data: existingListItems } = await sb
+          .from("ops_purchase_order_items")
+          .select("item_id, quantity, completed_at")
+          .eq("order_id", orderId);
+
+        const added: string[] = [];
+        const duplicates: string[] = [];
+        const unresolvedMissing: Array<{ name: string; quantity: number; unit: string }> = [];
+        const autoCreated: Array<{ name: string; mode: "catalog" | "one_time" }> = [];
+
+        for (const requestedItem of requestedItems) {
+          const normalizedQty = Number(requestedItem.quantity) > 0 ? Number(requestedItem.quantity) : 1;
+          let match = findInventoryMatch(inventoryItems, requestedItem.name);
+
+          if (!match) {
+            const resolution = getMissingResolution(missingResolutions, requestedItem.name);
+
+            if (!resolution) {
+              unresolvedMissing.push({
+                name: requestedItem.name,
+                quantity: normalizedQty,
+                unit: requestedItem.unit || "pcs",
+              });
+              continue;
+            }
+
+            const defaultPar = resolution.action === "one_time" ? 1 : 5;
+            const defaultReorder = resolution.action === "one_time" ? 0 : 2;
+            const parLevel = resolution.par_level !== undefined ? Math.max(0, Math.round(resolution.par_level)) : defaultPar;
+            const reorderPoint = resolution.reorder_point !== undefined
+              ? Math.max(0, Math.round(resolution.reorder_point))
+              : Math.min(parLevel, defaultReorder);
+
+            const { data: createdItem, error: createError } = await sb
+              .from("ops_inventory_items")
+              .insert({
+                branch_id: branchId,
+                name_en: requestedItem.name,
+                category: resolution.category || "F&B",
+                unit: resolution.unit || requestedItem.unit || "pcs",
+                par_level: parLevel,
+                reorder_point: reorderPoint,
+                expiry_warn_days: resolution.expiry_warn_days ?? null,
+                current_stock: 0,
+                is_active: true,
+              })
+              .select("id, name_en, unit")
+              .single();
+
+            if (createError || !createdItem) {
+              unresolvedMissing.push({
+                name: requestedItem.name,
+                quantity: normalizedQty,
+                unit: requestedItem.unit || "pcs",
+              });
+              continue;
+            }
+
+            match = createdItem;
+            inventoryItems.push(createdItem);
+            autoCreated.push({ name: createdItem.name_en, mode: resolution.action });
+          }
+
+          const existing = (existingListItems || []).find((entry: any) => entry.item_id === match.id && !entry.completed_at);
+          if (existing) {
+            duplicates.push(`${match.name_en} (already ${(existing as any).quantity} on list)`);
+            continue;
+          }
+
+          const { error: insertError } = await sb.from("ops_purchase_order_items").insert({
+            order_id: orderId,
+            item_id: match.id,
+            quantity: normalizedQty,
+            branch_id: branchId,
+            added_by: userId,
+          });
+
+          if (!insertError) {
+            added.push(`${match.name_en} ×${normalizedQty} ${match.unit}`);
+            await sb.from("ops_audit_log").insert({
+              entity_type: "purchase_list_item",
+              entity_id: orderId,
+              action: "add_item",
+              performed_by: userId,
+              branch_id: branchId,
+              after_json: { item: match.name_en, quantity: normalizedQty },
+            });
           }
         }
-        return JSON.stringify({ success: true, added, not_found: notFound, duplicates });
+
+        return JSON.stringify({
+          success: true,
+          added,
+          duplicates,
+          auto_created: autoCreated,
+          requires_decision: unresolvedMissing.length > 0,
+          unresolved_missing: unresolvedMissing,
+          prompt: unresolvedMissing.length
+            ? `Missing: ${unresolvedMissing.map((item) => `${item.name} (${item.quantity} ${item.unit})`).join(", ")}. Should I add each to catalog or as one-time?`
+            : undefined,
+        });
       }
 
       case "update_purchase_item": {
         const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en").eq("branch_id", branchId).ilike("name_en", `%${args.item_name}%`);
         if (!invItems?.length) return `Item "${args.item_name}" not found in inventory`;
         
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        if (!orders?.length) return "No active purchase list found";
+        const orderId = await getLatestActiveOrderId(sb, branchId);
+        if (!orderId) return "No active purchase list found";
         
         const itemIds = invItems.map(i => i.id);
-        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orders[0].id).in("item_id", itemIds).is("completed_at", null).limit(1);
+        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orderId).in("item_id", itemIds).is("completed_at", null).limit(1);
         if (!listItem?.length) return `"${args.item_name}" is not on the current purchase list`;
         
         const updates: any = {};
@@ -1069,11 +1239,11 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en").eq("branch_id", branchId).ilike("name_en", `%${args.item_name}%`);
         if (!invItems?.length) return `Item "${args.item_name}" not found`;
         
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        if (!orders?.length) return "No active purchase list found";
+        const orderId = await getLatestActiveOrderId(sb, branchId);
+        if (!orderId) return "No active purchase list found";
         
         const itemIds = invItems.map(i => i.id);
-        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orders[0].id).in("item_id", itemIds).is("completed_at", null).limit(1);
+        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orderId).in("item_id", itemIds).is("completed_at", null).limit(1);
         if (!listItem?.length) return `"${args.item_name}" is not on the current purchase list`;
         
         const { error } = await sb.from("ops_purchase_order_items").delete().eq("id", listItem[0].id);
@@ -1087,12 +1257,12 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit, current_stock, mfg_offset_days, expiry_warn_days").eq("branch_id", branchId).ilike("name_en", `%${args.item_name}%`);
         if (!invItems?.length) return `Item "${args.item_name}" not found`;
         
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        if (!orders?.length) return "No active purchase list found";
+        const orderId = await getLatestActiveOrderId(sb, branchId);
+        if (!orderId) return "No active purchase list found";
         
         const item = invItems[0];
         const itemIds = invItems.map(i => i.id);
-        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orders[0].id).in("item_id", itemIds).is("completed_at", null).limit(1);
+        const { data: listItem } = await sb.from("ops_purchase_order_items").select("*").eq("order_id", orderId).in("item_id", itemIds).is("completed_at", null).limit(1);
         if (!listItem?.length) return `"${args.item_name}" is not on the current purchase list`;
         
         const receivedQty = (args.received_quantity as number) || listItem[0].quantity;
@@ -1121,7 +1291,7 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         await sb.from("ops_inventory_transactions").insert({
           branch_id: branchId, item_id: item.id, quantity: receivedQty,
           type: "receive", performed_by: userId, notes: "Received from purchase list",
-          related_order_id: orders[0].id,
+          related_order_id: orderId,
         });
         
         await sb.from("ops_audit_log").insert({ entity_type: "purchase_list_item", entity_id: listItem[0].id, action: "tick_off", performed_by: userId, branch_id: branchId, after_json: { item: item.name_en, received: receivedQty } });
@@ -1130,10 +1300,10 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
       }
 
       case "get_purchase_list": {
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        if (!orders?.length) return JSON.stringify({ items: [], message: "No active purchase list" });
+        const orderId = await getLatestActiveOrderId(sb, branchId);
+        if (!orderId) return JSON.stringify({ items: [], message: "No active purchase list" });
         
-        const { data: items } = await sb.from("ops_purchase_order_items").select("*, ops_inventory_items(name_en, unit)").eq("order_id", orders[0].id).order("completed_at", { ascending: true, nullsFirst: true });
+        const { data: items } = await sb.from("ops_purchase_order_items").select("*, ops_inventory_items(name_en, unit)").eq("order_id", orderId).order("completed_at", { ascending: true, nullsFirst: true });
         
         const userIds = [...new Set((items || []).map(i => i.added_by).filter(Boolean))];
         const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").in("user_id", userIds.length ? userIds : ["none"]);
@@ -1334,7 +1504,7 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const { data: items, error } = await q;
         if (error) return `Error: ${error.message}`;
         
-        const { data: activeOrders } = await sb.from("ops_purchase_orders").select("id, status, ops_purchase_order_items(item_id)").eq("branch_id", branchId).eq("status", "Active");
+        const { data: activeOrders } = await sb.from("ops_purchase_orders").select("id, status, ops_purchase_order_items(item_id)").eq("branch_id", branchId).in("status", [...ACTIVE_PURCHASE_ORDER_STATUSES]);
         const onListItemIds = new Set((activeOrders || []).flatMap(o => ((o.ops_purchase_order_items as any[]) || []).map((i: any) => i.item_id)));
         
         const { data: expiryBatches } = await sb.from("ops_inventory_expiry").select("*").eq("branch_id", branchId).eq("is_disposed", false);
@@ -1981,6 +2151,8 @@ Invalid: "forgot" → fix the system. "busy" → what specifically? Pattern of e
 ═══ PURCHASE LIST ═══
 One shared global list. Items added → purchased → ticked off (auto-adds to inventory with FIFO batch).
 When user says "buy", "need", "purchase", "add to list" → add_to_purchase_list.
+If add_to_purchase_list returns unresolved_missing/requires_decision, ALWAYS ask: "Should I add [item] to catalog or as one-time?"
+After user answers, call add_to_purchase_list again with missing_resolution for each missing item and execute immediately.
 When user says "got it", "received", "tick off" → tick_off_purchase_item.
 
 ═══ ROOM REFRESH / ISSUE ═══

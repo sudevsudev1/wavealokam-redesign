@@ -140,17 +140,26 @@ export default function PurchasePage() {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const handleAddOneTime = async () => {
+  const createAndAddFromFreeText = async (mode: 'catalog' | 'one_time') => {
     const name = search.trim();
     if (!name) return;
+
+    const defaults = mode === 'catalog'
+      ? { category: 'F&B', unit: 'pcs', par_level: 5, reorder_point: 2, expiry_warn_days: null as number | null }
+      : { category: 'F&B', unit: 'pcs', par_level: 1, reorder_point: 0, expiry_warn_days: null as number | null };
+
     try {
       const newItem = await createInventoryItem.mutateAsync({
-        name_en: name, category: 'F&B', unit: 'pcs', par_level: 5, reorder_point: 2, expiry_warn_days: null,
+        name_en: name,
+        ...defaults,
       });
       await addToList.mutateAsync([{ item_id: newItem.id, quantity: newItemQty }]);
-      toast.success(`"${name}" added to inventory & purchase list`);
-      setSearch(''); setNewItemQty(1);
-    } catch (e: any) { toast.error(e.message); }
+      toast.success(mode === 'catalog' ? `"${name}" added to catalog & purchase list` : `"${name}" added as one-time purchase item`);
+      setSearch('');
+      setNewItemQty(1);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   const handleDuplicateAction = async (action: 'add_more' | 'change_qty') => {
@@ -225,14 +234,15 @@ export default function PurchasePage() {
 
           {search.trim().length >= 2 && searchResults && searchResults.invMatches.length === 0 && searchResults.catMatches.length === 0 && (
             <div className="border border-dashed border-primary/30 rounded-lg p-2 space-y-1.5">
-              <p className="text-[10px] text-muted-foreground">"{search.trim()}" not found. Add as new item:</p>
+              <p className="text-[10px] text-muted-foreground">"{search.trim()}" not found. Add as:</p>
               <div className="flex items-center gap-1.5">
                 <div className="flex items-center gap-1">
                   <button onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))} className="h-5 w-5 rounded bg-muted flex items-center justify-center"><Minus className="h-2.5 w-2.5" /></button>
                   <Input type="number" min="1" value={newItemQty} onChange={e => setNewItemQty(Math.max(1, parseInt(e.target.value) || 1))} className="h-5 w-10 text-[10px] text-center px-0.5" />
                   <button onClick={() => setNewItemQty(newItemQty + 1)} className="h-5 w-5 rounded bg-muted flex items-center justify-center"><Plus className="h-2.5 w-2.5" /></button>
                 </div>
-                <button onClick={handleAddOneTime} className="text-[9px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-0.5"><PlusCircle className="h-3 w-3" /> Add to list</button>
+                <button onClick={() => createAndAddFromFreeText('catalog')} className="text-[9px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-0.5"><PlusCircle className="h-3 w-3" /> Catalog</button>
+                <button onClick={() => createAndAddFromFreeText('one_time')} className="text-[9px] px-2 py-1 rounded bg-muted text-foreground hover:bg-muted/80 flex items-center gap-0.5"><PlusCircle className="h-3 w-3" /> One-time</button>
               </div>
             </div>
           )}
