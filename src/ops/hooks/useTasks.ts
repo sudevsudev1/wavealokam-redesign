@@ -33,6 +33,7 @@ export interface OpsTask {
   receipt_required: boolean;
   tags: string[];
   related_room_id: string | null;
+  is_hidden: boolean;
   created_at: string;
   updated_at: string;
 }
