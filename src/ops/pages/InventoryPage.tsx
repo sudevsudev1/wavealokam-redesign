@@ -5,7 +5,7 @@ import { useOpsAuth } from '../contexts/OpsAuthContext';
 import {
   useInventoryItems, useExpiryItems, useAddExpiry, useDisposeExpiry,
   useUpdateStock, useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
-  useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
+  useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate, useUpdatePurchaseTemplate,
   useCreateRefillTemplate, useDeleteRefillTemplate, useAddToPurchaseList, useCreateInventoryItem,
   InventoryItem, InventoryTransaction, PurchaseTemplate, InventoryExpiry,
 } from '../hooks/useInventory';
@@ -1234,22 +1234,40 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
   );
 }
 
-/* ─── Issue Templates Section (Room Refill + Custom Templates) ─── */
+/* ─── Linen Set Composition Mapping ─── */
+const LINEN_SET_INVENTORY_MAP: Record<string, string> = {
+  'Bedsheet': 'Bed Sheet (Double)',
+  'Pillow Cover': 'Pillow Cover',
+  'Towel': 'Hand Towel',
+  'Bath Towel': 'Bath Towel (Large)',
+  'Hand Towel': 'Hand Towel',
+  'Blanket': 'Blanket',
+  'Duvet Cover': 'Bed Sheet (Single)',
+  'Mattress Protector': 'Bath Mat',
+};
+
+const DEFAULT_ISSUE_SET_COMPOSITION: Record<string, number> = {
+  'Bedsheet': 1, 'Pillow Cover': 2, 'Towel': 1, 'Bath Towel': 1,
+  'Hand Towel': 1, 'Blanket': 1, 'Duvet Cover': 1, 'Mattress Protector': 1,
+};
+
+/* ─── Issue Templates Section ─── */
 function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
   const { language } = useOpsLanguage();
-  const { isAdmin } = useOpsAuth();
+  const { profile } = useOpsAuth();
   const { data: rooms = [] } = useRooms();
   const { data: refillTemplates = [] } = useRefillTemplates();
   const updateStock = useUpdateStock();
-  const applyRefill = useApplyRefillTemplate();
   const createRefillTemplate = useCreateRefillTemplate();
   const deleteRefillTemplate = useDeleteRefillTemplate();
+  
 
   const [showCreate, setShowCreate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateItems, setNewTemplateItems] = useState<{ item_id: string; quantity: number }[]>([]);
   const [searchItem, setSearchItem] = useState('');
   const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -1260,7 +1278,6 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
     return getName(item);
   };
 
-  // Group templates by room_type (which serves as template name)
   const templateGroups = useMemo(() => {
     const groups: Record<string, typeof refillTemplates> = {};
     for (const rt of refillTemplates) {
@@ -1292,6 +1309,31 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
     setNewTemplateItems(prev => prev.map(ti => ti.item_id === itemId ? { ...ti, quantity: Math.max(1, qty) } : ti));
   };
 
+  // Add entire linen set to template items
+  const handleAddLinenSet = () => {
+    const setItems: { item_id: string; quantity: number }[] = [];
+    // Deduplicate inventory names to avoid double-adding Hand Towel
+    const added = new Set(newTemplateItems.map(ti => ti.item_id));
+    const namesSeen = new Set<string>();
+    for (const [linenType, qty] of Object.entries(DEFAULT_ISSUE_SET_COMPOSITION)) {
+      if (qty <= 0) continue;
+      const inventoryName = LINEN_SET_INVENTORY_MAP[linenType];
+      if (!inventoryName || namesSeen.has(inventoryName)) continue;
+      namesSeen.add(inventoryName);
+      const invItem = items.find(i => i.name_en === inventoryName && i.category === 'Linens');
+      if (invItem && !added.has(invItem.id)) {
+        setItems.push({ item_id: invItem.id, quantity: qty });
+        added.add(invItem.id);
+      }
+    }
+    if (setItems.length === 0) {
+      toast.error('No matching linen items found in inventory');
+      return;
+    }
+    setNewTemplateItems(prev => [...prev, ...setItems]);
+    toast.success(`Added ${setItems.length} linen items`);
+  };
+
   const handleSaveTemplate = async () => {
     if (!newTemplateName.trim() || newTemplateItems.length === 0) return;
     try {
@@ -1302,7 +1344,7 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
           quantity: ti.quantity,
         });
       }
-      toast.success(`Template "${newTemplateName}" saved with ${newTemplateItems.length} items`);
+      toast.success(`Template "${newTemplateName}" saved`);
       setShowCreate(false);
       setNewTemplateName('');
       setNewTemplateItems([]);
@@ -1314,8 +1356,8 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
   const handleApplyTemplate = async (templateName: string) => {
     setApplyingTemplate(templateName);
     try {
-      const templateItems = templateGroups[templateName] || [];
-      for (const t of templateItems) {
+      const tplItems = templateGroups[templateName] || [];
+      for (const t of tplItems) {
         const tAny = t as any;
         await updateStock.mutateAsync({
           itemId: tAny.item_id,
@@ -1324,7 +1366,7 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
           notes: `Issue template: ${templateName}`,
         });
       }
-      toast.success(`Issued ${templateItems.length} items from "${templateName}"`);
+      toast.success(`Issued ${tplItems.length} items from "${templateName}"`);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -1332,28 +1374,66 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
     }
   };
 
-  const handleDeleteTemplateItem = async (id: string) => {
+  const handleDeleteEntireTemplate = async (templateName: string) => {
+    const tplItems = templateGroups[templateName] || [];
     try {
-      await deleteRefillTemplate.mutateAsync(id);
-      toast.success('Removed from template');
+      for (const t of tplItems) {
+        await deleteRefillTemplate.mutateAsync((t as any).id);
+      }
+      toast.success(`Template "${templateName}" deleted`);
     } catch (e: any) {
       toast.error(e.message);
     }
   };
 
+  const handleStartEdit = (templateName: string) => {
+    const tplItems = templateGroups[templateName] || [];
+    setEditingTemplate(templateName);
+    setNewTemplateName(templateName);
+    setNewTemplateItems(tplItems.map((t: any) => ({ item_id: t.item_id, quantity: t.quantity })));
+    setShowCreate(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTemplate || !newTemplateName.trim() || newTemplateItems.length === 0) return;
+    try {
+      const oldItems = templateGroups[editingTemplate] || [];
+      for (const t of oldItems) {
+        await deleteRefillTemplate.mutateAsync((t as any).id);
+      }
+      for (const ti of newTemplateItems) {
+        await createRefillTemplate.mutateAsync({
+          room_type: newTemplateName.trim(),
+          item_id: ti.item_id,
+          quantity: ti.quantity,
+        });
+      }
+      toast.success(`Template "${newTemplateName}" updated`);
+      setEditingTemplate(null);
+      setNewTemplateName('');
+      setNewTemplateItems([]);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const isEditing = editingTemplate !== null;
+
   return (
     <div className="space-y-3">
       <p className="text-[10px] text-muted-foreground">Issue templates deduct grouped items from inventory (e.g., room refresh, kitchen daily, office).</p>
 
-      <Button onClick={() => { setShowCreate(true); setNewTemplateItems([]); setNewTemplateName(''); }} className="w-full text-xs gap-1.5" variant="outline">
-        <Plus className="h-3.5 w-3.5" /> Create Issue Template
-      </Button>
+      {!isEditing && (
+        <Button onClick={() => { setShowCreate(true); setNewTemplateItems([]); setNewTemplateName(''); }} className="w-full text-xs gap-1.5" variant="outline">
+          <Plus className="h-3.5 w-3.5" /> Create Issue Template
+        </Button>
+      )}
 
-      {/* Create New Template */}
-      {showCreate && (
+      {/* Create / Edit Template Form */}
+      {(showCreate || isEditing) && (
         <Card>
           <CardHeader className="py-2.5 px-3">
-            <CardTitle className="text-sm">New Issue Template</CardTitle>
+            <CardTitle className="text-sm">{isEditing ? `Edit: ${editingTemplate}` : 'New Issue Template'}</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 space-y-2">
             <Input
@@ -1361,26 +1441,31 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
               placeholder="Template name (e.g., Kitchen Daily, Room 101, Office)" className="text-sm"
             />
 
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={searchItem} onChange={e => setSearchItem(e.target.value)}
-                placeholder="Search items to add..." className="pl-7 text-xs h-8"
-              />
-              {filteredSearchItems.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
-                  {filteredSearchItems.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => addItemToNew(item.id)}
-                      className="w-full text-left px-3 py-1.5 hover:bg-muted text-xs flex justify-between"
-                    >
-                      <span>{item.name_en}</span>
-                      <span className="text-muted-foreground">{item.category}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={searchItem} onChange={e => setSearchItem(e.target.value)}
+                  placeholder="Search items..." className="pl-7 text-xs h-8"
+                />
+                {filteredSearchItems.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                    {filteredSearchItems.map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => addItemToNew(item.id)}
+                        className="w-full text-left px-3 py-1.5 hover:bg-muted text-xs flex justify-between"
+                      >
+                        <span>{item.name_en}</span>
+                        <span className="text-muted-foreground">{item.category}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1 shrink-0 whitespace-nowrap" onClick={handleAddLinenSet}>
+                🛏️ + Linen Set
+              </Button>
             </div>
 
             {newTemplateItems.length > 0 && (
@@ -1402,10 +1487,14 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
             )}
 
             <div className="flex gap-2">
-              <Button variant="ghost" className="flex-1 text-xs" onClick={() => { setShowCreate(false); setNewTemplateItems([]); }}>Cancel</Button>
-              <Button className="flex-1 text-xs gap-1" onClick={handleSaveTemplate} disabled={!newTemplateName.trim() || newTemplateItems.length === 0 || createRefillTemplate.isPending}>
+              <Button variant="ghost" className="flex-1 text-xs" onClick={() => { setShowCreate(false); setEditingTemplate(null); setNewTemplateItems([]); }}>Cancel</Button>
+              <Button
+                className="flex-1 text-xs gap-1"
+                onClick={isEditing ? handleSaveEdit : handleSaveTemplate}
+                disabled={!newTemplateName.trim() || newTemplateItems.length === 0 || createRefillTemplate.isPending}
+              >
                 {createRefillTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                Save Template
+                {isEditing ? 'Update' : 'Save'}
               </Button>
             </div>
           </CardContent>
@@ -1413,7 +1502,7 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
       )}
 
       {/* Existing Templates */}
-      {Object.keys(templateGroups).length === 0 && !showCreate && (
+      {Object.keys(templateGroups).length === 0 && !showCreate && !isEditing && (
         <Card>
           <CardContent className="py-8 text-center">
             <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -1422,28 +1511,35 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
         </Card>
       )}
 
-      {Object.entries(templateGroups).map(([name, templateItems]) => (
+      {Object.entries(templateGroups).map(([name, tplItems]) => (
         <Card key={name}>
           <CardContent className="p-3">
             <div className="flex items-start justify-between mb-1.5">
               <div>
                 <p className="font-medium text-sm">{name}</p>
-                <p className="text-[10px] text-muted-foreground">{templateItems.length} items</p>
+                <p className="text-[10px] text-muted-foreground">{tplItems.length} items</p>
               </div>
-              <Button
-                size="sm" variant="outline" className="h-6 text-[10px] px-2 gap-1"
-                onClick={() => handleApplyTemplate(name)}
-                disabled={applyingTemplate === name}
-              >
-                {applyingTemplate === name ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUp className="h-3 w-3" />}
-                Issue All
-              </Button>
+              <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => handleStartEdit(name)} title="Edit">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => handleDeleteEntireTemplate(name)} title="Delete">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm" variant="outline" className="h-6 text-[10px] px-2 gap-1"
+                  onClick={() => handleApplyTemplate(name)}
+                  disabled={applyingTemplate === name}
+                >
+                  {applyingTemplate === name ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUp className="h-3 w-3" />}
+                  Issue All
+                </Button>
+              </div>
             </div>
             <div className="flex flex-wrap gap-1">
-              {templateItems.map((rt: any) => (
+              {tplItems.map((rt: any) => (
                 <Badge key={rt.id} variant="secondary" className="text-[10px] gap-0.5">
                   {getItemName(rt.item_id)} ×{rt.quantity}
-                  <button className="ml-0.5 hover:text-destructive" onClick={() => handleDeleteTemplateItem(rt.id)}>×</button>
                 </Badge>
               ))}
             </div>
@@ -1461,6 +1557,7 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
   const { data: profiles = [] } = useOpsProfiles();
   const createTemplate = useCreatePurchaseTemplate();
   const deleteTemplate = useDeletePurchaseTemplate();
+  const updateTemplate = useUpdatePurchaseTemplate();
   const addToList = useAddToPurchaseList();
   const [showCreate, setShowCreate] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -1468,6 +1565,7 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
   const [templateItems, setTemplateItems] = useState<{ item_id: string; quantity: number }[]>([]);
   const [searchItem, setSearchItem] = useState('');
   const [creatingFromList, setCreatingFromList] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const getName = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
@@ -1531,6 +1629,7 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
 
       setTemplateItems(orderItems.map(oi => ({ item_id: oi.item_id, quantity: oi.quantity })));
       setShowCreate(true);
+      setEditingId(null);
       setTemplateName('');
       setTemplateDesc('From current purchase list');
     } catch (e: any) {
@@ -1558,6 +1657,33 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
     }
   };
 
+  const handleStartEdit = (tmpl: PurchaseTemplate) => {
+    setEditingId(tmpl.id);
+    setTemplateName(tmpl.name);
+    setTemplateDesc(tmpl.description || '');
+    setTemplateItems([...tmpl.items_json]);
+    setShowCreate(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !templateName.trim() || templateItems.length === 0) return;
+    try {
+      await updateTemplate.mutateAsync({
+        id: editingId,
+        name: templateName.trim(),
+        description: templateDesc.trim() || undefined,
+        items_json: templateItems,
+      });
+      toast.success('Template updated');
+      setEditingId(null);
+      setTemplateName('');
+      setTemplateDesc('');
+      setTemplateItems([]);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const handleUseTemplate = async (template: PurchaseTemplate) => {
     try {
       const cart = template.items_json.map(ti => ({ item_id: ti.item_id, quantity: ti.quantity }));
@@ -1577,28 +1703,33 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
     }
   };
 
+  const isEditing = editingId !== null;
+  const showForm = showCreate || isEditing;
+
   if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
     <div className="space-y-3">
       <p className="text-[10px] text-muted-foreground">Purchase templates add all items to the purchase list at once.</p>
 
-      <div className="flex gap-2">
-        <Button onClick={() => { setShowCreate(true); setTemplateItems([]); }} className="flex-1 text-xs gap-1.5" variant="outline">
-          <ListPlus className="h-3.5 w-3.5" /> Create Template
-        </Button>
-        <Button
-          onClick={handleCreateFromCurrentList}
-          disabled={creatingFromList}
-          className="flex-1 text-xs gap-1.5"
-          variant="outline"
-        >
-          {creatingFromList ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5" />}
-          From Current List
-        </Button>
-      </div>
+      {!isEditing && (
+        <div className="flex gap-2">
+          <Button onClick={() => { setShowCreate(true); setTemplateItems([]); setEditingId(null); }} className="flex-1 text-xs gap-1.5" variant="outline">
+            <ListPlus className="h-3.5 w-3.5" /> Create Template
+          </Button>
+          <Button
+            onClick={handleCreateFromCurrentList}
+            disabled={creatingFromList}
+            className="flex-1 text-xs gap-1.5"
+            variant="outline"
+          >
+            {creatingFromList ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+            From Current List
+          </Button>
+        </div>
+      )}
 
-      {templates.length === 0 && !showCreate && (
+      {templates.length === 0 && !showForm && (
         <Card>
           <CardContent className="py-8 text-center">
             <ListPlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -1607,10 +1738,10 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
         </Card>
       )}
 
-      {showCreate && (
+      {showForm && (
         <Card>
           <CardHeader className="py-2.5 px-3">
-            <CardTitle className="text-sm">New Purchase Template</CardTitle>
+            <CardTitle className="text-sm">{isEditing ? 'Edit Purchase Template' : 'New Purchase Template'}</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 space-y-2">
             <Input
@@ -1663,10 +1794,14 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
             )}
 
             <div className="flex gap-2">
-              <Button variant="ghost" className="flex-1 text-xs" onClick={() => { setShowCreate(false); setTemplateItems([]); }}>Cancel</Button>
-              <Button className="flex-1 text-xs gap-1" onClick={handleCreate} disabled={!templateName.trim() || templateItems.length === 0 || createTemplate.isPending}>
-                {createTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                Save
+              <Button variant="ghost" className="flex-1 text-xs" onClick={() => { setShowCreate(false); setEditingId(null); setTemplateItems([]); }}>Cancel</Button>
+              <Button
+                className="flex-1 text-xs gap-1"
+                onClick={isEditing ? handleSaveEdit : handleCreate}
+                disabled={!templateName.trim() || templateItems.length === 0 || createTemplate.isPending || updateTemplate.isPending}
+              >
+                {(createTemplate.isPending || updateTemplate.isPending) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                {isEditing ? 'Update' : 'Save'}
               </Button>
             </div>
           </CardContent>
@@ -1683,11 +1818,14 @@ function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
                 <p className="text-[10px] text-muted-foreground">by {getProfileName(tmpl.created_by)}</p>
               </div>
               <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => handleStartEdit(tmpl)} title="Edit">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => handleDelete(tmpl.id)} title="Delete">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
                 <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleUseTemplate(tmpl)}>
                   Add to List
-                </Button>
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => handleDelete(tmpl.id)}>
-                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
