@@ -1443,9 +1443,7 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
               {templateItems.map((rt: any) => (
                 <Badge key={rt.id} variant="secondary" className="text-[10px] gap-0.5">
                   {getItemName(rt.item_id)} ×{rt.quantity}
-                  {isAdmin && (
-                    <button className="ml-0.5 hover:text-destructive" onClick={() => handleDeleteTemplateItem(rt.id)}>×</button>
-                  )}
+                  <button className="ml-0.5 hover:text-destructive" onClick={() => handleDeleteTemplateItem(rt.id)}>×</button>
                 </Badge>
               ))}
             </div>
