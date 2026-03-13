@@ -1296,8 +1296,8 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
       }
 
       case "get_purchase_list": {
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        if (!orders?.length) return JSON.stringify({ items: [], message: "No active purchase list" });
+        const orderId = await getLatestActiveOrderId(sb, branchId);
+        if (!orderId) return JSON.stringify({ items: [], message: "No active purchase list" });
         
         const { data: items } = await sb.from("ops_purchase_order_items").select("*, ops_inventory_items(name_en, unit)").eq("order_id", orders[0].id).order("completed_at", { ascending: true, nullsFirst: true });
         
