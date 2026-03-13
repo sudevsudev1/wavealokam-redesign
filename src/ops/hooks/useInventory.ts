@@ -456,6 +456,35 @@ export function useCompleteListItem() {
           notes: 'Added from purchase list',
           performed_by: profile.userId,
         } as any);
+
+        // Create expiry batch (FIFO) using item's shelf life and mfg offset
+        const { data: itemMeta } = await supabase
+          .from('ops_inventory_items')
+          .select('mfg_offset_days, expiry_warn_days')
+          .eq('id', itemId)
+          .single();
+
+        if (itemMeta) {
+          const today = new Date();
+          const mfgOffset = (itemMeta as any).mfg_offset_days ?? 2;
+          const shelfLife = (itemMeta as any).expiry_warn_days;
+          const receivedDate = today.toISOString().slice(0, 10);
+          const mfgDate = new Date(today);
+          mfgDate.setDate(mfgDate.getDate() - mfgOffset);
+          // Expiry = mfg date + shelf life (or default 30 days)
+          const expiryDate = new Date(mfgDate);
+          expiryDate.setDate(expiryDate.getDate() + (shelfLife || 30));
+
+          await supabase.from('ops_inventory_expiry').insert({
+            branch_id: profile.branchId,
+            item_id: itemId,
+            quantity,
+            received_date: receivedDate,
+            mfg_date: mfgDate.toISOString().slice(0, 10),
+            expiry_date: expiryDate.toISOString().slice(0, 10),
+            batch_label: `PL-${today.toISOString().slice(0, 10)}`,
+          } as any);
+        }
       }
 
       // Audit log
