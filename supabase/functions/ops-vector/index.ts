@@ -985,6 +985,108 @@ const VECTOR_TOOLS = [
       },
     },
   },
+
+  // ═══ RECURRING TASKS ═══
+  {
+    type: "function",
+    function: {
+      name: "get_recurring_tasks",
+      description: "Get recurring tasks and meta task groups. Shows frequency, next execution, assignees, due/overdue status.",
+      parameters: {
+        type: "object",
+        properties: {
+          meta_task_id: { type: "string", description: "Filter by meta task group ID" },
+          include_inactive: { type: "boolean", description: "Include deactivated tasks" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_recurring_meta_task",
+      description: "Create a meta task group for organizing related recurring tasks (e.g., 'AC Filter Cleaning' groups per-room tasks).",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Meta task group name" },
+          description: { type: "string" },
+          category: { type: "string", description: "Default: Operations" },
+          priority: { type: "string", description: "Default: Medium" },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_recurring_task",
+      description: "Create a recurring task with a frequency in days. Can be standalone or part of a meta task group. Parse: 'clean AC filter in 101 every 7 days' → title, frequency_days=7, room=101.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          category: { type: "string", description: "Default: Operations" },
+          priority: { type: "string", description: "Default: Medium" },
+          frequency_days: { type: "number", description: "How often in days (e.g., 7 for weekly, 90 for quarterly)" },
+          assigned_to_names: { type: "array", items: { type: "string" }, description: "Display names of assignees" },
+          related_room_id: { type: "string", description: "Room ID if room-specific" },
+          meta_task_id: { type: "string", description: "UUID of meta task group to attach to" },
+        },
+        required: ["title", "frequency_days"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_recurring_task",
+      description: "Update a recurring task: change title, frequency, assignees, active status, or mark as executed (resets next_execution_at).",
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: { type: "string", description: "UUID of the recurring task" },
+          title: { type: "string" },
+          frequency_days: { type: "number" },
+          assigned_to_names: { type: "array", items: { type: "string" } },
+          is_active: { type: "boolean" },
+          mark_executed: { type: "boolean", description: "Mark as just executed — resets next_execution_at to now + frequency_days" },
+        },
+        required: ["task_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_recurring_task",
+      description: "Delete a recurring task. Admin only.",
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: { type: "string" },
+        },
+        required: ["task_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_recurring_meta_task",
+      description: "Delete a meta task group and all its sub-tasks. Admin only.",
+      parameters: {
+        type: "object",
+        properties: {
+          meta_task_id: { type: "string" },
+        },
+        required: ["meta_task_id"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
