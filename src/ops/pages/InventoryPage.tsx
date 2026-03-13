@@ -202,70 +202,8 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
       return;
     }
 
-    // Bulk edit fields
-    if (action === 'apply_bulk_edit') {
-      if (!bulkEditField || !bulkEditValue) {
-        toast.error('Select a field and enter a value');
-        return;
-      }
-      const numValue = parseInt(bulkEditValue);
-      if (isNaN(numValue) || numValue < 0) {
-        toast.error('Enter a valid number');
-        return;
-      }
-      const confirmed = window.confirm(`Set ${bulkEditField} to ${numValue} for ${ids.length} item(s)?`);
-      if (!confirmed) return;
-
-      setBulkPending(true);
-      try {
-        for (const id of ids) {
-          const updates: Record<string, unknown> = {};
-          if (bulkEditField === 'par_level') updates.par_level = numValue;
-          if (bulkEditField === 'reorder_point') updates.reorder_point = numValue;
-          if (bulkEditField === 'mfg_offset_days') updates.mfg_offset_days = numValue;
-          if (bulkEditField === 'expiry_warn_days') updates.expiry_warn_days = numValue || null;
-
-          await updateItem.mutateAsync({ id, updates: updates as any });
-
-          // Recalculate batches if mfg or shelf life changed
-          if (bulkEditField === 'mfg_offset_days' || bulkEditField === 'expiry_warn_days') {
-            const { data: batches } = await supabase
-              .from('ops_inventory_expiry')
-              .select('id, received_date')
-              .eq('item_id', id)
-              .eq('is_disposed', false);
-            if (batches) {
-              for (const batch of batches) {
-                if (batch.received_date) {
-                  const rcvd = new Date(batch.received_date);
-                  const batchUpdates: Record<string, unknown> = {};
-                  if (bulkEditField === 'mfg_offset_days') {
-                    const mfgDate = new Date(rcvd);
-                    mfgDate.setDate(mfgDate.getDate() - numValue);
-                    batchUpdates.mfg_date = mfgDate.toISOString().split('T')[0];
-                  }
-                  if (bulkEditField === 'expiry_warn_days' && numValue) {
-                    const expDate = new Date(rcvd);
-                    expDate.setDate(expDate.getDate() + numValue);
-                    batchUpdates.expiry_date = expDate.toISOString().split('T')[0];
-                  }
-                  if (Object.keys(batchUpdates).length > 0) {
-                    await supabase.from('ops_inventory_expiry').update(batchUpdates as any).eq('id', batch.id);
-                  }
-                }
-              }
-            }
-          }
-        }
-        toast.success(`${bulkEditField} updated for ${ids.length} item(s)`);
-        setBulkEditField('');
-        setBulkEditValue('');
-      } catch (e: any) {
-        toast.error(e.message);
-      } finally {
-        setBulkPending(false);
-      }
-      return;
+    if (action === 'edit') {
+      setShowBulkEdit(true);
     }
   };
 
