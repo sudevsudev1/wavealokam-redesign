@@ -1,0 +1,1 @@
+UPDATE public.ops_inventory_items SET last_received_at = now() WHERE last_received_at IS NULL;

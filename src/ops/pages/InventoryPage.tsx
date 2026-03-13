@@ -517,6 +517,9 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
   const [mfgOffsetDays, setMfgOffsetDays] = useState(String(item.mfg_offset_days ?? 2));
   const [category, setCategory] = useState(item.category);
   const [unit, setUnit] = useState(item.unit);
+  const [lastPurchased, setLastPurchased] = useState(
+    item.last_received_at ? new Date(item.last_received_at).toISOString().split('T')[0] : ''
+  );
 
   const handleSave = async () => {
     try {
@@ -533,6 +536,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
           mfg_offset_days: newMfgOffset,
           category,
           unit,
+          last_received_at: lastPurchased ? new Date(lastPurchased).toISOString() : null,
         },
       });
 
@@ -599,6 +603,10 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Mfg Offset (days)</label>
               <Input type="number" min="0" value={mfgOffsetDays} onChange={e => setMfgOffsetDays(e.target.value)} className="mt-1 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Last Purchased</label>
+              <Input type="date" value={lastPurchased} onChange={e => setLastPurchased(e.target.value)} className="mt-1 text-sm" />
             </div>
           </div>
 
