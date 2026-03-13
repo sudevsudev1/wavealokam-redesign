@@ -277,37 +277,18 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
 
       {/* Bulk Action Bar for edit mode */}
       {editMode && selectedIds.size > 0 && (
-        <div className="space-y-2">
-          <BulkActionBar
-            selectedCount={selectedIds.size}
-            totalCount={filtered.length}
-            onSelectAll={() => setSelectedIds(new Set(filtered.map(i => i.id)))}
-            onDeselectAll={() => setSelectedIds(new Set())}
-            actions={[
-              { label: 'Delete', value: 'delete', variant: 'destructive', icon: <Trash2 className="h-3 w-3" /> },
-              { label: 'Bulk Edit Field', value: 'apply_bulk_edit', icon: <Pencil className="h-3 w-3" /> },
-            ]}
-            onAction={handleBulkAction}
-            isPending={bulkPending}
-          />
-          {/* Bulk edit controls */}
-          <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-muted/50 border">
-            <Select value={bulkEditField} onValueChange={setBulkEditField}>
-              <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue placeholder="Select field..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="par_level">Par Level</SelectItem>
-                <SelectItem value="reorder_point">Reorder Point</SelectItem>
-                <SelectItem value="mfg_offset_days">Mfg Offset (days)</SelectItem>
-                <SelectItem value="expiry_warn_days">Shelf Life (days)</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              type="number" min="0" value={bulkEditValue}
-              onChange={e => setBulkEditValue(e.target.value)}
-              placeholder="Value" className="h-7 w-20 text-xs"
-            />
-          </div>
-        </div>
+        <BulkActionBar
+          selectedCount={selectedIds.size}
+          totalCount={filtered.length}
+          onSelectAll={() => setSelectedIds(new Set(filtered.map(i => i.id)))}
+          onDeselectAll={() => setSelectedIds(new Set())}
+          actions={[
+            { label: 'Edit Selected', value: 'edit', icon: <Pencil className="h-3 w-3" /> },
+            { label: 'Delete', value: 'delete', variant: 'destructive', icon: <Trash2 className="h-3 w-3" /> },
+          ]}
+          onAction={handleBulkAction}
+          isPending={bulkPending}
+        />
       )}
 
       <div className="space-y-1.5">
