@@ -198,11 +198,13 @@ export default function InventoryPage() {
             {lowStockCount > 0 && <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{lowStockCount}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex-shrink-0 text-xs px-3">Templates</TabsTrigger>
+          <TabsTrigger value="ledger" className="flex-shrink-0 text-xs px-3">Ledger</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
         <TabsContent value="due"><DueForOrderTab items={items} expiryBatches={expiryBatches} /></TabsContent>
         <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
+        <TabsContent value="ledger"><FullLedgerTab items={items} /></TabsContent>
       </Tabs>
     </div>
   );
@@ -905,6 +907,116 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
             </div>
           );
         })
+      )}
+    </div>
+  );
+}
+
+
+/* ─── Tab: Full Transaction Ledger ─── */
+function FullLedgerTab({ items }: { items: InventoryItem[] }) {
+  const { language } = useOpsLanguage();
+  const { data: txns, isLoading } = useInventoryTransactions();
+  const { data: profiles } = useOpsProfiles();
+  const [filterType, setFilterType] = useState<string>('all');
+  const [searchQ, setSearchQ] = useState('');
+
+  const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+  const itemMap = new Map(items.map(i => [i.id, language === 'ml' && i.name_ml ? i.name_ml : i.name_en]));
+
+  const typeIcon: Record<string, { icon: typeof ArrowDown; color: string; label: string }> = {
+    in: { icon: ArrowDown, color: 'text-emerald-600', label: 'Stock In' },
+    out: { icon: ArrowUp, color: 'text-orange-600', label: 'Issue' },
+    adjust: { icon: RotateCcw, color: 'text-blue-600', label: 'Adjust' },
+    expire: { icon: Trash2, color: 'text-red-600', label: 'Expired' },
+    refill: { icon: Package, color: 'text-purple-600', label: 'Refill' },
+    damage: { icon: AlertTriangle, color: 'text-red-600', label: 'Damage' },
+    waste: { icon: Trash2, color: 'text-amber-600', label: 'Waste' },
+  };
+
+  const filtered = useMemo(() => {
+    if (!txns) return [];
+    let list = txns;
+    if (filterType !== 'all') list = list.filter(t => t.type === filterType);
+    if (searchQ.trim()) {
+      const q = searchQ.toLowerCase();
+      list = list.filter(t => {
+        const name = itemMap.get(t.item_id) || '';
+        return name.toLowerCase().includes(q) || (t.notes || '').toLowerCase().includes(q);
+      });
+    }
+    return list;
+  }, [txns, filterType, searchQ, itemMap]);
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search item or notes..."
+            value={searchQ}
+            onChange={e => setSearchQ(e.target.value)}
+            className="pl-7 h-8 text-xs"
+          />
+        </div>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-28 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="in">Stock In</SelectItem>
+            <SelectItem value="out">Issue</SelectItem>
+            <SelectItem value="adjust">Adjust</SelectItem>
+            <SelectItem value="refill">Refill</SelectItem>
+            <SelectItem value="expire">Expired</SelectItem>
+            <SelectItem value="damage">Damage</SelectItem>
+            <SelectItem value="waste">Waste</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">No transactions found</p>
+      ) : (
+        <div className="space-y-1">
+          {filtered.map(tx => {
+            const info = typeIcon[tx.type] || typeIcon['adjust'];
+            const Icon = info.icon;
+            const isDeduction = ['out', 'expire', 'refill', 'damage', 'waste'].includes(tx.type);
+            const displayQty = isDeduction ? -Math.abs(tx.quantity) : Math.abs(tx.quantity);
+            const itemName = itemMap.get(tx.item_id) || 'Unknown';
+
+            return (
+              <Card key={tx.id} className="p-0">
+                <CardContent className="p-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Icon className={`h-3.5 w-3.5 shrink-0 ${info.color}`} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{itemName}</p>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span>{info.label}</span>
+                        {tx.notes && <span className="truncate max-w-[140px]">· {tx.notes}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end shrink-0 gap-0.5">
+                    <span className={`font-mono text-xs font-medium ${isDeduction ? 'text-orange-600' : 'text-emerald-600'}`}>
+                      {isDeduction ? '' : '+'}{displayQty}
+                    </span>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span>{profileMap.get(tx.performed_by) || 'System'}</span>
+                      <span>· {format(parseISO(tx.created_at), 'dd MMM HH:mm')}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );
