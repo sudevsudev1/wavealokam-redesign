@@ -10,8 +10,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X, AlertTriangle, PlusCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface ParExceedInfo {
+  itemId: string;
+  name: string;
+  unit: string;
+  currentStock: number;
+  parLevel: number;
+  requestedQty: number;
+}
 
 const DRAFT_KEY = 'quick_purchase_cart';
 
