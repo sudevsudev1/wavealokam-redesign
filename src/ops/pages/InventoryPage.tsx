@@ -814,7 +814,7 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
 }
 
 /* ─── Tab 2: Due For Order ─── */
-function DueForOrderTab({ items }: { items: InventoryItem[] }) {
+function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expiryBatches: import('../hooks/useInventory').InventoryExpiry[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
   const addToList = useAddToPurchaseList();
@@ -832,15 +832,37 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
 
+  const tomorrow = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
+  const isConsumable = (category: string) => CONSUMABLE_CATEGORIES.includes(category);
+
   const dueItems = useMemo(() => {
     return items.filter(i => {
-      if (i.current_stock > i.reorder_point) return false;
+      if (isConsumable(i.category)) {
+        // Consumable: due when any active batch expires within 1 day
+        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
+        if (batches.length === 0 && i.current_stock > 0) {
+          // Has stock but no tracked batches — flag it
+        } else if (batches.length === 0) {
+          return false;
+        } else {
+          const isDue = batches.some(b => b.expiry_date <= tomorrow);
+          if (!isDue) return false;
+        }
+      } else {
+        // Non-consumable: quantity-based
+        if (i.current_stock > i.reorder_point) return false;
+      }
       const name = getName(i);
       const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || i.name_en.toLowerCase().includes(search.toLowerCase());
       const matchesCat = categoryFilter === 'all' || i.category === categoryFilter;
       return matchesSearch && matchesCat;
     });
-  }, [items, search, categoryFilter, language]);
+  }, [items, expiryBatches, search, categoryFilter, language, tomorrow]);
 
   const toggleItem = (id: string) => {
     const next = new Set(selectedItems);
