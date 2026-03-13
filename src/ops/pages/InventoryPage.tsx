@@ -1564,8 +1564,275 @@ function RecentTransactions({ items }: { items: InventoryItem[] }) {
   );
 }
 
-/* ─── Tab 4: Templates ─── */
+/* ─── Tab 3: Templates (Issue + Purchase List) ─── */
 function TemplatesTab({ items }: { items: InventoryItem[] }) {
+  const { language } = useOpsLanguage();
+  const { isAdmin } = useOpsAuth();
+  const [templateType, setTemplateType] = useState<'issue' | 'purchase'>('issue');
+
+  return (
+    <div className="space-y-3 mt-2">
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant={templateType === 'issue' ? 'default' : 'outline'}
+          className="flex-1 text-xs"
+          onClick={() => setTemplateType('issue')}
+        >
+          Issue Templates
+        </Button>
+        <Button
+          size="sm"
+          variant={templateType === 'purchase' ? 'default' : 'outline'}
+          className="flex-1 text-xs"
+          onClick={() => setTemplateType('purchase')}
+        >
+          Purchase Templates
+        </Button>
+      </div>
+
+      {templateType === 'issue' ? (
+        <IssueTemplatesSection items={items} />
+      ) : (
+        <PurchaseTemplatesSection items={items} />
+      )}
+    </div>
+  );
+}
+
+/* ─── Issue Templates Section (Room Refill Templates) ─── */
+function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
+  const { language } = useOpsLanguage();
+  const { isAdmin } = useOpsAuth();
+  const { data: rooms = [] } = useRooms();
+  const { data: refillTemplates = [] } = useRefillTemplates();
+  const updateStock = useUpdateStock();
+  const applyRefill = useApplyRefillTemplate();
+  const createRefillTemplate = useCreateRefillTemplate();
+  const deleteRefillTemplate = useDeleteRefillTemplate();
+
+  const [selectedRoom, setSelectedRoom] = useState('');
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [templateRoomType, setTemplateRoomType] = useState('');
+  const [templateItemId, setTemplateItemId] = useState('');
+  const [templateItemSearch, setTemplateItemSearch] = useState('');
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all');
+  const [templateQty, setTemplateQty] = useState('1');
+
+  const getName = (item: InventoryItem) =>
+    language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
+
+  const filteredRefillItems = useMemo(() => {
+    return items.filter(i => {
+      const name = getName(i);
+      const matchSearch = !templateItemSearch || name.toLowerCase().includes(templateItemSearch.toLowerCase()) || i.name_en.toLowerCase().includes(templateItemSearch.toLowerCase());
+      const matchCat = templateCategoryFilter === 'all' || i.category === templateCategoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [items, templateItemSearch, templateCategoryFilter, language]);
+
+  const getItemName = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return itemId.slice(0, 8);
+    return getName(item);
+  };
+
+  const roomTypes = [...new Set(rooms.map(r => r.room_type))];
+
+  const handleRoomRefill = async () => {
+    if (!selectedRoom) return;
+    const room = rooms.find(r => r.id === selectedRoom);
+    if (!room) return;
+    try {
+      await applyRefill.mutateAsync({ roomType: room.room_type, roomId: room.id });
+      toast.success(`Room ${room.id} refilled`);
+      setSelectedRoom('');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleAddToTemplate = async () => {
+    if (!templateRoomType || !templateItemId) return;
+    try {
+      await createRefillTemplate.mutateAsync({
+        room_type: templateRoomType,
+        item_id: templateItemId,
+        quantity: parseInt(templateQty) || 1,
+      });
+      toast.success('Item added to issue template');
+      setTemplateItemId('');
+      setTemplateQty('1');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    try {
+      await deleteRefillTemplate.mutateAsync(id);
+      toast.success('Removed from template');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const filteredTemplates = templateRoomType
+    ? refillTemplates.filter((rt: any) => rt.room_type === templateRoomType)
+    : refillTemplates;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[10px] text-muted-foreground">Issue templates deduct grouped items from inventory (e.g., room refresh, kitchen daily).</p>
+
+      {/* Quick Apply */}
+      <Card>
+        <CardHeader className="py-2.5 px-3">
+          <CardTitle className="text-sm flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Package className="h-4 w-4 text-primary" />
+              Apply Issue Template
+            </span>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant={showTemplateManager ? 'secondary' : 'ghost'}
+                className="text-[10px] h-6 px-2"
+                onClick={() => setShowTemplateManager(prev => !prev)}
+              >
+                <Pencil className="h-3 w-3 mr-1" />
+                {showTemplateManager ? 'Close' : 'Manage'}
+              </Button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-3 pb-3 space-y-2">
+          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+            <SelectTrigger className="text-xs"><SelectValue placeholder="Select room to refill" /></SelectTrigger>
+            <SelectContent>
+              {rooms.map(r => (
+                <SelectItem key={r.id} value={r.id}>Room {r.id} ({r.room_type})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={handleRoomRefill}
+            disabled={!selectedRoom || applyRefill.isPending}
+            className="w-full text-xs gap-1.5"
+            variant="outline"
+          >
+            {applyRefill.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+            Issue Items
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Template Manager */}
+      {isAdmin && showTemplateManager && (
+        <Card>
+          <CardHeader className="py-2.5 px-3">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <ListPlus className="h-4 w-4 text-primary" />
+              Issue Template Items
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 pb-3 space-y-3">
+            <Select value={templateRoomType} onValueChange={setTemplateRoomType}>
+              <SelectTrigger className="text-xs"><SelectValue placeholder="Select room type" /></SelectTrigger>
+              <SelectContent>
+                {roomTypes.map(rt => (
+                  <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {templateRoomType && (
+              <>
+                {filteredTemplates.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Items in "{templateRoomType}" template</p>
+                    {filteredTemplates.map((rt: any) => (
+                      <div key={rt.id} className="flex items-center justify-between text-xs p-2 border rounded">
+                        <span className="truncate mr-2">{getItemName(rt.item_id)}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="font-mono text-muted-foreground">×{rt.quantity}</span>
+                          <Button
+                            size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive"
+                            onClick={() => handleDeleteTemplate(rt.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-2">No items in this template yet</p>
+                )}
+
+                <div className="border-t pt-2 space-y-2">
+                  <p className="text-[10px] font-medium text-muted-foreground">Add item to template</p>
+                  <Select value={templateCategoryFilter ?? 'all'} onValueChange={(v) => setTemplateCategoryFilter(v)}>
+                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Category" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {INVENTORY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={templateItemSearch}
+                      onChange={e => setTemplateItemSearch(e.target.value)}
+                      placeholder="Search items..."
+                      className="pl-7 text-xs h-8"
+                    />
+                  </div>
+                  {filteredRefillItems.length > 0 ? (
+                    <div className="max-h-36 overflow-y-auto border rounded-md">
+                      {filteredRefillItems.map(i => (
+                        <button
+                          key={i.id}
+                          onClick={() => { setTemplateItemId(i.id); }}
+                          className={`w-full text-left px-2.5 py-1.5 text-xs flex justify-between hover:bg-muted ${templateItemId === i.id ? 'bg-primary/10 font-medium' : ''}`}
+                        >
+                          <span className="truncate">{getName(i)}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 ml-2">{i.category}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    templateItemSearch && <p className="text-[10px] text-muted-foreground text-center py-1">No items found</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      type="number" min="1" value={templateQty}
+                      onChange={e => setTemplateQty(e.target.value)}
+                      placeholder="Qty"
+                      className="w-20 text-xs"
+                    />
+                    <Button
+                      onClick={handleAddToTemplate}
+                      disabled={!templateItemId || createRefillTemplate.isPending}
+                      className="flex-1 text-xs gap-1"
+                      size="sm"
+                    >
+                      {createRefillTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                      Add to Template
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ─── Purchase List Templates Section ─── */
+function PurchaseTemplatesSection({ items }: { items: InventoryItem[] }) {
   const { language } = useOpsLanguage();
   const { data: templates = [], isLoading } = usePurchaseTemplates();
   const { data: profiles = [] } = useOpsProfiles();
@@ -1577,6 +1844,7 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
   const [templateDesc, setTemplateDesc] = useState('');
   const [templateItems, setTemplateItems] = useState<{ item_id: string; quantity: number }[]>([]);
   const [searchItem, setSearchItem] = useState('');
+  const [creatingFromList, setCreatingFromList] = useState(false);
 
   const getName = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
@@ -1608,6 +1876,45 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
 
   const updateTemplateQty = (itemId: string, qty: number) => {
     setTemplateItems(prev => prev.map(ti => ti.item_id === itemId ? { ...ti, quantity: Math.max(1, qty) } : ti));
+  };
+
+  const handleCreateFromCurrentList = async () => {
+    setCreatingFromList(true);
+    try {
+      const { data: orders } = await supabase
+        .from('ops_purchase_orders')
+        .select('id')
+        .in('status', ['Draft', 'Requested', 'Approved', 'Ordered', 'Active'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!orders?.[0]) {
+        toast.error('No active purchase list found');
+        setCreatingFromList(false);
+        return;
+      }
+
+      const { data: orderItems } = await supabase
+        .from('ops_purchase_order_items')
+        .select('item_id, quantity')
+        .eq('order_id', orders[0].id)
+        .is('completed_at', null);
+
+      if (!orderItems?.length) {
+        toast.error('Purchase list is empty');
+        setCreatingFromList(false);
+        return;
+      }
+
+      setTemplateItems(orderItems.map(oi => ({ item_id: oi.item_id, quantity: oi.quantity })));
+      setShowCreate(true);
+      setTemplateName('');
+      setTemplateDesc('From current purchase list');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setCreatingFromList(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -1650,16 +1957,29 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
   if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
-    <div className="space-y-3 mt-2">
-      <Button onClick={() => setShowCreate(true)} className="w-full text-xs gap-1.5" variant="outline">
-        <ListPlus className="h-3.5 w-3.5" /> Create Template
-      </Button>
+    <div className="space-y-3">
+      <p className="text-[10px] text-muted-foreground">Purchase templates add all items to the purchase list at once.</p>
+
+      <div className="flex gap-2">
+        <Button onClick={() => { setShowCreate(true); setTemplateItems([]); }} className="flex-1 text-xs gap-1.5" variant="outline">
+          <ListPlus className="h-3.5 w-3.5" /> Create Template
+        </Button>
+        <Button
+          onClick={handleCreateFromCurrentList}
+          disabled={creatingFromList}
+          className="flex-1 text-xs gap-1.5"
+          variant="outline"
+        >
+          {creatingFromList ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+          From Current List
+        </Button>
+      </div>
 
       {templates.length === 0 && !showCreate && (
         <Card>
           <CardContent className="py-8 text-center">
             <ListPlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No templates yet. Create one for quick recurring orders.</p>
+            <p className="text-sm text-muted-foreground">No purchase templates yet.</p>
           </CardContent>
         </Card>
       )}
@@ -1667,12 +1987,12 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
       {showCreate && (
         <Card>
           <CardHeader className="py-2.5 px-3">
-            <CardTitle className="text-sm">New Template</CardTitle>
+            <CardTitle className="text-sm">New Purchase Template</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 space-y-2">
             <Input
               value={templateName} onChange={e => setTemplateName(e.target.value)}
-              placeholder="Template name (e.g., Daily Kitchen)" className="text-sm"
+              placeholder="Template name (e.g., Weekly Groceries)" className="text-sm"
             />
             <Input
               value={templateDesc} onChange={e => setTemplateDesc(e.target.value)}
