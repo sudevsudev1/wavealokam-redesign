@@ -283,22 +283,24 @@ export interface PurchaseListItem extends PurchaseOrderItem {
   added_by: string | null;
 }
 
+const ACTIVE_PURCHASE_ORDER_STATUSES = ['Draft', 'Requested', 'Approved', 'Ordered', 'Active'] as const;
+
 // Get or create the single active purchase list for the branch
 export function usePurchaseList() {
   const { profile } = useOpsAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['ops_purchase_list'],
+    queryKey: ['ops_purchase_list', profile?.branchId],
     queryFn: async () => {
       if (!profile) return { order: null, items: [] };
 
-      // Find the active (non-received, non-cancelled) order
+      // Find latest non-finalized order
       const { data: orders } = await supabase
         .from('ops_purchase_orders')
         .select('*')
         .eq('branch_id', profile.branchId)
-        .in('status', ['Active'])
+        .in('status', [...ACTIVE_PURCHASE_ORDER_STATUSES])
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -339,7 +341,8 @@ async function ensureActiveList(branchId: string, userId: string): Promise<strin
     .from('ops_purchase_orders')
     .select('id')
     .eq('branch_id', branchId)
-    .eq('status', 'Active')
+    .in('status', [...ACTIVE_PURCHASE_ORDER_STATUSES])
+    .order('created_at', { ascending: false })
     .limit(1);
 
   if (orders && orders.length > 0) return (orders[0] as any).id;
@@ -349,7 +352,7 @@ async function ensureActiveList(branchId: string, userId: string): Promise<strin
     .insert({
       branch_id: branchId,
       requested_by: userId,
-      status: 'Active',
+      status: 'Draft',
     } as any)
     .select()
     .single();
