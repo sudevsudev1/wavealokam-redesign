@@ -1011,10 +1011,18 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
           {dueItems.map(item => {
             const deficit = item.par_level - item.current_stock;
             const isSelected = selectedItems.has(item.id);
+            const consumable = isConsumable(item.category);
+            // For consumables, find earliest expiring batch
+            const earliestExpiry = consumable
+              ? expiryBatches
+                  .filter(b => b.item_id === item.id && !b.is_disposed)
+                  .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date))[0]?.expiry_date
+              : null;
+            const isExpired = earliestExpiry && earliestExpiry <= new Date().toISOString().slice(0, 10);
             return (
               <Card
                 key={item.id}
-                className={`cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-orange-200'}`}
+                className={`cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : consumable ? (isExpired ? 'border-destructive/50' : 'border-amber-300') : 'border-orange-200'}`}
                 onClick={() => { if (!editMode) toggleItem(item.id); }}
               >
                 <CardContent className="p-3">
@@ -1035,6 +1043,11 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
                       <div className="min-w-0">
                         <span className="font-medium text-sm truncate block">{getName(item)}</span>
                         <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
+                        {consumable && earliestExpiry && (
+                          <span className={`text-[10px] block ${isExpired ? 'text-destructive font-medium' : 'text-amber-600'}`}>
+                            {isExpired ? '⚠ Expired' : '⏰ Expiring'}: {fmtDate(earliestExpiry)}
+                          </span>
+                        )}
                         <ItemBatchDates itemId={item.id} editable={isAdmin && editMode} />
                       </div>
                     </div>
@@ -1049,20 +1062,25 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
                       )}
                       <div className="text-right space-y-1">
                         <div className="flex items-baseline gap-1">
-                          <span className="font-mono text-sm font-bold text-orange-600">{item.current_stock}</span>
+                          <span className={`font-mono text-sm font-bold ${consumable ? (isExpired ? 'text-destructive' : 'text-amber-600') : 'text-orange-600'}`}>{item.current_stock}</span>
                           <span className="text-[10px] text-muted-foreground">/ {item.par_level}</span>
                         </div>
                         {!editMode && isSelected && (
                           <QtyEditor
-                            value={dueQuantities[item.id] || Math.max(1, deficit)}
+                            value={dueQuantities[item.id] || Math.max(1, consumable ? item.par_level : deficit)}
                             onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
                           />
                         )}
                         {!editMode && !isSelected && (
-                          <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {consumable ? `Replenish: ${item.par_level} ${item.unit}` : `Need: ${deficit > 0 ? deficit : 0} ${item.unit}`}
+                          </span>
                         )}
                       </div>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
                   </div>
                 </CardContent>
               </Card>
