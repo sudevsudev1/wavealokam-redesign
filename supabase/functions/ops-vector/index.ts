@@ -557,8 +557,22 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_room_readiness",
+      description: "Check which rooms have been refreshed today vs which rooms had checkouts. Returns readiness status per room. Use for walk-in inquiries, daily report mismatch detection, and room allocation.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "ISO date string. Defaults to today." },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "recommend_room",
-      description: "Recommend the best room for a new guest based on check-in/out schedules, occupancy, and room availability. Considers expected check-in/out times of existing guests.",
+      description: "Recommend the best room for a new guest based on check-in/out schedules, occupancy, room availability, AND room readiness (whether it has been refreshed after last checkout). Considers expected check-in/out times of existing guests.",
       parameters: {
         type: "object",
         properties: {
@@ -1759,23 +1773,150 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ success: true, guest: guest.guest_name, room: guest.room_id, checked_out_at: new Date().toISOString() });
       }
 
+      case "get_room_readiness": {
+        const date = (args.date as string) || new Date().toISOString().split("T")[0];
+        const dayStart = `${date}T00:00:00`;
+        const dayEnd = `${date}T23:59:59`;
+
+        // Get all rooms
+        const { data: allRooms } = await sb.from("ops_rooms").select("id, room_type").eq("branch_id", branchId).eq("is_active", true);
+
+        // Get today's checkouts
+        const { data: checkouts } = await sb.from("ops_guest_log").select("id, guest_name, room_id, check_out_at")
+          .eq("branch_id", branchId).eq("status", "checked_out")
+          .gte("check_out_at", dayStart).lte("check_out_at", dayEnd);
+
+        // Get today's room refresh transactions (notes contain "Room XXX refresh")
+        const { data: refreshTxns } = await sb.from("ops_inventory_transactions").select("notes, created_at")
+          .eq("branch_id", branchId).eq("type", "issue")
+          .gte("created_at", dayStart).lte("created_at", dayEnd)
+          .ilike("notes", "%Room % refresh%");
+
+        // Parse which rooms were refreshed today
+        const refreshedRooms = new Set<string>();
+        for (const tx of (refreshTxns || [])) {
+          const match = (tx.notes || "").match(/Room (\S+) refresh/i);
+          if (match) refreshedRooms.add(match[1]);
+        }
+
+        // Get currently checked-in guests for occupancy
+        const { data: inHouse } = await sb.from("ops_guest_log").select("room_id, guest_name, expected_check_out")
+          .eq("branch_id", branchId).eq("status", "checked_in");
+        const occupiedMap = new Map((inHouse || []).map(g => [g.room_id, g]));
+
+        // Also check "Issue template" transactions for room refreshes
+        const { data: templateTxns } = await sb.from("ops_inventory_transactions").select("notes, created_at")
+          .eq("branch_id", branchId).eq("type", "out")
+          .gte("created_at", dayStart).lte("created_at", dayEnd)
+          .ilike("notes", "%Issue template:%");
+
+        // Room refreshes via issue template (notes like "Issue template: Room")
+        for (const tx of (templateTxns || [])) {
+          const match = (tx.notes || "").match(/Issue template:\s*(.+)/i);
+          if (match) {
+            const tplName = match[1].trim();
+            // If template name matches a room ID
+            if ((allRooms || []).some(r => r.id === tplName)) {
+              refreshedRooms.add(tplName);
+            }
+          }
+        }
+
+        const checkedOutRooms = new Set((checkouts || []).map(c => c.room_id).filter(Boolean));
+        const unrefreshedCheckouts = [...checkedOutRooms].filter(r => !refreshedRooms.has(r!));
+
+        const roomStatuses = (allRooms || []).map(room => {
+          const occupant = occupiedMap.get(room.id);
+          const wasCheckedOut = checkedOutRooms.has(room.id);
+          const wasRefreshed = refreshedRooms.has(room.id);
+
+          let readiness: string;
+          if (occupant) {
+            readiness = "occupied";
+          } else if (wasCheckedOut && wasRefreshed) {
+            readiness = "ready"; // Checked out AND refreshed
+          } else if (wasCheckedOut && !wasRefreshed) {
+            readiness = "needs_refresh"; // Checked out but NOT refreshed
+          } else if (wasRefreshed) {
+            readiness = "ready"; // Was refreshed (maybe from yesterday's checkout)
+          } else if (!occupant) {
+            readiness = "vacant_unknown"; // Vacant, no checkout or refresh today
+          } else {
+            readiness = "unknown";
+          }
+
+          return {
+            room_id: room.id, room_type: room.room_type, readiness,
+            current_guest: occupant?.guest_name || null,
+            expected_checkout: occupant?.expected_check_out || null,
+            checked_out_today: wasCheckedOut,
+            refreshed_today: wasRefreshed,
+          };
+        });
+
+        return JSON.stringify({
+          date,
+          rooms: roomStatuses,
+          summary: {
+            total_rooms: (allRooms || []).length,
+            occupied: roomStatuses.filter(r => r.readiness === "occupied").length,
+            ready: roomStatuses.filter(r => r.readiness === "ready").length,
+            needs_refresh: roomStatuses.filter(r => r.readiness === "needs_refresh").length,
+            checkouts_today: checkedOutRooms.size,
+            refreshes_today: refreshedRooms.size,
+            unrefreshed_rooms: unrefreshedCheckouts,
+            mismatch: unrefreshedCheckouts.length > 0,
+          },
+        }, null, 2);
+      }
+
       case "recommend_room": {
         // Get all rooms
         const { data: rooms } = await sb.from("ops_rooms").select("*").eq("branch_id", branchId).eq("is_active", true);
         // Get currently checked-in guests
         const { data: guests } = await sb.from("ops_guest_log").select("*").eq("branch_id", branchId).eq("status", "checked_in");
-        
+
+        // Check room readiness — which rooms were refreshed today
+        const today = new Date().toISOString().split("T")[0];
+        const todayStart = `${today}T00:00:00`;
+        const todayEnd = `${today}T23:59:59`;
+        const { data: refreshTxns } = await sb.from("ops_inventory_transactions").select("notes")
+          .eq("branch_id", branchId).or("type.eq.issue,type.eq.out")
+          .gte("created_at", todayStart).lte("created_at", todayEnd)
+          .or("notes.ilike.%Room % refresh%,notes.ilike.%Issue template:%");
+
+        const refreshedRooms = new Set<string>();
+        for (const tx of (refreshTxns || [])) {
+          const match1 = (tx.notes || "").match(/Room (\S+) refresh/i);
+          if (match1) refreshedRooms.add(match1[1]);
+          const match2 = (tx.notes || "").match(/Issue template:\s*(.+)/i);
+          if (match2 && (rooms || []).some(r => r.id === match2[1].trim())) {
+            refreshedRooms.add(match2[1].trim());
+          }
+        }
+
+        // Also check recent refresh transactions (last 24h for rooms that haven't been occupied since)
+        const { data: recentRefresh } = await sb.from("ops_inventory_transactions").select("notes")
+          .eq("branch_id", branchId).or("type.eq.issue,type.eq.out")
+          .gte("created_at", new Date(Date.now() - 48 * 3600000).toISOString())
+          .or("notes.ilike.%Room % refresh%,notes.ilike.%Issue template:%");
+
+        for (const tx of (recentRefresh || [])) {
+          const match1 = (tx.notes || "").match(/Room (\S+) refresh/i);
+          if (match1) refreshedRooms.add(match1[1]);
+        }
+
         const occupiedRooms = new Map((guests || []).map(g => [g.room_id, g]));
         const nights = (args.number_of_nights as number) || 1;
         const adults = (args.adults as number) || 1;
-        
+
         // Parse check-in date
         let checkInDate: Date;
         const dateStr = args.check_in_date as string;
         if (dateStr === "tomorrow") { checkInDate = new Date(); checkInDate.setDate(checkInDate.getDate() + 1); }
         else if (dateStr === "today") { checkInDate = new Date(); }
         else { checkInDate = new Date(dateStr); }
-        
+
         // Standard check-in 2 PM IST, check-out 11 AM IST
         const checkInDateTime = new Date(checkInDate);
         if (args.check_in_time) {
@@ -1787,21 +1928,25 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         } else {
           checkInDateTime.setHours(8, 30, 0, 0); // 2 PM IST = 8:30 UTC
         }
-        
+
         const checkOutDate = new Date(checkInDateTime);
         checkOutDate.setDate(checkOutDate.getDate() + nights);
         checkOutDate.setHours(5, 30, 0, 0); // 11 AM IST = 5:30 UTC
-        
+
         const recommendations: any[] = [];
-        
+
         for (const room of (rooms || [])) {
           const occupant = occupiedRooms.get(room.id);
-          
+          const isRefreshed = refreshedRooms.has(room.id);
+
           if (!occupant) {
             // Room is free
             recommendations.push({
-              room_id: room.id, room_type: room.room_type, status: "Available",
-              reason: "Room is currently vacant", score: 100,
+              room_id: room.id, room_type: room.room_type,
+              status: isRefreshed ? "Available & Ready" : "Available (not refreshed)",
+              is_refreshed: isRefreshed,
+              reason: isRefreshed ? "Room is vacant and freshly refreshed" : "Room is vacant but has NOT been refreshed yet",
+              score: isRefreshed ? 100 : 60,
             });
           } else {
             // Check if current guest will check out before new guest arrives
@@ -1813,28 +1958,30 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
                 current_guest: occupant.guest_name,
                 expected_checkout: occupant.expected_check_out,
                 gap_hours: Math.round(hoursGap),
-                reason: `Current guest ${occupant.guest_name} expected to check out ${Math.round(hoursGap)}h before new check-in`,
-                score: hoursGap >= 3 ? 80 : 50, // More gap = better for cleaning
+                is_refreshed: false,
+                reason: `Current guest ${occupant.guest_name} expected to check out ${Math.round(hoursGap)}h before new check-in. Will need refresh.`,
+                score: hoursGap >= 3 ? 75 : 45,
               });
             } else {
               recommendations.push({
                 room_id: room.id, room_type: room.room_type, status: "Occupied",
                 current_guest: occupant.guest_name,
                 expected_checkout: occupant.expected_check_out || "Unknown",
+                is_refreshed: false,
                 reason: "Guest still occupying",
                 score: 0,
               });
             }
           }
         }
-        
+
         // Sort by score (best first), prefer King Room for 3+ adults
         recommendations.sort((a, b) => {
           if (adults >= 3 && a.room_type === "King" && b.room_type !== "King") return -1;
           if (adults >= 3 && b.room_type === "King" && a.room_type !== "King") return 1;
           return b.score - a.score;
         });
-        
+
         return JSON.stringify({
           request: { check_in: checkInDateTime.toISOString(), nights, adults, children: args.children || 0 },
           recommendations: recommendations.slice(0, 5),
@@ -1896,12 +2043,14 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const dayStart = `${date}T00:00:00`;
         const dayEnd = `${date}T23:59:59`;
         
-        const [tasksR, guestsR, shiftsR, lowStockR, expiringR] = await Promise.all([
+        const [tasksR, guestsR, shiftsR, lowStockR, expiringR, refreshTxnsR] = await Promise.all([
           sb.from("ops_tasks").select("*").eq("branch_id", branchId).or(`created_at.gte.${dayStart},updated_at.gte.${dayStart}`).limit(200),
           sb.from("ops_guest_log").select("*").eq("branch_id", branchId).or(`check_in_at.gte.${dayStart},and(check_in_at.lte.${dayEnd},or(check_out_at.is.null,check_out_at.gte.${dayStart}))`).limit(200),
           sb.from("ops_shift_punches").select("*").eq("branch_id", branchId).gte("clock_in_at", dayStart).lte("clock_in_at", dayEnd),
           sb.from("ops_inventory_items").select("*").eq("branch_id", branchId).eq("is_active", true),
           sb.from("ops_inventory_expiry").select("*, ops_inventory_items(name_en)").eq("branch_id", branchId).eq("is_disposed", false).lte("expiry_date", new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]),
+          // Room refresh transactions today
+          sb.from("ops_inventory_transactions").select("notes, created_at").eq("branch_id", branchId).gte("created_at", dayStart).lte("created_at", dayEnd).or("notes.ilike.%Room % refresh%,notes.ilike.%Issue template:%"),
         ]);
         
         const tasks = tasksR.data || [];
@@ -1909,6 +2058,18 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const shifts = shiftsR.data || [];
         const dueForOrder = (lowStockR.data || []).filter(i => i.current_stock <= i.reorder_point);
         const inHouse = guests.filter(g => g.status === "checked_in");
+
+        // Room readiness analysis
+        const checkedOutRooms = guests.filter(g => g.check_out_at && g.check_out_at >= dayStart && g.check_out_at <= dayEnd).map(g => g.room_id).filter(Boolean);
+        const refreshedRooms = new Set<string>();
+        for (const tx of (refreshTxnsR.data || [])) {
+          const match1 = (tx.notes || "").match(/Room (\S+) refresh/i);
+          if (match1) refreshedRooms.add(match1[1]);
+          const match2 = (tx.notes || "").match(/Issue template:\s*(.+)/i);
+          if (match2) refreshedRooms.add(match2[1].trim());
+        }
+        const uniqueCheckedOutRooms = [...new Set(checkedOutRooms)];
+        const unrefreshedRooms = uniqueCheckedOutRooms.filter(r => !refreshedRooms.has(r!));
         
         const userIds = [...new Set([...tasks.flatMap(t => [...t.assigned_to, t.created_by]), ...shifts.map(s => s.user_id)])];
         const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").in("user_id", userIds.length ? userIds : ["none"]);
@@ -1926,7 +2087,14 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
           occupancy: {
             in_house: inHouse.length, total_adults: inHouse.reduce((s, g) => s + g.adults, 0), total_children: inHouse.reduce((s, g) => s + g.children, 0),
             check_ins_today: guests.filter(g => g.check_in_at >= dayStart && g.check_in_at <= dayEnd).length,
-            check_outs_today: guests.filter(g => g.check_out_at && g.check_out_at >= dayStart && g.check_out_at <= dayEnd).length,
+            check_outs_today: uniqueCheckedOutRooms.length,
+            checked_out_rooms: uniqueCheckedOutRooms,
+          },
+          room_readiness: {
+            refreshed_rooms: [...refreshedRooms],
+            unrefreshed_after_checkout: unrefreshedRooms,
+            mismatch: unrefreshedRooms.length > 0,
+            alert: unrefreshedRooms.length > 0 ? `⚠️ ${unrefreshedRooms.length} room(s) checked out but NOT refreshed: ${unrefreshedRooms.join(", ")}` : null,
           },
           inventory: {
             due_for_order: dueForOrder.map(i => ({ name: i.name_en, stock: i.current_stock, reorder: i.reorder_point })),
@@ -2492,12 +2660,14 @@ When users ask complex operational questions, USE your tools to gather data and 
 ═══ DAILY REPORT FLOW ═══
 When a user triggers "Daily Report", start a CONVERSATIONAL flow:
 1. First, use get_daily_report_data to see the full picture
-2. Ask about incomplete tasks: "I see X tasks still open. Did you finish any of these?" — list them
-3. Ask about revenue: "What's today's revenue? Cash and online separately?"
-4. Probe for observations: kitchen issues, maintenance, guest behavior, anything unusual
-5. Don't go point-by-point. Flow naturally. Extract what you need.
-6. When you have enough, use submit_daily_report. This auto-ends the shift.
-7. Confirm: "Report submitted. Shift ended. Here's your summary: [brief]"
+2. **ROOM READINESS CHECK**: If there were checkouts today, compare against room refreshes. If ANY rooms were checked out but NOT refreshed (room_readiness.mismatch is true), IMMEDIATELY ask: "I see rooms [X, Y] were checked out today but haven't been refreshed yet. Were they cleaned and restocked?" This is critical — flag it clearly.
+3. Ask about incomplete tasks: "I see X tasks still open. Did you finish any of these?" — list them
+4. Ask about revenue: "What's today's revenue? Cash and online separately?"
+5. Probe for observations: kitchen issues, maintenance, guest behavior, anything unusual
+6. Don't go point-by-point. Flow naturally. Extract what you need.
+7. When you have enough, use submit_daily_report. This auto-ends the shift.
+8. If room readiness mismatch exists and user confirms rooms were NOT refreshed, flag this in the report notes for admin review: "⚠️ ADMIN ALERT: Rooms [X] not refreshed after checkout."
+9. Confirm: "Report submitted. Shift ended. Here's your summary: [brief]"
 
 ═══ ACCOUNTABILITY ═══
 Valid delay reasons: vendor delay, delivery delay, need parts, guest emergency, safety risk.
@@ -2518,6 +2688,15 @@ When user says "got it", "received", "tick off" → tick_off_purchase_item.
 ═══ ROOM REFRESH / ISSUE ═══
 When user says "room X refreshed" or "cleaned room X" → issue_room_items. You know the template.
 When user says "used 2 tissue rolls" → issue_item.
+ALL rooms MUST be refreshed immediately after checkout, regardless of whether there's a same-day check-in.
+Use get_room_readiness to check which rooms are ready vs which need refresh.
+
+═══ ROOM READINESS & WALK-INS ═══
+For walk-in room inquiries, ALWAYS use recommend_room which now factors in room readiness.
+A room that has been checked out but NOT refreshed should be flagged — you can still offer it but note it needs prep time.
+Prefer rooms that are both vacant AND refreshed (score 100) over vacant but unrefreshed (score 60).
+Use get_room_readiness proactively when anyone asks about available rooms.
+Track readiness status: "ready" (refreshed), "needs_refresh" (checkout but no refresh), "occupied", "vacant_unknown".
 
 ═══ LAUNDRY & LINEN LIFECYCLE ═══
 Track individual linen items through their lifecycle: fresh → in_use → need_laundry → awaiting_return → fresh.
