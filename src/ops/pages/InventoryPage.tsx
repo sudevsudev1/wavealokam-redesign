@@ -51,6 +51,41 @@ function QtyEditor({ value, onChange, min = 1 }: { value: number; onChange: (v: 
   );
 }
 
+/** Get due-for-order reason for an item. Returns null if not due. */
+function getDueReason(item: InventoryItem, batches: InventoryExpiry[]): string | null {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+  const activeBatches = batches.filter(b => b.item_id === item.id && !b.is_disposed);
+  const isConsumable = CONSUMABLE_CATEGORIES.includes(item.category);
+
+  if (isConsumable) {
+    if (activeBatches.length === 0 && item.current_stock > 0) return 'untracked';
+    if (activeBatches.length === 0) return null;
+    const hasExpired = activeBatches.some(b => b.expiry_date <= todayStr);
+    if (hasExpired) return 'expired';
+    const nearExpiry = activeBatches.some(b => b.expiry_date <= tomorrowStr);
+    if (nearExpiry) return 'nearing_expiry';
+    return null;
+  }
+
+  // Non-consumable: whichever comes first
+  const hasExpired = activeBatches.some(b => b.expiry_date <= todayStr);
+  if (hasExpired) return 'expired';
+  const nearExpiry = activeBatches.some(b => b.expiry_date <= tomorrowStr);
+  if (nearExpiry) return 'nearing_expiry';
+  if (item.current_stock <= item.reorder_point) return 'low_quantity';
+  return null;
+}
+
+const DUE_REASON_LABELS: Record<string, { label: string; icon: string; className: string }> = {
+  expired: { label: 'Expired', icon: '⚠', className: 'text-destructive font-medium' },
+  nearing_expiry: { label: 'Nearing expiry', icon: '⏰', className: 'text-amber-600' },
+  low_quantity: { label: 'Low quantity', icon: '📉', className: 'text-orange-600' },
+  untracked: { label: 'Untracked batches', icon: '❓', className: 'text-muted-foreground' },
+};
+
 
 export default function InventoryPage() {
   const [searchParams] = useSearchParams();
@@ -58,22 +93,8 @@ export default function InventoryPage() {
   const { data: items = [], isLoading } = useInventoryItems();
   const { data: expiryBatches = [], isLoading: expiryLoading } = useExpiryItems();
 
-  // For consumable categories, "due" means earliest active batch expires within 1 day
-  // For non-consumable categories, "due" means current_stock <= reorder_point
   const lowStockCount = useMemo(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-
-    return items.filter((i) => {
-      if (CONSUMABLE_CATEGORIES.includes(i.category)) {
-        // Check if any active batch expires within 1 day (or already expired)
-        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
-        if (batches.length === 0) return i.current_stock > 0; // has stock but no batches tracked = show
-        return batches.some(b => b.expiry_date <= tomorrowStr);
-      }
-      return i.current_stock <= i.reorder_point;
-    }).length;
+    return items.filter(i => getDueReason(i, expiryBatches) !== null).length;
   }, [items, expiryBatches]);
 
   if (isLoading || expiryLoading) {
@@ -832,37 +853,27 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
 
-  const tomorrow = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
-  }, []);
 
-  const isConsumable = (category: string) => CONSUMABLE_CATEGORIES.includes(category);
 
-  const dueItems = useMemo(() => {
-    return items.filter(i => {
-      if (isConsumable(i.category)) {
-        // Consumable: due when any active batch expires within 1 day
-        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
-        if (batches.length === 0 && i.current_stock > 0) {
-          // Has stock but no tracked batches — flag it
-        } else if (batches.length === 0) {
-          return false;
-        } else {
-          const isDue = batches.some(b => b.expiry_date <= tomorrow);
-          if (!isDue) return false;
-        }
-      } else {
-        // Non-consumable: quantity-based
-        if (i.current_stock > i.reorder_point) return false;
-      }
-      const name = getName(i);
-      const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || i.name_en.toLowerCase().includes(search.toLowerCase());
-      const matchesCat = categoryFilter === 'all' || i.category === categoryFilter;
-      return matchesSearch && matchesCat;
-    });
-  }, [items, expiryBatches, search, categoryFilter, language, tomorrow]);
+
+  const dueItemsWithReason = useMemo(() => {
+    return items
+      .map(i => ({ item: i, reason: getDueReason(i, expiryBatches) }))
+      .filter(({ item, reason }) => {
+        if (!reason) return false;
+        const name = getName(item);
+        const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || item.name_en.toLowerCase().includes(search.toLowerCase());
+        const matchesCat = categoryFilter === 'all' || item.category === categoryFilter;
+        return matchesSearch && matchesCat;
+      });
+  }, [items, expiryBatches, search, categoryFilter, language]);
+
+  const dueItems = useMemo(() => dueItemsWithReason.map(d => d.item), [dueItemsWithReason]);
+  const dueReasonMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    dueItemsWithReason.forEach(d => { m[d.item.id] = d.reason!; });
+    return m;
+  }, [dueItemsWithReason]);
 
   const toggleItem = (id: string) => {
     const next = new Set(selectedItems);
@@ -920,15 +931,8 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
   };
 
   const totalDue = useMemo(() => {
-    return items.filter(i => {
-      if (isConsumable(i.category)) {
-        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
-        if (batches.length === 0) return i.current_stock > 0;
-        return batches.some(b => b.expiry_date <= tomorrow);
-      }
-      return i.current_stock <= i.reorder_point;
-    }).length;
-  }, [items, expiryBatches, tomorrow]);
+    return items.filter(i => getDueReason(i, expiryBatches) !== null).length;
+  }, [items, expiryBatches]);
 
   return (
     <div className="space-y-2 mt-2">
@@ -1011,18 +1015,27 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
           {dueItems.map(item => {
             const deficit = item.par_level - item.current_stock;
             const isSelected = selectedItems.has(item.id);
-            const consumable = isConsumable(item.category);
-            // For consumables, find earliest expiring batch
-            const earliestExpiry = consumable
+            const reason = dueReasonMap[item.id] || 'low_quantity';
+            const reasonMeta = DUE_REASON_LABELS[reason] || DUE_REASON_LABELS.low_quantity;
+            const isExpiryReason = reason === 'expired' || reason === 'nearing_expiry';
+
+            // Find earliest expiring batch for expiry-based reasons
+            const earliestExpiry = isExpiryReason
               ? expiryBatches
                   .filter(b => b.item_id === item.id && !b.is_disposed)
                   .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date))[0]?.expiry_date
               : null;
-            const isExpired = earliestExpiry && earliestExpiry <= new Date().toISOString().slice(0, 10);
+
+            const borderClass = isSelected
+              ? 'border-primary bg-primary/5'
+              : reason === 'expired' ? 'border-destructive/50'
+              : reason === 'nearing_expiry' ? 'border-amber-300'
+              : 'border-orange-200';
+
             return (
               <Card
                 key={item.id}
-                className={`cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : consumable ? (isExpired ? 'border-destructive/50' : 'border-amber-300') : 'border-orange-200'}`}
+                className={`cursor-pointer transition-colors ${borderClass}`}
                 onClick={() => { if (!editMode) toggleItem(item.id); }}
               >
                 <CardContent className="p-3">
@@ -1043,11 +1056,10 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
                       <div className="min-w-0">
                         <span className="font-medium text-sm truncate block">{getName(item)}</span>
                         <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                        {consumable && earliestExpiry && (
-                          <span className={`text-[10px] block ${isExpired ? 'text-destructive font-medium' : 'text-amber-600'}`}>
-                            {isExpired ? '⚠ Expired' : '⏰ Expiring'}: {fmtDate(earliestExpiry)}
-                          </span>
-                        )}
+                        <span className={`text-[10px] block ${reasonMeta.className}`}>
+                          {reasonMeta.icon} {reasonMeta.label}
+                          {earliestExpiry && `: ${fmtDate(earliestExpiry)}`}
+                        </span>
                         <ItemBatchDates itemId={item.id} editable={isAdmin && editMode} />
                       </div>
                     </div>
@@ -1062,18 +1074,18 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
                       )}
                       <div className="text-right space-y-1">
                         <div className="flex items-baseline gap-1">
-                          <span className={`font-mono text-sm font-bold ${consumable ? (isExpired ? 'text-destructive' : 'text-amber-600') : 'text-orange-600'}`}>{item.current_stock}</span>
+                          <span className={`font-mono text-sm font-bold ${reasonMeta.className}`}>{item.current_stock}</span>
                           <span className="text-[10px] text-muted-foreground">/ {item.par_level}</span>
                         </div>
                         {!editMode && isSelected && (
                           <QtyEditor
-                            value={dueQuantities[item.id] || Math.max(1, consumable ? item.par_level : deficit)}
+                            value={dueQuantities[item.id] || Math.max(1, isExpiryReason ? item.par_level : deficit)}
                             onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
                           />
                         )}
                         {!editMode && !isSelected && (
                           <span className="text-[10px] text-muted-foreground">
-                            {consumable ? `Replenish: ${item.par_level} ${item.unit}` : `Need: ${deficit > 0 ? deficit : 0} ${item.unit}`}
+                            {isExpiryReason ? `Replenish: ${item.par_level} ${item.unit}` : `Need: ${deficit > 0 ? deficit : 0} ${item.unit}`}
                           </span>
                         )}
                       </div>

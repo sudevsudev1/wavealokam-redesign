@@ -10,8 +10,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { ShoppingCart, Search, Plus, Minus, Truck, Loader2, Package, X, AlertTriangle, PlusCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface ParExceedInfo {
+  itemId: string;
+  name: string;
+  unit: string;
+  currentStock: number;
+  parLevel: number;
+  requestedQty: number;
+}
 
 const DRAFT_KEY = 'quick_purchase_cart';
 
@@ -46,6 +57,8 @@ export default function QuickPurchaseDock() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const [templatePreview, setTemplatePreview] = useState<PurchaseTemplate | null>(null);
   const [templateQtys, setTemplateQtys] = useState<Record<string, number>>({});
+  const [parExceedInfo, setParExceedInfo] = useState<ParExceedInfo | null>(null);
+  const [parExceedChoice, setParExceedChoice] = useState<'over' | 'need_more'>('over');
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -147,23 +160,39 @@ export default function QuickPurchaseDock() {
   const getCartQty = (itemId: string) =>
     cart.find(c => c.item_id === itemId)?.quantity || 0;
 
-  const updateCart = useCallback((itemId: string, name: string, unit: string, delta: number, parLevel?: number, currentStock?: number) => {
+  const addToCartDirect = useCallback((itemId: string, name: string, unit: string, qty: number) => {
     setCart(prev => {
       const existing = prev.find(c => c.item_id === itemId);
       if (existing) {
-        const newQty = Math.round((existing.quantity + delta) * 100) / 100;
+        const newQty = Math.round((existing.quantity + qty) * 100) / 100;
         if (newQty <= 0) return prev.filter(c => c.item_id !== itemId);
         return prev.map(c => c.item_id === itemId ? { ...c, quantity: newQty } : c);
       }
-      if (delta > 0) {
-        const suggestedQty = parLevel && currentStock !== undefined
-          ? Math.max(0.25, parLevel - currentStock)
-          : 1;
-        return [...prev, { item_id: itemId, name, unit, quantity: delta > 1 ? delta : suggestedQty }];
+      if (qty > 0) {
+        return [...prev, { item_id: itemId, name, unit, quantity: qty }];
       }
       return prev;
     });
   }, []);
+
+  const updateCart = useCallback((itemId: string, name: string, unit: string, delta: number, parLevel?: number, currentStock?: number) => {
+    // Check if this is a new addition (not already in cart) and would exceed par
+    const existingInCart = cart.find(c => c.item_id === itemId);
+    if (!existingInCart && delta > 0 && parLevel && currentStock !== undefined) {
+      const suggestedQty = Math.max(0.25, parLevel - currentStock);
+      const totalAfter = currentStock + suggestedQty;
+      if (totalAfter > parLevel && currentStock >= parLevel) {
+        // Stock is already at or above par — ask the user
+        setParExceedInfo({ itemId, name, unit, currentStock, parLevel, requestedQty: suggestedQty });
+        setParExceedChoice('over');
+        return;
+      }
+      addToCartDirect(itemId, name, unit, delta > 1 ? delta : suggestedQty);
+      return;
+    }
+    // Existing item or decrement — just update
+    addToCartDirect(itemId, name, unit, existingInCart ? delta : (delta > 0 ? 1 : delta));
+  }, [cart, addToCartDirect]);
 
   const setCartQty = useCallback((itemId: string, qty: number) => {
     setCart(prev => {
@@ -647,6 +676,85 @@ export default function QuickPurchaseDock() {
               Add {Object.values(templateQtys).filter(q => q > 0).length} items to cart
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Par-exceed dialog */}
+      <Dialog open={!!parExceedInfo} onOpenChange={(open) => { if (!open) setParExceedInfo(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Stock seems sufficient
+            </DialogTitle>
+          </DialogHeader>
+          {parExceedInfo && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                <strong>{parExceedInfo.name}</strong> has {parExceedInfo.currentStock} {parExceedInfo.unit} in stock
+                (par: {parExceedInfo.parLevel}). Adding more would exceed par level.
+              </p>
+              <RadioGroup value={parExceedChoice} onValueChange={(v) => setParExceedChoice(v as 'over' | 'need_more')}>
+                <div className="flex items-start gap-2 p-2 rounded-lg border">
+                  <RadioGroupItem value="over" id="par-over" className="mt-0.5" />
+                  <Label htmlFor="par-over" className="text-xs cursor-pointer">
+                    <span className="font-medium">Items are actually over</span>
+                    <span className="block text-muted-foreground text-[10px]">
+                      Reduce inventory count and add to purchase list
+                    </span>
+                  </Label>
+                </div>
+                <div className="flex items-start gap-2 p-2 rounded-lg border">
+                  <RadioGroupItem value="need_more" id="par-more" className="mt-0.5" />
+                  <Label htmlFor="par-more" className="text-xs cursor-pointer">
+                    <span className="font-medium">Need more (peak season etc.)</span>
+                    <span className="block text-muted-foreground text-[10px]">
+                      Add to list as-is, stock will exceed par on receipt
+                    </span>
+                  </Label>
+                </div>
+              </RadioGroup>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-xs"
+                  onClick={() => setParExceedInfo(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={async () => {
+                    if (!parExceedInfo) return;
+                    const qty = parExceedInfo.requestedQty || parExceedInfo.parLevel;
+                    if (parExceedChoice === 'over') {
+                      // Reduce inventory count to 0 and add par_level qty to list
+                      try {
+                        const { supabase } = await import('@/integrations/supabase/client');
+                        await supabase
+                          .from('ops_inventory_items')
+                          .update({ current_stock: 0, updated_at: new Date().toISOString() })
+                          .eq('id', parExceedInfo.itemId);
+                        addToCartDirect(parExceedInfo.itemId, parExceedInfo.name, parExceedInfo.unit, parExceedInfo.parLevel);
+                        toast.info(`${parExceedInfo.name} stock set to 0, ${parExceedInfo.parLevel} ${parExceedInfo.unit} added to list`);
+                      } catch (e: any) {
+                        toast.error(e.message);
+                      }
+                    } else {
+                      // Add as-is
+                      addToCartDirect(parExceedInfo.itemId, parExceedInfo.name, parExceedInfo.unit, qty > 0 ? qty : 1);
+                      toast.info(`${parExceedInfo.name} added to list (will exceed par on receipt)`);
+                    }
+                    setParExceedInfo(null);
+                  }}
+                >
+                  Confirm
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </Card>
