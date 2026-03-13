@@ -2272,6 +2272,156 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ success: true, name: templateName, item_count: templateItems.length });
       }
 
+      // ═══ LINEN LIFECYCLE ═══
+
+      case "get_linen_status": {
+        const statusFilter = args.status_filter as string | undefined;
+        let q = sb.from("ops_linen_items").select("*").eq("branch_id", branchId);
+        if (statusFilter) q = q.eq("status", statusFilter);
+        const { data, error } = await q.order("item_type");
+        if (error) return `Error: ${error.message}`;
+        
+        const items = data || [];
+        const grouped: Record<string, typeof items> = { fresh: [], in_use: [], need_laundry: [], awaiting_return: [] };
+        for (const item of items) {
+          if (grouped[item.status]) grouped[item.status].push(item);
+        }
+        
+        const summary = Object.entries(grouped)
+          .filter(([_, v]) => v.length > 0)
+          .map(([status, items]) => {
+            const labels: Record<string, string> = { fresh: "✅ Fresh/Ready", in_use: "🛏️ In Use", need_laundry: "🧺 Need Laundry", awaiting_return: "⏳ Awaiting Return" };
+            const itemList = items.map(i => `  - ${i.item_type}${i.item_label ? ` (${i.item_label})` : ""}${i.room_id ? ` → Room ${i.room_id}` : ""}`).join("\n");
+            return `${labels[status] || status} (${items.length}):\n${itemList}`;
+          }).join("\n\n");
+        
+        return summary || "No linen items tracked.";
+      }
+
+      case "update_linen_status": {
+        const target = args.target as string;
+        const newStatus = args.new_status as string;
+        const roomId = args.room_id as string | undefined;
+        const notes = args.notes as string | undefined;
+        
+        let q = sb.from("ops_linen_items").select("*").eq("branch_id", branchId);
+        
+        if (target.startsWith("room:")) {
+          q = q.eq("room_id", target.replace("room:", ""));
+        } else if (target.startsWith("type:")) {
+          q = q.ilike("item_type", `%${target.replace("type:", "")}%`);
+        } else if (target.startsWith("status:")) {
+          q = q.eq("status", target.replace("status:", ""));
+        } else if (target.startsWith("id:")) {
+          q = q.eq("id", target.replace("id:", ""));
+        } else {
+          // Try to match by type name
+          q = q.ilike("item_type", `%${target}%`);
+        }
+        
+        const { data: items, error: fetchErr } = await q;
+        if (fetchErr) return `Error: ${fetchErr.message}`;
+        if (!items?.length) return `No linen items found matching "${target}".`;
+        
+        const updatePayload: Record<string, any> = {
+          status: newStatus,
+          status_changed_at: new Date().toISOString(),
+          status_changed_by: userId,
+          updated_at: new Date().toISOString(),
+        };
+        if (roomId !== undefined) updatePayload.room_id = roomId === "null" ? null : roomId;
+        if (notes) updatePayload.notes = notes;
+        if (newStatus === "fresh") {
+          updatePayload.room_id = null;
+          updatePayload.guest_id = null;
+          updatePayload.expected_free_at = null;
+        }
+        
+        const ids = items.map(i => i.id);
+        const { error: updateErr } = await sb.from("ops_linen_items").update(updatePayload).in("id", ids);
+        if (updateErr) return `Error: ${updateErr.message}`;
+        
+        return JSON.stringify({ success: true, updated: ids.length, items: items.map(i => `${i.item_type}${i.item_label ? ` (${i.item_label})` : ""}`), new_status: newStatus });
+      }
+
+      case "issue_linens_to_room": {
+        const roomId = args.room_id as string;
+        const specificItems = args.items as { item_type: string; count?: number }[] | undefined;
+        
+        // Find guest in this room
+        const { data: guests } = await sb.from("ops_guest_log").select("id, guest_name, expected_check_out")
+          .eq("branch_id", branchId).eq("room_id", roomId).eq("status", "checked_in").limit(1);
+        const guest = guests?.[0];
+        
+        // Find fresh items to issue
+        let freshQuery = sb.from("ops_linen_items").select("*").eq("branch_id", branchId).eq("status", "fresh");
+        const { data: freshItems, error } = await freshQuery;
+        if (error) return `Error: ${error.message}`;
+        if (!freshItems?.length) return "No fresh linen items available to issue.";
+        
+        let toIssue: typeof freshItems = [];
+        
+        if (specificItems?.length) {
+          for (const spec of specificItems) {
+            const count = spec.count || 1;
+            const matching = freshItems.filter(f => f.item_type.toLowerCase().includes(spec.item_type.toLowerCase()) && !toIssue.some(ti => ti.id === f.id));
+            toIssue.push(...matching.slice(0, count));
+          }
+        } else {
+          // Issue one of each type available
+          const seen = new Set<string>();
+          for (const f of freshItems) {
+            if (!seen.has(f.item_type)) {
+              toIssue.push(f);
+              seen.add(f.item_type);
+            }
+          }
+        }
+        
+        if (toIssue.length === 0) return "No matching fresh linen items found.";
+        
+        const ids = toIssue.map(i => i.id);
+        const updatePayload: Record<string, any> = {
+          status: "in_use",
+          room_id: roomId,
+          status_changed_at: new Date().toISOString(),
+          status_changed_by: userId,
+          updated_at: new Date().toISOString(),
+        };
+        if (guest) {
+          updatePayload.guest_id = guest.id;
+          if (guest.expected_check_out) updatePayload.expected_free_at = guest.expected_check_out;
+        }
+        
+        const { error: updateErr } = await sb.from("ops_linen_items").update(updatePayload).in("id", ids);
+        if (updateErr) return `Error: ${updateErr.message}`;
+        
+        const summary = toIssue.map(i => i.item_type).join(", ");
+        return JSON.stringify({ success: true, room: roomId, issued: toIssue.length, items: summary, guest: guest?.guest_name || "No guest" });
+      }
+
+      case "add_linen_item": {
+        const itemType = args.item_type as string;
+        const count = (args.count as number) || 1;
+        const label = args.label as string | undefined;
+        
+        const inserts = [];
+        for (let i = 0; i < count; i++) {
+          inserts.push({
+            branch_id: branchId,
+            item_type: itemType,
+            item_label: label ? (count > 1 ? `${label} #${i + 1}` : label) : (count > 1 ? `#${i + 1}` : null),
+            status: "fresh",
+            status_changed_by: userId,
+          });
+        }
+        
+        const { error } = await sb.from("ops_linen_items").insert(inserts);
+        if (error) return `Error: ${error.message}`;
+        
+        return JSON.stringify({ success: true, added: count, type: itemType });
+      }
+
       default:
         return `Unknown tool: ${name}`;
     }
