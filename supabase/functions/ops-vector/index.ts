@@ -2692,6 +2692,153 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ success: true, added: count, type: itemType });
       }
 
+      // ═══ RECURRING TASKS ═══
+
+      case "get_recurring_tasks": {
+        const [metaResult, tasksResult] = await Promise.all([
+          sb.from("ops_recurring_meta_tasks").select("*").eq("branch_id", branchId).order("title"),
+          sb.from("ops_recurring_tasks").select("*").eq("branch_id", branchId).order("next_execution_at"),
+        ]);
+        const metas = metaResult.data || [];
+        let tasks = tasksResult.data || [];
+        if (!args.include_inactive) tasks = tasks.filter((t: any) => t.is_active);
+        if (args.meta_task_id) tasks = tasks.filter((t: any) => t.meta_task_id === args.meta_task_id);
+
+        const userIds = [...new Set(tasks.flatMap((t: any) => t.assigned_to))];
+        const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").in("user_id", userIds.length ? userIds : ["none"]);
+        const nameMap = Object.fromEntries((profiles || []).map((p: any) => [p.user_id, p.display_name]));
+
+        const now = new Date();
+        const tasksByMeta = new Map<string, any[]>();
+        const standalone: any[] = [];
+        for (const t of tasks) {
+          const daysUntil = Math.ceil((new Date(t.next_execution_at).getTime() - now.getTime()) / 86400000);
+          const mapped = {
+            id: t.id, title: t.title, frequency_days: t.frequency_days,
+            next_execution: t.next_execution_at, last_executed: t.last_executed_at,
+            assigned_to: t.assigned_to.map((id: string) => nameMap[id] || id),
+            room: t.related_room_id, is_active: t.is_active,
+            status: daysUntil < 0 ? "OVERDUE" : daysUntil <= 1 ? "DUE_SOON" : "OK",
+            days_until_next: daysUntil,
+          };
+          if (t.meta_task_id) {
+            const arr = tasksByMeta.get(t.meta_task_id) || [];
+            arr.push(mapped);
+            tasksByMeta.set(t.meta_task_id, arr);
+          } else {
+            standalone.push(mapped);
+          }
+        }
+
+        return JSON.stringify({
+          meta_tasks: metas.map((m: any) => ({
+            id: m.id, title: m.title, description: m.description,
+            category: m.category, priority: m.priority,
+            sub_tasks: tasksByMeta.get(m.id) || [],
+          })),
+          standalone_tasks: standalone,
+        }, null, 2);
+      }
+
+      case "create_recurring_meta_task": {
+        const { data, error } = await sb.from("ops_recurring_meta_tasks").insert({
+          branch_id: branchId, created_by: userId,
+          title: args.title as string,
+          description: (args.description as string) || null,
+          category: (args.category as string) || "Operations",
+          priority: (args.priority as string) || "Medium",
+        }).select("id").single();
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, meta_task_id: data.id, title: args.title });
+      }
+
+      case "create_recurring_task": {
+        const freqDays = (args.frequency_days as number) || 7;
+        const nextExec = new Date();
+        nextExec.setDate(nextExec.getDate() + freqDays);
+
+        let assignedIds: string[] = [];
+        if (args.assigned_to_names) {
+          const { data: profs } = await sb.from("ops_user_profiles").select("user_id, display_name").eq("branch_id", branchId).eq("is_active", true);
+          for (const n of (args.assigned_to_names as string[])) {
+            const match = (profs || []).find((p: any) => p.display_name.toLowerCase().includes(n.toLowerCase()));
+            if (match) assignedIds.push(match.user_id);
+            else return `No user found matching "${n}". Available: ${(profs || []).map((p: any) => p.display_name).join(", ")}`;
+          }
+        }
+
+        const { data, error } = await sb.from("ops_recurring_tasks").insert({
+          branch_id: branchId, created_by: userId,
+          title: args.title as string,
+          description: (args.description as string) || null,
+          category: (args.category as string) || "Operations",
+          priority: (args.priority as string) || "Medium",
+          frequency_days: freqDays,
+          assigned_to: assignedIds,
+          related_room_id: (args.related_room_id as string) || null,
+          meta_task_id: (args.meta_task_id as string) || null,
+          next_execution_at: nextExec.toISOString(),
+        }).select("id").single();
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, task_id: data.id, title: args.title, frequency_days: freqDays, next_execution: nextExec.toISOString() });
+      }
+
+      case "update_recurring_task": {
+        const taskId = args.task_id as string;
+        const updates: any = { updated_at: new Date().toISOString() };
+
+        if (args.title) updates.title = args.title;
+        if (args.frequency_days) updates.frequency_days = args.frequency_days;
+        if (args.is_active !== undefined) updates.is_active = args.is_active;
+
+        if (args.assigned_to_names) {
+          const { data: profs } = await sb.from("ops_user_profiles").select("user_id, display_name").eq("branch_id", branchId).eq("is_active", true);
+          const ids: string[] = [];
+          for (const n of (args.assigned_to_names as string[])) {
+            const match = (profs || []).find((p: any) => p.display_name.toLowerCase().includes(n.toLowerCase()));
+            if (match) ids.push(match.user_id);
+            else return `No user found matching "${n}"`;
+          }
+          updates.assigned_to = ids;
+        }
+
+        if (args.mark_executed) {
+          const { data: existing } = await sb.from("ops_recurring_tasks").select("frequency_days").eq("id", taskId).single();
+          if (existing) {
+            const freq = (args.frequency_days as number) || existing.frequency_days;
+            const next = new Date();
+            next.setDate(next.getDate() + freq);
+            updates.last_executed_at = new Date().toISOString();
+            updates.next_execution_at = next.toISOString();
+          }
+        }
+
+        const { error } = await sb.from("ops_recurring_tasks").update(updates).eq("id", taskId).eq("branch_id", branchId);
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, task_id: taskId, updated: Object.keys(updates).filter(k => k !== "updated_at") });
+      }
+
+      case "delete_recurring_task": {
+        if (!isAdmin) return "Only admins can delete recurring tasks.";
+        const taskId = args.task_id as string;
+        const { data: existing } = await sb.from("ops_recurring_tasks").select("title").eq("id", taskId).eq("branch_id", branchId).single();
+        if (!existing) return `Recurring task not found: ${taskId}`;
+        const { error } = await sb.from("ops_recurring_tasks").delete().eq("id", taskId).eq("branch_id", branchId);
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, deleted: existing.title });
+      }
+
+      case "delete_recurring_meta_task": {
+        if (!isAdmin) return "Only admins can delete meta tasks.";
+        const metaId = args.meta_task_id as string;
+        const { data: existing } = await sb.from("ops_recurring_meta_tasks").select("title").eq("id", metaId).eq("branch_id", branchId).single();
+        if (!existing) return `Meta task not found: ${metaId}`;
+        // CASCADE will delete sub-tasks
+        const { error } = await sb.from("ops_recurring_meta_tasks").delete().eq("id", metaId).eq("branch_id", branchId);
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, deleted: existing.title, note: "All sub-tasks also deleted" });
+      }
+
       default:
         return `Unknown tool: ${name}`;
     }
