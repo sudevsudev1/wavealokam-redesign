@@ -93,7 +93,7 @@ export default function LaundryPage() {
         .from('ops_config_registry')
         .select('key, value_json')
         .eq('branch_id', branchId!)
-        .in('key', ['laundry_total_sets', 'laundry_turnaround_days', 'laundry_total_rooms']);
+        .in('key', ['laundry_total_sets', 'laundry_turnaround_days', 'laundry_total_rooms', 'laundry_set_composition']);
       const map: Record<string, any> = {};
       (data || []).forEach(r => { map[r.key] = r.value_json; });
       return map;
