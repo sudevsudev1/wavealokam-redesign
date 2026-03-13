@@ -56,10 +56,27 @@ export default function InventoryPage() {
   const [searchParams] = useSearchParams();
   const { t } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
+  const { data: expiryBatches = [], isLoading: expiryLoading } = useExpiryItems();
 
-  const lowStockCount = items.filter((i) => i.current_stock <= i.reorder_point).length;
+  // For consumable categories, "due" means earliest active batch expires within 1 day
+  // For non-consumable categories, "due" means current_stock <= reorder_point
+  const lowStockCount = useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
-  if (isLoading) {
+    return items.filter((i) => {
+      if (CONSUMABLE_CATEGORIES.includes(i.category)) {
+        // Check if any active batch expires within 1 day (or already expired)
+        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
+        if (batches.length === 0) return i.current_stock > 0; // has stock but no batches tracked = show
+        return batches.some(b => b.expiry_date <= tomorrowStr);
+      }
+      return i.current_stock <= i.reorder_point;
+    }).length;
+  }, [items, expiryBatches]);
+
+  if (isLoading || expiryLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
