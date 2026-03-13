@@ -48,6 +48,17 @@ interface LinenItem {
 }
 
 const LINEN_TYPES = ['Bedsheet', 'Pillow Cover', 'Towel', 'Bath Towel', 'Hand Towel', 'Blanket', 'Duvet Cover', 'Mattress Protector'] as const;
+
+const DEFAULT_SET_COMPOSITION: Record<string, number> = {
+  'Bedsheet': 1,
+  'Pillow Cover': 2,
+  'Towel': 1,
+  'Bath Towel': 1,
+  'Hand Towel': 1,
+  'Blanket': 1,
+  'Duvet Cover': 1,
+  'Mattress Protector': 1,
+};
 const LINEN_STATUSES = ['fresh', 'in_use', 'need_laundry', 'awaiting_return'] as const;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
@@ -82,7 +93,7 @@ export default function LaundryPage() {
         .from('ops_config_registry')
         .select('key, value_json')
         .eq('branch_id', branchId!)
-        .in('key', ['laundry_total_sets', 'laundry_turnaround_days', 'laundry_total_rooms']);
+        .in('key', ['laundry_total_sets', 'laundry_turnaround_days', 'laundry_total_rooms', 'laundry_set_composition']);
       const map: Record<string, any> = {};
       (data || []).forEach(r => { map[r.key] = r.value_json; });
       return map;
@@ -93,6 +104,7 @@ export default function LaundryPage() {
   const TOTAL_SETS = (configData?.laundry_total_sets as number) || DEFAULT_TOTAL_SETS;
   const TURNAROUND_DAYS = (configData?.laundry_turnaround_days as number) || DEFAULT_TURNAROUND_DAYS;
   const TOTAL_ROOMS = (configData?.laundry_total_rooms as number) || DEFAULT_TOTAL_ROOMS;
+  const SET_COMPOSITION: Record<string, number> = (configData?.laundry_set_composition as Record<string, number>) || DEFAULT_SET_COMPOSITION;
 
   // Fetch batches
   const { data: batches, isLoading } = useQuery({
@@ -349,6 +361,7 @@ export default function LaundryPage() {
   const [editSets, setEditSets] = useState(TOTAL_SETS);
   const [editTurnaround, setEditTurnaround] = useState(TURNAROUND_DAYS);
   const [editRooms, setEditRooms] = useState(TOTAL_ROOMS);
+  const [editSetComposition, setEditSetComposition] = useState<Record<string, number>>(SET_COMPOSITION);
 
   if (isLoading || linensLoading) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -361,7 +374,7 @@ export default function LaundryPage() {
         <h1 className="text-xl font-bold">{t('laundry.title')}</h1>
         <div className="flex gap-2">
           {isAdmin && (
-            <Dialog open={settingsOpen} onOpenChange={(o) => { setSettingsOpen(o); if (o) { setEditSets(TOTAL_SETS); setEditTurnaround(TURNAROUND_DAYS); setEditRooms(TOTAL_ROOMS); } }}>
+            <Dialog open={settingsOpen} onOpenChange={(o) => { setSettingsOpen(o); if (o) { setEditSets(TOTAL_SETS); setEditTurnaround(TURNAROUND_DAYS); setEditRooms(TOTAL_ROOMS); setEditSetComposition({...SET_COMPOSITION}); } }}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm"><Settings className="h-4 w-4 mr-1" />{t('laundry.settings')}</Button>
               </DialogTrigger>
@@ -382,7 +395,43 @@ export default function LaundryPage() {
                     <label className="text-sm font-medium">{t('laundry.totalRooms')}</label>
                     <Input type="number" value={editRooms} onChange={e => setEditRooms(Number(e.target.value))} min={1} />
                   </div>
-                  <Button onClick={() => saveConfigMutation.mutate({ laundry_total_sets: editSets, laundry_turnaround_days: editTurnaround, laundry_total_rooms: editRooms })} disabled={saveConfigMutation.isPending} className="w-full">
+                  <div>
+                    <label className="text-sm font-medium">Items in a Set</label>
+                    <p className="text-xs text-muted-foreground mb-2">Define what linen items make up one complete set.</p>
+                    <div className="space-y-1.5 border border-border rounded-md p-2">
+                      {LINEN_TYPES.map(lt => {
+                        const qty = editSetComposition[lt] || 0;
+                        return (
+                          <div key={lt} className="flex items-center justify-between text-xs">
+                            <span>{lt}</span>
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline" className="h-5 w-5 p-0" onClick={() => setEditSetComposition(prev => ({ ...prev, [lt]: Math.max(0, (prev[lt] || 0) - 1) }))}>−</Button>
+                              <span className="w-6 text-center font-mono">{qty}</span>
+                              <Button size="sm" variant="outline" className="h-5 w-5 p-0" onClick={() => setEditSetComposition(prev => ({ ...prev, [lt]: (prev[lt] || 0) + 1 }))}>+</Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Button onClick={() => {
+                    const configs: Record<string, any> = {
+                      laundry_total_sets: editSets,
+                      laundry_turnaround_days: editTurnaround,
+                      laundry_total_rooms: editRooms,
+                    };
+                    // Save set composition separately since it's JSON
+                    saveConfigMutation.mutate(configs);
+                    // Also save set composition
+                    supabase.from('ops_config_registry').upsert({
+                      key: 'laundry_set_composition',
+                      value_json: editSetComposition as any,
+                      branch_id: branchId!,
+                      updated_by: profile!.userId,
+                    } as any, { onConflict: 'key,branch_id' }).then(() => {
+                      queryClient.invalidateQueries({ queryKey: ['ops_config_registry'] });
+                    });
+                  }} disabled={saveConfigMutation.isPending} className="w-full">
                     {saveConfigMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('inv.save')}
                   </Button>
                 </div>
