@@ -799,11 +799,18 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
 /* ─── Tab 2: Due For Order ─── */
 function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
+  const { isAdmin } = useOpsAuth();
   const addToList = useAddToPurchaseList();
+  const updateItem = useUpdateInventoryItem();
+  const batchDeleteItems = useBatchDeleteInventoryItems();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [dueQuantities, setDueQuantities] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [editMode, setEditMode] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [bulkPending, setBulkPending] = useState(false);
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -850,6 +857,29 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
     }
   };
 
+  const handleBulkAction = async (action: string) => {
+    const ids = Array.from(selectedItems);
+    if (!ids.length) return;
+    if (action === 'delete') {
+      const confirmed = window.confirm(`Delete ${ids.length} selected item(s)?`);
+      if (!confirmed) return;
+      setBulkPending(true);
+      try {
+        await batchDeleteItems.mutateAsync(ids);
+        toast.success(`${ids.length} item(s) deleted`);
+        setSelectedItems(new Set());
+      } catch (e: any) {
+        toast.error(e.message);
+      } finally {
+        setBulkPending(false);
+      }
+      return;
+    }
+    if (action === 'edit') {
+      setShowBulkEdit(true);
+    }
+  };
+
   const totalDue = items.filter(i => i.current_stock <= i.reorder_point).length;
 
   return (
@@ -878,12 +908,26 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
       ) : (
         <>
           <div className="flex flex-wrap gap-2">
-            {dueItems.length > 0 && (
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant={editMode ? 'secondary' : 'outline'}
+                className="text-xs"
+                onClick={() => {
+                  setEditMode(prev => !prev);
+                  if (editMode) setSelectedItems(new Set());
+                }}
+              >
+                {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
+              </Button>
+            )}
+
+            {!editMode && dueItems.length > 0 && (
               <Button size="sm" variant="outline" className="text-xs" onClick={selectAllVisible}>
                 {dueItems.every(i => selectedItems.has(i.id)) ? 'Unselect Visible' : 'Select Visible'}
               </Button>
             )}
-            {selectedItems.size > 0 && (
+            {!editMode && selectedItems.size > 0 && (
               <Button
                 size="sm"
                 onClick={handleAddToList}
@@ -896,6 +940,22 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
             )}
           </div>
 
+          {/* Bulk Action Bar for edit mode */}
+          {editMode && selectedItems.size > 0 && (
+            <BulkActionBar
+              selectedCount={selectedItems.size}
+              totalCount={dueItems.length}
+              onSelectAll={() => setSelectedItems(new Set(dueItems.map(i => i.id)))}
+              onDeselectAll={() => setSelectedItems(new Set())}
+              actions={[
+                { label: 'Edit Selected', value: 'edit', icon: <Pencil className="h-3 w-3" /> },
+                { label: 'Delete', value: 'delete', variant: 'destructive', icon: <Trash2 className="h-3 w-3" /> },
+              ]}
+              onAction={handleBulkAction}
+              isPending={bulkPending}
+            />
+          )}
+
           {dueItems.length === 0 && (search || categoryFilter !== 'all') && (
             <p className="text-xs text-muted-foreground text-center py-4">No matching due items</p>
           )}
@@ -907,34 +967,53 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
               <Card
                 key={item.id}
                 className={`cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-orange-200'}`}
-                onClick={() => toggleItem(item.id)}
+                onClick={() => { if (!editMode) toggleItem(item.id); }}
               >
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/30'}`}>
-                        {isSelected && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
-                      </div>
+                      {editMode ? (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleItem(item.id)}
+                          className="shrink-0"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/30'}`}>
+                          {isSelected && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <span className="font-medium text-sm truncate block">{getName(item)}</span>
                         <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
-                        <ItemBatchDates itemId={item.id} />
+                        <ItemBatchDates itemId={item.id} editable={isAdmin && editMode} />
                       </div>
                     </div>
-                    <div className="text-right shrink-0 space-y-1">
-                      <div className="flex items-baseline gap-1">
-                        <span className="font-mono text-sm font-bold text-orange-600">{item.current_stock}</span>
-                        <span className="text-[10px] text-muted-foreground">/ {item.par_level}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isAdmin && !editMode && (
+                        <Button
+                          size="sm" variant="ghost" className="h-6 w-6 p-0"
+                          onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
+                        >
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      )}
+                      <div className="text-right space-y-1">
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-mono text-sm font-bold text-orange-600">{item.current_stock}</span>
+                          <span className="text-[10px] text-muted-foreground">/ {item.par_level}</span>
+                        </div>
+                        {!editMode && isSelected && (
+                          <QtyEditor
+                            value={dueQuantities[item.id] || Math.max(1, deficit)}
+                            onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
+                          />
+                        )}
+                        {!editMode && !isSelected && (
+                          <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
+                        )}
                       </div>
-                      {isSelected && (
-                        <QtyEditor
-                          value={dueQuantities[item.id] || Math.max(1, deficit)}
-                          onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
-                        />
-                      )}
-                      {!isSelected && (
-                        <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -942,6 +1021,20 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
             );
           })}
         </>
+      )}
+
+      {editingItem && (
+        <EditItemDialog item={editingItem} onClose={() => setEditingItem(null)} />
+      )}
+
+      {showBulkEdit && (
+        <BulkEditDialog
+          itemIds={Array.from(selectedItems)}
+          items={items}
+          isSingleCategory={categoryFilter !== 'all'}
+          onClose={() => setShowBulkEdit(false)}
+          onDone={() => { setShowBulkEdit(false); setSelectedItems(new Set()); }}
+        />
       )}
     </div>
   );
