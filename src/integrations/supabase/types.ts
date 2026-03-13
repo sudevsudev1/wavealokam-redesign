@@ -901,6 +901,62 @@ export type Database = {
           },
         ]
       }
+      ops_linen_items: {
+        Row: {
+          branch_id: string
+          created_at: string
+          expected_free_at: string | null
+          guest_id: string | null
+          id: string
+          item_label: string | null
+          item_type: string
+          notes: string | null
+          room_id: string | null
+          status: string
+          status_changed_at: string
+          status_changed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          expected_free_at?: string | null
+          guest_id?: string | null
+          id?: string
+          item_label?: string | null
+          item_type?: string
+          notes?: string | null
+          room_id?: string | null
+          status?: string
+          status_changed_at?: string
+          status_changed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          expected_free_at?: string | null
+          guest_id?: string | null
+          id?: string
+          item_label?: string | null
+          item_type?: string
+          notes?: string | null
+          room_id?: string | null
+          status?: string
+          status_changed_at?: string
+          status_changed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_linen_items_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_notifications: {
         Row: {
           action_url: string | null
