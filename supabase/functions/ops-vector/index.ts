@@ -1091,36 +1091,123 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
       // ═══ PURCHASE LIST ═══
 
       case "add_to_purchase_list": {
-        const requestedItems = args.items as { name: string; quantity: number; unit?: string }[];
-        const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit").eq("branch_id", branchId).eq("is_active", true);
-        
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        let orderId: string;
-        if (orders && orders.length > 0) {
-          orderId = orders[0].id;
-        } else {
-          const { data: newOrder, error: oErr } = await sb.from("ops_purchase_orders").insert({ branch_id: branchId, requested_by: userId, status: "Active" }).select("id").single();
-          if (oErr) return `Error creating purchase list: ${oErr.message}`;
-          orderId = newOrder.id;
+        const requestedItems = (args.items as PurchaseItemInput[]) || [];
+        const missingResolutions = ((args.missing_resolution as MissingResolutionInput[]) || []);
+
+        if (!requestedItems.length) {
+          return JSON.stringify({ success: false, error: "No items provided" });
         }
 
-        const { data: existingListItems } = await sb.from("ops_purchase_order_items").select("item_id, quantity, completed_at").eq("order_id", orderId);
-        const added: string[] = [];
-        const notFound: string[] = [];
-        const duplicates: string[] = [];
+        const { data: invItems } = await sb
+          .from("ops_inventory_items")
+          .select("id, name_en, unit")
+          .eq("branch_id", branchId)
+          .eq("is_active", true);
 
-        for (const ri of requestedItems) {
-          const match = (invItems || []).find(i => i.name_en.toLowerCase().includes(ri.name.toLowerCase()));
-          if (!match) { notFound.push(ri.name); continue; }
-          const existing = (existingListItems || []).find((e: any) => e.item_id === match.id && !e.completed_at);
-          if (existing) { duplicates.push(`${match.name_en} (already ${(existing as any).quantity} on list)`); continue; }
-          const { error } = await sb.from("ops_purchase_order_items").insert({ order_id: orderId, item_id: match.id, quantity: ri.quantity, branch_id: branchId, added_by: userId });
-          if (!error) {
-            added.push(`${match.name_en} ×${ri.quantity} ${match.unit}`);
-            await sb.from("ops_audit_log").insert({ entity_type: "purchase_list_item", entity_id: orderId, action: "add_item", performed_by: userId, branch_id: branchId, after_json: { item: match.name_en, quantity: ri.quantity } });
+        const inventoryItems = [...(invItems || [])];
+        const orderId = await getOrCreateActiveOrderId(sb, branchId, userId);
+
+        const { data: existingListItems } = await sb
+          .from("ops_purchase_order_items")
+          .select("item_id, quantity, completed_at")
+          .eq("order_id", orderId);
+
+        const added: string[] = [];
+        const duplicates: string[] = [];
+        const unresolvedMissing: Array<{ name: string; quantity: number; unit: string }> = [];
+        const autoCreated: Array<{ name: string; mode: "catalog" | "one_time" }> = [];
+
+        for (const requestedItem of requestedItems) {
+          const normalizedQty = Number(requestedItem.quantity) > 0 ? Number(requestedItem.quantity) : 1;
+          let match = findInventoryMatch(inventoryItems, requestedItem.name);
+
+          if (!match) {
+            const resolution = getMissingResolution(missingResolutions, requestedItem.name);
+
+            if (!resolution) {
+              unresolvedMissing.push({
+                name: requestedItem.name,
+                quantity: normalizedQty,
+                unit: requestedItem.unit || "pcs",
+              });
+              continue;
+            }
+
+            const defaultPar = resolution.action === "one_time" ? 1 : 5;
+            const defaultReorder = resolution.action === "one_time" ? 0 : 2;
+            const parLevel = resolution.par_level !== undefined ? Math.max(0, Math.round(resolution.par_level)) : defaultPar;
+            const reorderPoint = resolution.reorder_point !== undefined
+              ? Math.max(0, Math.round(resolution.reorder_point))
+              : Math.min(parLevel, defaultReorder);
+
+            const { data: createdItem, error: createError } = await sb
+              .from("ops_inventory_items")
+              .insert({
+                branch_id: branchId,
+                name_en: requestedItem.name,
+                category: resolution.category || "F&B",
+                unit: resolution.unit || requestedItem.unit || "pcs",
+                par_level: parLevel,
+                reorder_point: reorderPoint,
+                expiry_warn_days: resolution.expiry_warn_days ?? null,
+                current_stock: 0,
+                is_active: true,
+              })
+              .select("id, name_en, unit")
+              .single();
+
+            if (createError || !createdItem) {
+              unresolvedMissing.push({
+                name: requestedItem.name,
+                quantity: normalizedQty,
+                unit: requestedItem.unit || "pcs",
+              });
+              continue;
+            }
+
+            match = createdItem;
+            inventoryItems.push(createdItem);
+            autoCreated.push({ name: createdItem.name_en, mode: resolution.action });
+          }
+
+          const existing = (existingListItems || []).find((entry: any) => entry.item_id === match.id && !entry.completed_at);
+          if (existing) {
+            duplicates.push(`${match.name_en} (already ${(existing as any).quantity} on list)`);
+            continue;
+          }
+
+          const { error: insertError } = await sb.from("ops_purchase_order_items").insert({
+            order_id: orderId,
+            item_id: match.id,
+            quantity: normalizedQty,
+            branch_id: branchId,
+            added_by: userId,
+          });
+
+          if (!insertError) {
+            added.push(`${match.name_en} ×${normalizedQty} ${match.unit}`);
+            await sb.from("ops_audit_log").insert({
+              entity_type: "purchase_list_item",
+              entity_id: orderId,
+              action: "add_item",
+              performed_by: userId,
+              branch_id: branchId,
+              after_json: { item: match.name_en, quantity: normalizedQty },
+            });
           }
         }
-        return JSON.stringify({ success: true, added, not_found: notFound, duplicates });
+
+        return JSON.stringify({
+          success: true,
+          added,
+          duplicates,
+          auto_created: autoCreated,
+          requires_decision: unresolvedMissing.length > 0,
+          unresolved_missing: unresolvedMissing,
+          prompt: unresolvedMissing.length
+            ? `Missing: ${unresolvedMissing.map((item) => `${item.name} (${item.quantity} ${item.unit})`).join(", ")}. Should I add each to catalog or as one-time?`
+            : undefined,
+        });
       }
 
       case "update_purchase_item": {
