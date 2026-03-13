@@ -896,6 +896,81 @@ const VECTOR_TOOLS = [
       },
     },
   },
+
+  // ═══ LINEN LIFECYCLE ═══
+  {
+    type: "function",
+    function: {
+      name: "get_linen_status",
+      description: "Get all linen items grouped by status (fresh, in_use, need_laundry, awaiting_return). Use for 'how many bedsheets are clean?', 'linen status', 'what's in laundry?'",
+      parameters: {
+        type: "object",
+        properties: {
+          status_filter: { type: "string", description: "Optional: fresh, in_use, need_laundry, awaiting_return" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_linen_status",
+      description: "Change the status of one or more linen items. Use for 'bedsheet from 102 is now in laundry', 'mark all need_laundry items as awaiting_return', 'room 102 linens need washing'. Can target by item type, room, or specific IDs.",
+      parameters: {
+        type: "object",
+        properties: {
+          target: { type: "string", description: "How to find items: 'room:102', 'type:Bedsheet', 'status:need_laundry', or 'id:<uuid>'" },
+          new_status: { type: "string", description: "fresh, in_use, need_laundry, or awaiting_return" },
+          room_id: { type: "string", description: "Optional: assign/change room (set null to clear)" },
+          notes: { type: "string", description: "Optional note" },
+        },
+        required: ["target", "new_status"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "issue_linens_to_room",
+      description: "Issue fresh linens to a room. Changes their status to in_use and assigns the room. Links to guest if one is checked into that room. Use for 'issued linens to 102', 'room 102 got fresh sheets'.",
+      parameters: {
+        type: "object",
+        properties: {
+          room_id: { type: "string", description: "Room ID e.g. '102'" },
+          items: {
+            type: "array",
+            description: "Specific items to issue. If empty, issues all available fresh items needed.",
+            items: {
+              type: "object",
+              properties: {
+                item_type: { type: "string" },
+                count: { type: "number" },
+              },
+              required: ["item_type"],
+            },
+          },
+        },
+        required: ["room_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_linen_item",
+      description: "Add a new linen item to the tracking system. Use for 'add 2 bedsheets to linen inventory', 'we got new towels'.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_type: { type: "string", description: "Bedsheet, Pillow Cover, Towel, Bath Towel, Hand Towel, Blanket, Duvet Cover, Mattress Protector" },
+          count: { type: "number", description: "How many to add. Default 1." },
+          label: { type: "string", description: "Optional label (e.g., '#1', 'Blue')" },
+        },
+        required: ["item_type"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
