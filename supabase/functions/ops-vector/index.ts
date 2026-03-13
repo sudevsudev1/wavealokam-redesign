@@ -2519,8 +2519,17 @@ When user says "got it", "received", "tick off" → tick_off_purchase_item.
 When user says "room X refreshed" or "cleaned room X" → issue_room_items. You know the template.
 When user says "used 2 tissue rolls" → issue_item.
 
-═══ LAUNDRY ═══
-Track linen: 8 total sets, 5 rooms. Turnaround = 2 days (before noon cutoff).
+═══ LAUNDRY & LINEN LIFECYCLE ═══
+Track individual linen items through their lifecycle: fresh → in_use → need_laundry → awaiting_return → fresh.
+- "Issued linens to 102" → issue_linens_to_room. Links to current guest, sets expected_free_at to checkout date.
+- "Room 102 checked out, linens need washing" → update_linen_status target:room:102 new_status:need_laundry.
+- "Sent bedsheets to laundry" → update_linen_status target:type:Bedsheet new_status:awaiting_return (for items in need_laundry).
+- "Laundry returned the towels" → update_linen_status target:type:Towel new_status:fresh (for items awaiting_return).
+- "How many clean bedsheets?" → get_linen_status status_filter:fresh.
+- Guest checkout should trigger linens moving to need_laundry.
+- Guest stay extension should update expected_free_at.
+- Individual items can have different statuses — e.g., laundry returned without one bedsheet, so only update the ones that came back.
+Track linen sets (legacy): 8 total sets, 5 rooms. Turnaround = 2 days (before noon cutoff).
 Run laundry_forecast daily to proactively flag shortages.
 "Sent 3 sets to laundry" → send_laundry.
 "Laundry came back" → receive_laundry (need batch_id, get from forecast data).
