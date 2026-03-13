@@ -255,8 +255,8 @@ export default function VectorDock() {
     sendToVector(text, { systemInstruction: instructions[action], displayLabel: labels[action] });
   }, [input, getLastAssistantContent, sendToVector, t]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       sendMessage();
     }
