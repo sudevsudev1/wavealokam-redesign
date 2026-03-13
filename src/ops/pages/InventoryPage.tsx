@@ -51,7 +51,71 @@ function QtyEditor({ value, onChange, min = 1 }: { value: number; onChange: (v: 
   );
 }
 
-/** Get due-for-order reason for an item. Returns null if not due. */
+/** Quick issue button for inventory items */
+function QuickIssueButton({ item, getName }: { item: InventoryItem; getName: (i: InventoryItem) => string }) {
+  const updateStock = useUpdateStock();
+  const [showDialog, setShowDialog] = useState(false);
+  const [qty, setQty] = useState(1);
+  const [note, setNote] = useState('');
+
+  const handleIssue = async () => {
+    if (qty <= 0 || qty > item.current_stock) {
+      toast.error(qty > item.current_stock ? 'Quantity exceeds stock' : 'Invalid quantity');
+      return;
+    }
+    try {
+      await updateStock.mutateAsync({
+        itemId: item.id,
+        quantity: qty,
+        type: 'out',
+        notes: note || `Quick issue: ${getName(item)}`,
+      });
+      toast.success(`Issued ${qty} ${item.unit} of ${getName(item)}`);
+      setShowDialog(false);
+      setQty(1);
+      setNote('');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        size="sm" variant="ghost" className="h-6 w-6 p-0"
+        onClick={(e) => { e.stopPropagation(); setShowDialog(true); }}
+        title="Quick Issue"
+      >
+        <ArrowUp className="h-3 w-3 text-orange-500" />
+      </Button>
+      {showDialog && (
+        <Dialog open onOpenChange={(open) => { if (!open) setShowDialog(false); }}>
+          <DialogContent className="max-w-xs" onClick={e => e.stopPropagation()}>
+            <DialogHeader>
+              <DialogTitle className="text-sm">Issue: {getName(item)}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Stock: {item.current_stock} {item.unit}</p>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+                <Input type="number" min="1" max={item.current_stock} value={qty} onChange={e => setQty(parseInt(e.target.value) || 1)} className="mt-1 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Note (optional)</label>
+                <Input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Room 102" className="mt-1 text-sm" />
+              </div>
+              <Button onClick={handleIssue} disabled={updateStock.isPending} className="w-full text-xs gap-1.5">
+                {updateStock.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}
+                Issue {qty} {item.unit}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
 function getDueReason(item: InventoryItem, batches: InventoryExpiry[]): string | null {
   // Skip inactive/zero-par items
   if (!item.is_active || item.par_level <= 0) return null;
