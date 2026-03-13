@@ -57,6 +57,8 @@ export default function QuickPurchaseDock() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const [templatePreview, setTemplatePreview] = useState<PurchaseTemplate | null>(null);
   const [templateQtys, setTemplateQtys] = useState<Record<string, number>>({});
+  const [parExceedInfo, setParExceedInfo] = useState<ParExceedInfo | null>(null);
+  const [parExceedChoice, setParExceedChoice] = useState<'over' | 'need_more'>('over');
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
