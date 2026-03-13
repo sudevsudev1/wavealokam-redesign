@@ -842,6 +842,34 @@ const VECTOR_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "create_purchase_template",
+      description: "Create a purchase list template from the current purchase list or from specified items. When user says 'save current list as template' or 'create template from purchase list', use this. Can also create from scratch with item names.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Template name" },
+          description: { type: "string", description: "Optional description" },
+          from_current_list: { type: "boolean", description: "If true, copies all pending items from the current purchase list into the template" },
+          items: {
+            type: "array",
+            description: "Manual item list (used if from_current_list is false)",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                quantity: { type: "number" },
+              },
+              required: ["name", "quantity"],
+            },
+          },
+        },
+        required: ["name"],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
