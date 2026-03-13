@@ -12,13 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Loader2, Filter, Trash2, ArrowRight, Printer, Copy } from 'lucide-react';
+import { ClipboardList, Loader2, Filter, Trash2, ArrowRight, Printer, Copy, RotateCcw } from 'lucide-react';
 import { TASK_STATUSES, TASK_CATEGORIES, TASK_PRIORITIES } from '../lib/taskConstants';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { copyToClipboard, printToPdf, formatTasksForCopy } from '../lib/printCopy';
 import { Button } from '@/components/ui/button';
+import RecurringTasksTab from '../components/RecurringTasksTab';
 
 export default function TasksPage() {
   const { isAdmin, profile } = useOpsAuth();
