@@ -395,7 +395,43 @@ export default function LaundryPage() {
                     <label className="text-sm font-medium">{t('laundry.totalRooms')}</label>
                     <Input type="number" value={editRooms} onChange={e => setEditRooms(Number(e.target.value))} min={1} />
                   </div>
-                  <Button onClick={() => saveConfigMutation.mutate({ laundry_total_sets: editSets, laundry_turnaround_days: editTurnaround, laundry_total_rooms: editRooms })} disabled={saveConfigMutation.isPending} className="w-full">
+                  <div>
+                    <label className="text-sm font-medium">Items in a Set</label>
+                    <p className="text-xs text-muted-foreground mb-2">Define what linen items make up one complete set.</p>
+                    <div className="space-y-1.5 border border-border rounded-md p-2">
+                      {LINEN_TYPES.map(lt => {
+                        const qty = editSetComposition[lt] || 0;
+                        return (
+                          <div key={lt} className="flex items-center justify-between text-xs">
+                            <span>{lt}</span>
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline" className="h-5 w-5 p-0" onClick={() => setEditSetComposition(prev => ({ ...prev, [lt]: Math.max(0, (prev[lt] || 0) - 1) }))}>−</Button>
+                              <span className="w-6 text-center font-mono">{qty}</span>
+                              <Button size="sm" variant="outline" className="h-5 w-5 p-0" onClick={() => setEditSetComposition(prev => ({ ...prev, [lt]: (prev[lt] || 0) + 1 }))}>+</Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Button onClick={() => {
+                    const configs: Record<string, any> = {
+                      laundry_total_sets: editSets,
+                      laundry_turnaround_days: editTurnaround,
+                      laundry_total_rooms: editRooms,
+                    };
+                    // Save set composition separately since it's JSON
+                    saveConfigMutation.mutate(configs);
+                    // Also save set composition
+                    supabase.from('ops_config_registry').upsert({
+                      key: 'laundry_set_composition',
+                      value_json: editSetComposition as any,
+                      branch_id: branchId!,
+                      updated_by: profile!.userId,
+                    } as any, { onConflict: 'key,branch_id' }).then(() => {
+                      queryClient.invalidateQueries({ queryKey: ['ops_config_registry'] });
+                    });
+                  }} disabled={saveConfigMutation.isPending} className="w-full">
                     {saveConfigMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('inv.save')}
                   </Button>
                 </div>
