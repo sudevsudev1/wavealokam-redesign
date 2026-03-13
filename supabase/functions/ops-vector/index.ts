@@ -271,7 +271,64 @@ const VECTOR_TOOLS = [
     },
   },
 
-  // ═══ INVENTORY: Issue & Query ═══
+  // ═══ INVENTORY: Full CRUD ═══
+  {
+    type: "function",
+    function: {
+      name: "create_inventory_item",
+      description: "Add a new item to the inventory catalog. Admin only. Parse: 'add hand soap to inventory, category toiletries, unit pcs, par 10' → create item.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Item name in English" },
+          category: { type: "string", description: "Category from: Vegetables, Fruits, Dairy & Eggs, Staples, Pulses, Spices, Oils & Condiments, Proteins, Packaging & Cleaning, Toiletries, Linens, Cleaning, F&B, Maintenance, Stationery, Safety" },
+          unit: { type: "string", description: "Unit: pcs, kg, liter, bunch, pack, loaf, roll, bottles, cans, reams, boxes, books, kits" },
+          par_level: { type: "number", description: "Ideal stock level. Default 5." },
+          reorder_point: { type: "number", description: "When to reorder. Default 2." },
+          shelf_life_days: { type: "number", description: "Shelf life in days (optional)" },
+          mfg_offset_days: { type: "number", description: "Days before received_date for mfg date. Default 2." },
+          initial_stock: { type: "number", description: "Starting stock count. Default 0." },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_inventory_item",
+      description: "Update an inventory item's parameters: par level, reorder point, shelf life, mfg offset, category, unit, name, current stock. Admin only.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_name: { type: "string", description: "Name of item to find" },
+          par_level: { type: "number" },
+          reorder_point: { type: "number" },
+          shelf_life_days: { type: "number" },
+          mfg_offset_days: { type: "number" },
+          category: { type: "string" },
+          unit: { type: "string" },
+          current_stock: { type: "number" },
+          new_name: { type: "string", description: "Rename the item" },
+        },
+        required: ["item_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_inventory_item",
+      description: "Deactivate an inventory item (soft delete). Admin only.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_name: { type: "string", description: "Name of item to deactivate" },
+        },
+        required: ["item_name"],
+      },
+    },
+  },
   {
     type: "function",
     function: {
