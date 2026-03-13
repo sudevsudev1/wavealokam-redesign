@@ -60,7 +60,7 @@ export default function VectorDock() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Position & size state (desktop only)
   const [pos, setPos] = useState({ x: -1, y: -1 });
