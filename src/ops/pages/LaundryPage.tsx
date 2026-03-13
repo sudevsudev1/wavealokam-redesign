@@ -374,7 +374,7 @@ export default function LaundryPage() {
         <h1 className="text-xl font-bold">{t('laundry.title')}</h1>
         <div className="flex gap-2">
           {isAdmin && (
-            <Dialog open={settingsOpen} onOpenChange={(o) => { setSettingsOpen(o); if (o) { setEditSets(TOTAL_SETS); setEditTurnaround(TURNAROUND_DAYS); setEditRooms(TOTAL_ROOMS); } }}>
+            <Dialog open={settingsOpen} onOpenChange={(o) => { setSettingsOpen(o); if (o) { setEditSets(TOTAL_SETS); setEditTurnaround(TURNAROUND_DAYS); setEditRooms(TOTAL_ROOMS); setEditSetComposition({...SET_COMPOSITION}); } }}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm"><Settings className="h-4 w-4 mr-1" />{t('laundry.settings')}</Button>
               </DialogTrigger>
