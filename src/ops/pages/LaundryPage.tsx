@@ -104,6 +104,7 @@ export default function LaundryPage() {
   const TOTAL_SETS = (configData?.laundry_total_sets as number) || DEFAULT_TOTAL_SETS;
   const TURNAROUND_DAYS = (configData?.laundry_turnaround_days as number) || DEFAULT_TURNAROUND_DAYS;
   const TOTAL_ROOMS = (configData?.laundry_total_rooms as number) || DEFAULT_TOTAL_ROOMS;
+  const SET_COMPOSITION: Record<string, number> = (configData?.laundry_set_composition as Record<string, number>) || DEFAULT_SET_COMPOSITION;
 
   // Fetch batches
   const { data: batches, isLoading } = useQuery({
