@@ -845,6 +845,32 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "create_issue_template",
+      description: "Create an issue template for grouped stock deductions. Use when user says 'create an issue template for kitchen daily with soap, sponge, dish cloth' or 'make a room refill template for Room 101'. The template name can be anything: room ID, 'Kitchen Daily', 'Office', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Template name (e.g., 'Kitchen Daily', 'Room 101', 'Office Supplies')" },
+          items: {
+            type: "array",
+            description: "Items to include in the template",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                quantity: { type: "number" },
+              },
+              required: ["name", "quantity"],
+            },
+          },
+        },
+        required: ["name", "items"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "create_purchase_template",
       description: "Create a purchase list template from the current purchase list or from specified items. When user says 'save current list as template' or 'create template from purchase list', use this. Can also create from scratch with item names.",
       parameters: {
@@ -2088,6 +2114,42 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const { data: newEntry, error } = await sb.from("ops_vector_knowledge").insert({ branch_id: branchId, topic, content, created_by: userId! }).select("id").single();
         if (error) return `Error: ${error.message}`;
         return JSON.stringify({ success: true, action: "created", topic });
+      }
+
+      case "create_issue_template": {
+        const templateName = args.name as string;
+        const templateItemsInput = args.items as { name: string; quantity: number }[];
+        if (!templateItemsInput?.length) return "No items specified for the issue template.";
+
+        const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit").eq("branch_id", branchId).eq("is_active", true);
+        const resolvedItems: { item_id: string; quantity: number; name: string }[] = [];
+        const missing: string[] = [];
+
+        for (const item of templateItemsInput) {
+          const match = findInventoryMatch(invItems || [], item.name);
+          if (match) {
+            resolvedItems.push({ item_id: match.id, quantity: item.quantity, name: match.name_en });
+          } else {
+            missing.push(item.name);
+          }
+        }
+
+        if (missing.length > 0) {
+          return `These items were not found in the catalog: ${missing.join(", ")}. Add them first or check spelling.`;
+        }
+
+        // Insert each item as a row in ops_room_refill_templates with room_type = template name
+        for (const ri of resolvedItems) {
+          const { error } = await sb.from("ops_room_refill_templates").insert({
+            branch_id: branchId,
+            room_type: templateName,
+            item_id: ri.item_id,
+            quantity: ri.quantity,
+          });
+          if (error) return `Error adding ${ri.name}: ${error.message}`;
+        }
+
+        return JSON.stringify({ success: true, template_name: templateName, items: resolvedItems.map(r => ({ name: r.name, quantity: r.quantity })) });
       }
 
       case "create_purchase_template": {
