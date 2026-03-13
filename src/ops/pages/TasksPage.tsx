@@ -94,116 +94,146 @@ export default function TasksPage() {
           {t('nav.tasks')}
         </h1>
         <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Copy"
-            onClick={() => {
-              const tasks = applyFilters(allTasks || []);
-              const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
-              const text = formatTasksForCopy(tasks.map(t => ({
-                title: t.title_en || t.title_original,
-                status: t.status, priority: t.priority,
-                assignee: t.assigned_to.map(id => profileMap.get(id) || '?').join(', '),
-                due: t.due_datetime ? new Date(t.due_datetime).toLocaleDateString() : undefined,
-              })));
-              copyToClipboard(text);
-            }}>
-            <Copy className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Print PDF"
-            onClick={() => {
-              const tasks = applyFilters(allTasks || []);
-              const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
-              printToPdf('Tasks', tasks.map(t => [
-                t.title_en || t.title_original, t.status, t.priority,
-                t.assigned_to.map(id => profileMap.get(id) || '?').join(', '),
-                t.due_datetime ? new Date(t.due_datetime).toLocaleDateString() : 'No due date',
-              ]));
-            }}>
-            <Printer className="h-3.5 w-3.5" />
-          </Button>
-          {isAdmin && <CreateTaskDialog />}
+          {topTab === 'tasks' && (
+            <>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Copy"
+                onClick={() => {
+                  const tasks = applyFilters(allTasks || []);
+                  const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+                  const text = formatTasksForCopy(tasks.map(t => ({
+                    title: t.title_en || t.title_original,
+                    status: t.status, priority: t.priority,
+                    assignee: t.assigned_to.map(id => profileMap.get(id) || '?').join(', '),
+                    due: t.due_datetime ? new Date(t.due_datetime).toLocaleDateString() : undefined,
+                  })));
+                  copyToClipboard(text);
+                }}>
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Print PDF"
+                onClick={() => {
+                  const tasks = applyFilters(allTasks || []);
+                  const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+                  printToPdf('Tasks', tasks.map(t => [
+                    t.title_en || t.title_original, t.status, t.priority,
+                    t.assigned_to.map(id => profileMap.get(id) || '?').join(', '),
+                    t.due_datetime ? new Date(t.due_datetime).toLocaleDateString() : 'No due date',
+                  ]));
+                }}>
+                <Printer className="h-3.5 w-3.5" />
+              </Button>
+              {isAdmin && <CreateTaskDialog />}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Filters (admin only) */}
-      {isAdmin && (
-        <div className="flex gap-1.5 flex-wrap items-center">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-7 text-[10px] w-24"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              {TASK_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="h-7 text-[10px] w-28"><SelectValue placeholder="Category" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {TASK_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="h-7 text-[10px] w-24"><SelectValue placeholder="Priority" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              {TASK_PRIORITIES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {hasActiveFilters && (
-            <button onClick={() => { setFilterStatus('all'); setFilterCategory('all'); setFilterPriority('all'); }}
-              className="text-[10px] text-primary underline">Clear</button>
-          )}
-        </div>
-      )}
+      {/* Top-level tabs: Tasks | Recurring */}
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant={topTab === 'tasks' ? 'default' : 'outline'}
+          className="text-xs h-7"
+          onClick={() => setTopTab('tasks')}
+        >
+          <ClipboardList className="h-3 w-3 mr-1" /> Tasks
+        </Button>
+        <Button
+          size="sm"
+          variant={topTab === 'recurring' ? 'default' : 'outline'}
+          className="text-xs h-7"
+          onClick={() => setTopTab('recurring')}
+        >
+          <RotateCcw className="h-3 w-3 mr-1" /> Recurring
+        </Button>
+      </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : isAdmin ? (
-        <Tabs defaultValue="my">
-          <ScrollArea className="w-full">
-            <TabsList className="w-max">
-              <TabsTrigger value="my" className="text-xs">My Tasks</TabsTrigger>
-              {managers.map(m => (
-                <TabsTrigger key={m.user_id} value={m.user_id} className="text-xs">{m.display_name}</TabsTrigger>
-              ))}
-              {admins.filter(a => a.user_id !== profile?.userId).map(a => (
-                <TabsTrigger key={a.user_id} value={a.user_id} className="text-xs">{a.display_name}</TabsTrigger>
-              ))}
-              <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-            </TabsList>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-
-          <TabsContent value="my" className="space-y-2 mt-3">
-            <TaskList tasks={applyFilters(myTasks)} selectedIds={selectedIds} onToggle={toggleSelect}
-              isAdmin={isAdmin} bulkActions={bulkActions} onBulkAction={(a) => handleBulkAction(a, applyFilters(myTasks))}
-              bulkPending={bulkPending} onSelectAll={() => setSelectedIds(new Set(applyFilters(myTasks).map(t => t.id)))}
-              onDeselectAll={() => setSelectedIds(new Set())} />
-          </TabsContent>
-
-          {[...managers, ...admins.filter(a => a.user_id !== profile?.userId)].map(p => (
-            <TabsContent key={p.user_id} value={p.user_id} className="space-y-2 mt-3">
-              <TaskList tasks={applyFilters(allTasks?.filter(task => task.assigned_to.includes(p.user_id)) || [])}
-                selectedIds={selectedIds} onToggle={toggleSelect} isAdmin={isAdmin}
-                bulkActions={bulkActions} onBulkAction={(a) => handleBulkAction(a, applyFilters(allTasks || []))}
-                bulkPending={bulkPending} onSelectAll={() => setSelectedIds(new Set(applyFilters(allTasks?.filter(task => task.assigned_to.includes(p.user_id)) || []).map(t => t.id)))}
-                onDeselectAll={() => setSelectedIds(new Set())} />
-            </TabsContent>
-          ))}
-
-          <TabsContent value="all" className="space-y-2 mt-3">
-            <TaskList tasks={applyFilters(allTasks || [])} selectedIds={selectedIds} onToggle={toggleSelect}
-              isAdmin={isAdmin} bulkActions={bulkActions} onBulkAction={(a) => handleBulkAction(a, applyFilters(allTasks || []))}
-              bulkPending={bulkPending} onSelectAll={() => setSelectedIds(new Set(applyFilters(allTasks || []).map(t => t.id)))}
-              onDeselectAll={() => setSelectedIds(new Set())} />
-          </TabsContent>
-        </Tabs>
+      {topTab === 'recurring' ? (
+        <RecurringTasksTab />
       ) : (
-        <TaskList tasks={myTasks} selectedIds={selectedIds} onToggle={toggleSelect}
-          isAdmin={false} bulkActions={[]} onBulkAction={() => {}}
-          bulkPending={false} onSelectAll={() => {}} onDeselectAll={() => {}} />
+        <>
+          {/* Filters (admin only) */}
+          {isAdmin && (
+            <div className="flex gap-1.5 flex-wrap items-center">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-7 text-[10px] w-24"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {TASK_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="h-7 text-[10px] w-28"><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {TASK_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <SelectTrigger className="h-7 text-[10px] w-24"><SelectValue placeholder="Priority" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  {TASK_PRIORITIES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <button onClick={() => { setFilterStatus('all'); setFilterCategory('all'); setFilterPriority('all'); }}
+                  className="text-[10px] text-primary underline">Clear</button>
+              )}
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : isAdmin ? (
+            <Tabs defaultValue="my">
+              <ScrollArea className="w-full">
+                <TabsList className="w-max">
+                  <TabsTrigger value="my" className="text-xs">My Tasks</TabsTrigger>
+                  {managers.map(m => (
+                    <TabsTrigger key={m.user_id} value={m.user_id} className="text-xs">{m.display_name}</TabsTrigger>
+                  ))}
+                  {admins.filter(a => a.user_id !== profile?.userId).map(a => (
+                    <TabsTrigger key={a.user_id} value={a.user_id} className="text-xs">{a.display_name}</TabsTrigger>
+                  ))}
+                  <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                </TabsList>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+
+              <TabsContent value="my" className="space-y-2 mt-3">
+                <TaskList tasks={applyFilters(myTasks)} selectedIds={selectedIds} onToggle={toggleSelect}
+                  isAdmin={isAdmin} bulkActions={bulkActions} onBulkAction={(a) => handleBulkAction(a, applyFilters(myTasks))}
+                  bulkPending={bulkPending} onSelectAll={() => setSelectedIds(new Set(applyFilters(myTasks).map(t => t.id)))}
+                  onDeselectAll={() => setSelectedIds(new Set())} />
+              </TabsContent>
+
+              {[...managers, ...admins.filter(a => a.user_id !== profile?.userId)].map(p => (
+                <TabsContent key={p.user_id} value={p.user_id} className="space-y-2 mt-3">
+                  <TaskList tasks={applyFilters(allTasks?.filter(task => task.assigned_to.includes(p.user_id)) || [])}
+                    selectedIds={selectedIds} onToggle={toggleSelect} isAdmin={isAdmin}
+                    bulkActions={bulkActions} onBulkAction={(a) => handleBulkAction(a, applyFilters(allTasks || []))}
+                    bulkPending={bulkPending} onSelectAll={() => setSelectedIds(new Set(applyFilters(allTasks?.filter(task => task.assigned_to.includes(p.user_id)) || []).map(t => t.id)))}
+                    onDeselectAll={() => setSelectedIds(new Set())} />
+                </TabsContent>
+              ))}
+
+              <TabsContent value="all" className="space-y-2 mt-3">
+                <TaskList tasks={applyFilters(allTasks || [])} selectedIds={selectedIds} onToggle={toggleSelect}
+                  isAdmin={isAdmin} bulkActions={bulkActions} onBulkAction={(a) => handleBulkAction(a, applyFilters(allTasks || []))}
+                  bulkPending={bulkPending} onSelectAll={() => setSelectedIds(new Set(applyFilters(allTasks || []).map(t => t.id)))}
+                  onDeselectAll={() => setSelectedIds(new Set())} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <TaskList tasks={myTasks} selectedIds={selectedIds} onToggle={toggleSelect}
+              isAdmin={false} bulkActions={[]} onBulkAction={() => {}}
+              bulkPending={false} onSelectAll={() => {}} onDeselectAll={() => {}} />
+          )}
+        </>
       )}
     </div>
   );
