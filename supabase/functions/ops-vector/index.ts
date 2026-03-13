@@ -1151,6 +1151,106 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ items: result, total_pending: result.filter(i => !i.is_completed).length });
       }
 
+      // ═══ INVENTORY CRUD ═══
+
+      case "create_inventory_item": {
+        if (!isAdmin) return "Only admins can add inventory items.";
+        const name = args.name as string;
+        const category = (args.category as string) || "F&B";
+        const unit = (args.unit as string) || "pcs";
+        const parLevel = (args.par_level as number) || 5;
+        const reorderPoint = (args.reorder_point as number) || 2;
+        const shelfLife = args.shelf_life_days as number | undefined;
+        const mfgOffset = (args.mfg_offset_days as number) || 2;
+        const initialStock = (args.initial_stock as number) || 0;
+
+        // Check for duplicate
+        const { data: existing } = await sb.from("ops_inventory_items").select("id, name_en").eq("branch_id", branchId).ilike("name_en", name).eq("is_active", true).limit(1);
+        if (existing?.length) return `Item "${existing[0].name_en}" already exists in inventory.`;
+
+        const { data: newItem, error } = await sb.from("ops_inventory_items").insert({
+          branch_id: branchId, name_en: name, category, unit,
+          par_level: parLevel, reorder_point: reorderPoint,
+          expiry_warn_days: shelfLife || null, mfg_offset_days: mfgOffset,
+          current_stock: initialStock, is_active: true,
+        }).select("id, name_en").single();
+        if (error) return `Error: ${error.message}`;
+
+        await sb.from("ops_audit_log").insert({
+          entity_type: "inventory_item", entity_id: newItem.id, action: "create",
+          performed_by: userId, branch_id: branchId,
+          after_json: { name, category, unit, par_level: parLevel, reorder_point: reorderPoint },
+        });
+
+        return JSON.stringify({ success: true, item_id: newItem.id, name, category, unit, par_level: parLevel, reorder_point: reorderPoint, current_stock: initialStock });
+      }
+
+      case "update_inventory_item": {
+        if (!isAdmin) return "Only admins can edit inventory items.";
+        const { data: items } = await sb.from("ops_inventory_items").select("*").eq("branch_id", branchId).ilike("name_en", `%${args.item_name}%`).eq("is_active", true);
+        if (!items?.length) return `Item "${args.item_name}" not found in inventory.`;
+        const item = items[0];
+        const updates: any = { updated_at: new Date().toISOString() };
+        if (args.par_level !== undefined) updates.par_level = args.par_level;
+        if (args.reorder_point !== undefined) updates.reorder_point = args.reorder_point;
+        if (args.shelf_life_days !== undefined) updates.expiry_warn_days = args.shelf_life_days || null;
+        if (args.mfg_offset_days !== undefined) updates.mfg_offset_days = args.mfg_offset_days;
+        if (args.category) updates.category = args.category;
+        if (args.unit) updates.unit = args.unit;
+        if (args.current_stock !== undefined) updates.current_stock = args.current_stock;
+        if (args.new_name) updates.name_en = args.new_name;
+
+        const { error } = await sb.from("ops_inventory_items").update(updates).eq("id", item.id);
+        if (error) return `Error: ${error.message}`;
+
+        // Recalculate batches if mfg or shelf life changed
+        if (args.mfg_offset_days !== undefined || args.shelf_life_days !== undefined) {
+          const newMfg = args.mfg_offset_days !== undefined ? (args.mfg_offset_days as number) : item.mfg_offset_days;
+          const newShelf = args.shelf_life_days !== undefined ? (args.shelf_life_days as number) : item.expiry_warn_days;
+          const { data: batches } = await sb.from("ops_inventory_expiry").select("id, received_date").eq("item_id", item.id).eq("is_disposed", false);
+          for (const batch of (batches || [])) {
+            if (batch.received_date) {
+              const rcvd = new Date(batch.received_date);
+              const batchUp: any = {};
+              const mfgDate = new Date(rcvd); mfgDate.setDate(mfgDate.getDate() - newMfg);
+              batchUp.mfg_date = mfgDate.toISOString().split("T")[0];
+              if (newShelf) {
+                const expDate = new Date(rcvd); expDate.setDate(expDate.getDate() + newShelf);
+                batchUp.expiry_date = expDate.toISOString().split("T")[0];
+              }
+              await sb.from("ops_inventory_expiry").update(batchUp).eq("id", batch.id);
+            }
+          }
+        }
+
+        await sb.from("ops_audit_log").insert({
+          entity_type: "inventory_item", entity_id: item.id, action: "update",
+          performed_by: userId, branch_id: branchId,
+          before_json: { name: item.name_en, par_level: item.par_level, reorder_point: item.reorder_point },
+          after_json: updates,
+        });
+
+        return JSON.stringify({ success: true, item: args.new_name || item.name_en, updated_fields: Object.keys(updates).filter(k => k !== "updated_at") });
+      }
+
+      case "delete_inventory_item": {
+        if (!isAdmin) return "Only admins can delete inventory items.";
+        const { data: items } = await sb.from("ops_inventory_items").select("id, name_en").eq("branch_id", branchId).ilike("name_en", `%${args.item_name}%`).eq("is_active", true);
+        if (!items?.length) return `Item "${args.item_name}" not found.`;
+        if (items.length > 1) return `Multiple items match "${args.item_name}": ${items.map(i => i.name_en).join(", ")}. Be more specific.`;
+
+        const item = items[0];
+        const { error } = await sb.from("ops_inventory_items").update({ is_active: false, updated_at: new Date().toISOString() }).eq("id", item.id);
+        if (error) return `Error: ${error.message}`;
+
+        await sb.from("ops_audit_log").insert({
+          entity_type: "inventory_item", entity_id: item.id, action: "delete",
+          performed_by: userId, branch_id: branchId, before_json: { name: item.name_en },
+        });
+
+        return JSON.stringify({ success: true, deleted: item.name_en });
+      }
+
       // ═══ INVENTORY ISSUE ═══
 
       case "issue_room_items": {
