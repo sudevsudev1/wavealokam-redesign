@@ -51,6 +51,41 @@ function QtyEditor({ value, onChange, min = 1 }: { value: number; onChange: (v: 
   );
 }
 
+/** Get due-for-order reason for an item. Returns null if not due. */
+function getDueReason(item: InventoryItem, batches: InventoryExpiry[]): string | null {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+  const activeBatches = batches.filter(b => b.item_id === item.id && !b.is_disposed);
+  const isConsumable = CONSUMABLE_CATEGORIES.includes(item.category);
+
+  if (isConsumable) {
+    if (activeBatches.length === 0 && item.current_stock > 0) return 'untracked';
+    if (activeBatches.length === 0) return null;
+    const hasExpired = activeBatches.some(b => b.expiry_date <= todayStr);
+    if (hasExpired) return 'expired';
+    const nearExpiry = activeBatches.some(b => b.expiry_date <= tomorrowStr);
+    if (nearExpiry) return 'nearing_expiry';
+    return null;
+  }
+
+  // Non-consumable: whichever comes first
+  const hasExpired = activeBatches.some(b => b.expiry_date <= todayStr);
+  if (hasExpired) return 'expired';
+  const nearExpiry = activeBatches.some(b => b.expiry_date <= tomorrowStr);
+  if (nearExpiry) return 'nearing_expiry';
+  if (item.current_stock <= item.reorder_point) return 'low_quantity';
+  return null;
+}
+
+const DUE_REASON_LABELS: Record<string, { label: string; icon: string; className: string }> = {
+  expired: { label: 'Expired', icon: '⚠', className: 'text-destructive font-medium' },
+  nearing_expiry: { label: 'Nearing expiry', icon: '⏰', className: 'text-amber-600' },
+  low_quantity: { label: 'Low quantity', icon: '📉', className: 'text-orange-600' },
+  untracked: { label: 'Untracked batches', icon: '❓', className: 'text-muted-foreground' },
+};
+
 
 export default function InventoryPage() {
   const [searchParams] = useSearchParams();
