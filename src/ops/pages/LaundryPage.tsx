@@ -323,14 +323,47 @@ export default function LaundryPage() {
         {/* Status Tab */}
         <TabsContent value="status" className="space-y-3 mt-3">
           <h3 className="text-sm font-semibold flex items-center gap-1"><Clock className="h-4 w-4" /> {t('laundry.inTransit')}</h3>
+          {isAdmin && selectedBatchIds.size > 0 && (
+            <BulkActionBar
+              selectedCount={selectedBatchIds.size}
+              totalCount={inTransit.length}
+              onSelectAll={() => setSelectedBatchIds(new Set(inTransit.map(b => b.id)))}
+              onDeselectAll={() => setSelectedBatchIds(new Set())}
+              actions={[{ label: 'Mark all received', value: 'receive' }]}
+              onAction={async () => {
+                setBulkPending(true);
+                try {
+                  const ids = Array.from(selectedBatchIds);
+                  for (const id of ids) { await receiveMutation.mutateAsync(id); }
+                  setSelectedBatchIds(new Set());
+                  toast.success(`Received ${ids.length} batches`);
+                } catch (e: any) { toast.error(e.message); }
+                finally { setBulkPending(false); }
+              }}
+              isPending={bulkPending}
+            />
+          )}
           {inTransit.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('laundry.noneInTransit')}</p>
           ) : (
             <div className="space-y-2">
               {inTransit.map(batch => (
                 <Card key={batch.id}>
-                  <CardContent className="p-3 flex items-center justify-between">
-                    <div>
+                  <CardContent className="p-3 flex items-center gap-2">
+                    {isAdmin && (
+                      <Checkbox
+                        checked={selectedBatchIds.has(batch.id)}
+                        onCheckedChange={() => {
+                          setSelectedBatchIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(batch.id)) next.delete(batch.id); else next.add(batch.id);
+                            return next;
+                          });
+                        }}
+                        className="shrink-0"
+                      />
+                    )}
+                    <div className="flex-1">
                       <div className="font-medium text-sm">{batch.sets_count} {t('laundry.sets')}</div>
                       <div className="text-xs text-muted-foreground">
                         {t('laundry.sentBy')} {nameMap[batch.sent_by] || '?'} · {format(parseISO(batch.sent_at), 'MMM d, h:mm a')}
