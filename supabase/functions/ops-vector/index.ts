@@ -1287,7 +1287,7 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         await sb.from("ops_inventory_transactions").insert({
           branch_id: branchId, item_id: item.id, quantity: receivedQty,
           type: "receive", performed_by: userId, notes: "Received from purchase list",
-          related_order_id: orders[0].id,
+          related_order_id: orderId,
         });
         
         await sb.from("ops_audit_log").insert({ entity_type: "purchase_list_item", entity_id: listItem[0].id, action: "tick_off", performed_by: userId, branch_id: branchId, after_json: { item: item.name_en, received: receivedQty } });
