@@ -1500,7 +1500,7 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const { data: items, error } = await q;
         if (error) return `Error: ${error.message}`;
         
-        const { data: activeOrders } = await sb.from("ops_purchase_orders").select("id, status, ops_purchase_order_items(item_id)").eq("branch_id", branchId).eq("status", "Active");
+        const { data: activeOrders } = await sb.from("ops_purchase_orders").select("id, status, ops_purchase_order_items(item_id)").eq("branch_id", branchId).in("status", [...ACTIVE_PURCHASE_ORDER_STATUSES]);
         const onListItemIds = new Set((activeOrders || []).flatMap(o => ((o.ops_purchase_order_items as any[]) || []).map((i: any) => i.item_id)));
         
         const { data: expiryBatches } = await sb.from("ops_inventory_expiry").select("*").eq("branch_id", branchId).eq("is_disposed", false);
