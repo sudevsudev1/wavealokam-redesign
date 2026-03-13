@@ -46,6 +46,35 @@ function getMissingResolution(missingResolutions: MissingResolutionInput[], item
   return missingResolutions.find((r) => normalizeText(r.name) === target || target.includes(normalizeText(r.name)) || normalizeText(r.name).includes(target)) || null;
 }
 
+async function getLatestActiveOrderId(sb: ReturnType<typeof getSupabase>, branchId: string) {
+  const { data: orders } = await sb
+    .from("ops_purchase_orders")
+    .select("id")
+    .eq("branch_id", branchId)
+    .in("status", [...ACTIVE_PURCHASE_ORDER_STATUSES])
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  return orders?.[0]?.id ?? null;
+}
+
+async function getOrCreateActiveOrderId(sb: ReturnType<typeof getSupabase>, branchId: string, userId: string) {
+  const existingOrderId = await getLatestActiveOrderId(sb, branchId);
+  if (existingOrderId) return existingOrderId;
+
+  const { data: newOrder, error: orderError } = await sb
+    .from("ops_purchase_orders")
+    .insert({ branch_id: branchId, requested_by: userId, status: "Draft" })
+    .select("id")
+    .single();
+
+  if (orderError || !newOrder) {
+    throw new Error(orderError?.message || "Failed to create purchase list");
+  }
+
+  return newOrder.id;
+}
+
 // ─── Tool definitions ───
 
 const VECTOR_TOOLS = [
