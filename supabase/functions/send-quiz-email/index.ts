@@ -8,6 +8,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const escapeHtml = (text: string): string => {
+  const map: Record<string, string> = {
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+};
+
 interface QuizEmailRequest {
   guestName: string;
   guestEmail: string;
@@ -40,7 +47,6 @@ async function sendEmail(options: {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -49,9 +55,13 @@ const handler = async (req: Request): Promise<Response> => {
     const { guestName, guestEmail, guestPhone, answer1, answer2 }: QuizEmailRequest = await req.json();
 
     console.log("Received quiz email request from:", guestName, guestEmail, guestPhone);
-    console.log("Answers:", answer1, answer2);
 
-    // Build the email HTML body
+    const safeName = escapeHtml(guestName || '(Not provided)');
+    const safeEmail = escapeHtml(guestEmail || '(Not provided)');
+    const safePhone = escapeHtml(guestPhone || '(Not provided)');
+    const safeA1 = escapeHtml(answer1 || '(Not answered)');
+    const safeA2 = escapeHtml(answer2 || '(Not answered)');
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 30px; text-align: center;">
@@ -64,19 +74,19 @@ const handler = async (req: Request): Promise<Response> => {
           
           <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
             <h3 style="color: #FF8235; margin-top: 0; margin-bottom: 15px;">Guest Details</h3>
-            <p style="margin: 5px 0; color: #333;"><strong>Name:</strong> ${guestName || '(Not provided)'}</p>
-            <p style="margin: 5px 0; color: #333;"><strong>Email:</strong> ${guestEmail || '(Not provided)'}</p>
-            <p style="margin: 5px 0; color: #333;"><strong>Phone:</strong> ${guestPhone || '(Not provided)'}</p>
+            <p style="margin: 5px 0; color: #333;"><strong>Name:</strong> ${safeName}</p>
+            <p style="margin: 5px 0; color: #333;"><strong>Email:</strong> ${safeEmail}</p>
+            <p style="margin: 5px 0; color: #333;"><strong>Phone:</strong> ${safePhone}</p>
           </div>
           
           <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
             <p style="font-weight: bold; color: #FF8235; margin-bottom: 5px;">Q1: What does Wavealokam mean?</p>
-            <p style="margin: 0; color: #333;">A1: ${answer1 || '(Not answered)'}</p>
+            <p style="margin: 0; color: #333;">A1: ${safeA1}</p>
           </div>
           
           <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee;">
             <p style="font-weight: bold; color: #FF8235; margin-bottom: 5px;">Q2: What is the easiest way to get free breakfast from the owner Amardeep?</p>
-            <p style="margin: 0; color: #333;">A2: ${answer2 || '(Not answered)'}</p>
+            <p style="margin: 0; color: #333;">A2: ${safeA2}</p>
           </div>
         </div>
         
@@ -86,12 +96,10 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log("Sending quiz email to wavealokam@gmail.com");
-
     const emailResponse = await sendEmail({
       from: "Wavealokam Quiz <onboarding@resend.dev>",
       to: ["wavealokam@gmail.com"],
-      subject: `New Discount Quiz from ${guestName}`,
+      subject: `New Discount Quiz from ${safeName}`,
       html: emailHtml,
     });
 
@@ -99,20 +107,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(JSON.stringify({ success: true, data: emailResponse }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error in send-quiz-email function:", errorMessage);
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      JSON.stringify({ success: false, error: "Failed to send email. Please try again or contact us directly." }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 };

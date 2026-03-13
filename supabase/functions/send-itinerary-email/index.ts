@@ -8,6 +8,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const escapeHtml = (text: string): string => {
+  const map: Record<string, string> = {
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+};
+
 interface ItineraryEmailRequest {
   guestName: string;
   guestEmail: string;
@@ -42,7 +49,6 @@ async function sendEmail(options: {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -57,30 +63,35 @@ const handler = async (req: Request): Promise<Response> => {
       pdfFileName 
     }: ItineraryEmailRequest = await req.json();
 
-    console.log("Received itinerary email request for:", guestName, guestEmail, guestPhone);
-
-    // Validate required fields
     if (!guestName || !guestEmail || !guestPhone || !itineraryDetails) {
-      console.error("Missing required fields");
-      throw new Error("Missing required fields: name, email, phone, and itinerary details are required");
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing required fields." }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(guestEmail)) {
-      console.error("Invalid email format:", guestEmail);
-      throw new Error("Invalid email format");
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid email format." }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    // Validate phone format (basic validation for Indian numbers)
     const phoneRegex = /^[+]?[0-9]{10,15}$/;
     const cleanPhone = guestPhone.replace(/[\s-]/g, '');
     if (!phoneRegex.test(cleanPhone)) {
-      console.error("Invalid phone format:", guestPhone);
-      throw new Error("Invalid phone format");
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid phone format." }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    // Build the email HTML body
+    const safeName = escapeHtml(guestName);
+    const safeEmail = escapeHtml(guestEmail);
+    const safePhone = escapeHtml(guestPhone);
+    const safeDetails = escapeHtml(itineraryDetails);
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #FF8235 0%, #f97316 100%); padding: 30px; text-align: center;">
@@ -93,21 +104,21 @@ const handler = async (req: Request): Promise<Response> => {
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
               <td style="padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; width: 120px;">Name:</td>
-              <td style="padding: 10px 0; border-bottom: 1px solid #eee;">${guestName}</td>
+              <td style="padding: 10px 0; border-bottom: 1px solid #eee;">${safeName}</td>
             </tr>
             <tr>
               <td style="padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold;">Email:</td>
-              <td style="padding: 10px 0; border-bottom: 1px solid #eee;">${guestEmail}</td>
+              <td style="padding: 10px 0; border-bottom: 1px solid #eee;">${safeEmail}</td>
             </tr>
             <tr>
               <td style="padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold;">Phone:</td>
-              <td style="padding: 10px 0; border-bottom: 1px solid #eee;">${guestPhone}</td>
+              <td style="padding: 10px 0; border-bottom: 1px solid #eee;">${safePhone}</td>
             </tr>
           </table>
           
           <h2 style="color: #333; margin-top: 30px;">Itinerary Details</h2>
           <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">
-${itineraryDetails}
+${safeDetails}
           </div>
         </div>
         
@@ -117,18 +128,15 @@ ${itineraryDetails}
       </div>
     `;
 
-    // Prepare attachments
     const attachments = pdfBase64 ? [{
       filename: pdfFileName || 'Wavealokam-Itinerary.pdf',
       content: pdfBase64,
     }] : [];
 
-    console.log("Sending email to wavealokam@gmail.com with attachment:", pdfFileName);
-
     const emailResponse = await sendEmail({
       from: "Wavealokam Itinerary <onboarding@resend.dev>",
       to: ["wavealokam@gmail.com"],
-      subject: `New Itinerary Request from ${guestName}`,
+      subject: `New Itinerary Request from ${safeName}`,
       html: emailHtml,
       attachments,
     });
@@ -137,20 +145,14 @@ ${itineraryDetails}
 
     return new Response(JSON.stringify({ success: true, data: emailResponse }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error in send-itinerary-email function:", errorMessage);
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      JSON.stringify({ success: false, error: "Failed to send email. Please try again or contact us directly." }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 };
