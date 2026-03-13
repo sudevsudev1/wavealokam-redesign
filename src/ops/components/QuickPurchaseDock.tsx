@@ -678,6 +678,85 @@ export default function QuickPurchaseDock() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Par-exceed dialog */}
+      <Dialog open={!!parExceedInfo} onOpenChange={(open) => { if (!open) setParExceedInfo(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Stock seems sufficient
+            </DialogTitle>
+          </DialogHeader>
+          {parExceedInfo && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                <strong>{parExceedInfo.name}</strong> has {parExceedInfo.currentStock} {parExceedInfo.unit} in stock
+                (par: {parExceedInfo.parLevel}). Adding more would exceed par level.
+              </p>
+              <RadioGroup value={parExceedChoice} onValueChange={(v) => setParExceedChoice(v as 'over' | 'need_more')}>
+                <div className="flex items-start gap-2 p-2 rounded-lg border">
+                  <RadioGroupItem value="over" id="par-over" className="mt-0.5" />
+                  <Label htmlFor="par-over" className="text-xs cursor-pointer">
+                    <span className="font-medium">Items are actually over</span>
+                    <span className="block text-muted-foreground text-[10px]">
+                      Reduce inventory count and add to purchase list
+                    </span>
+                  </Label>
+                </div>
+                <div className="flex items-start gap-2 p-2 rounded-lg border">
+                  <RadioGroupItem value="need_more" id="par-more" className="mt-0.5" />
+                  <Label htmlFor="par-more" className="text-xs cursor-pointer">
+                    <span className="font-medium">Need more (peak season etc.)</span>
+                    <span className="block text-muted-foreground text-[10px]">
+                      Add to list as-is, stock will exceed par on receipt
+                    </span>
+                  </Label>
+                </div>
+              </RadioGroup>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-xs"
+                  onClick={() => setParExceedInfo(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={async () => {
+                    if (!parExceedInfo) return;
+                    const qty = parExceedInfo.requestedQty || parExceedInfo.parLevel;
+                    if (parExceedChoice === 'over') {
+                      // Reduce inventory count to 0 and add par_level qty to list
+                      try {
+                        const { supabase } = await import('@/integrations/supabase/client');
+                        await supabase
+                          .from('ops_inventory_items')
+                          .update({ current_stock: 0, updated_at: new Date().toISOString() })
+                          .eq('id', parExceedInfo.itemId);
+                        addToCartDirect(parExceedInfo.itemId, parExceedInfo.name, parExceedInfo.unit, parExceedInfo.parLevel);
+                        toast.info(`${parExceedInfo.name} stock set to 0, ${parExceedInfo.parLevel} ${parExceedInfo.unit} added to list`);
+                      } catch (e: any) {
+                        toast.error(e.message);
+                      }
+                    } else {
+                      // Add as-is
+                      addToCartDirect(parExceedInfo.itemId, parExceedInfo.name, parExceedInfo.unit, qty > 0 ? qty : 1);
+                      toast.info(`${parExceedInfo.name} added to list (will exceed par on receipt)`);
+                    }
+                    setParExceedInfo(null);
+                  }}
+                >
+                  Confirm
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
