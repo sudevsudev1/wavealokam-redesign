@@ -239,7 +239,7 @@ function RecurringTaskRow({
             </span>
           )}
           {isDueSoon && (
-            <span className="flex items-center gap-0.5 text-orange-600 font-medium">
+            <span className="flex items-center gap-0.5 text-accent-foreground font-medium">
               <AlertTriangle className="h-2.5 w-2.5" /> Due soon
             </span>
           )}
