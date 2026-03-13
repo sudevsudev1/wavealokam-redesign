@@ -375,6 +375,10 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                       <ItemBatchDates itemId={item.id} editable={isAdmin} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* Quick Issue Button */}
+                      {!editMode && !listMode && (
+                        <QuickIssueButton item={item} getName={getName} />
+                      )}
                       {isAdmin && !editMode && (
                         <Button
                           size="sm" variant="ghost" className="h-6 w-6 p-0"

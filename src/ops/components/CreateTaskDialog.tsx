@@ -6,14 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus } from 'lucide-react';
+import { Plus, EyeOff } from 'lucide-react';
 import { useCreateTask, useOpsProfiles } from '../hooks/useTasks';
+import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { TASK_CATEGORIES, TASK_PRIORITIES } from '../lib/taskConstants';
 import { toast } from 'sonner';
 
 export default function CreateTaskDialog() {
   const { t } = useOpsLanguage();
+  const { isAdmin } = useOpsAuth();
   const createTask = useCreateTask();
   const { data: profiles } = useOpsProfiles();
   const [open, setOpen] = useState(false);
@@ -27,10 +29,12 @@ export default function CreateTaskDialog() {
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [proofRequired, setProofRequired] = useState(false);
   const [receiptRequired, setReceiptRequired] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
 
   const reset = () => {
     setTitle(''); setDescription(''); setCategory('Operations'); setPriority('Medium');
     setDueDate(''); setDueTime(''); setAssignedTo([]); setProofRequired(false); setReceiptRequired(false);
+    setIsHidden(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,6 +60,7 @@ export default function CreateTaskDialog() {
         assigned_to: assignedTo,
         proof_required: proofRequired,
         receipt_required: receiptRequired,
+        is_hidden: isHidden,
       });
       toast.success('Task created');
       reset();
@@ -141,7 +146,7 @@ export default function CreateTaskDialog() {
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <label className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={proofRequired} onCheckedChange={v => setProofRequired(!!v)} />
               <span className="text-sm">Proof required</span>
@@ -150,6 +155,12 @@ export default function CreateTaskDialog() {
               <Checkbox checked={receiptRequired} onCheckedChange={v => setReceiptRequired(!!v)} />
               <span className="text-sm">Receipt required</span>
             </label>
+            {isAdmin && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={isHidden} onCheckedChange={v => setIsHidden(!!v)} />
+                <span className="text-sm flex items-center gap-1"><EyeOff className="h-3 w-3" /> Hidden task</span>
+              </label>
+            )}
           </div>
 
           <Button type="submit" className="w-full h-11" disabled={createTask.isPending}>
