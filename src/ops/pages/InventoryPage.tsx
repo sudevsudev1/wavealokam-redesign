@@ -604,6 +604,10 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
               <label className="text-xs font-medium text-muted-foreground">Mfg Offset (days)</label>
               <Input type="number" min="0" value={mfgOffsetDays} onChange={e => setMfgOffsetDays(e.target.value)} className="mt-1 text-sm" />
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Last Purchased</label>
+              <Input type="date" value={lastPurchased} onChange={e => setLastPurchased(e.target.value)} className="mt-1 text-sm" />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
