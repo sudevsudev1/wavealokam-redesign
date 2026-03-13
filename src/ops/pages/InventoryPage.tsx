@@ -4,30 +4,29 @@ import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import {
   useInventoryItems, useExpiryItems, useAddExpiry, useDisposeExpiry,
-  useUpdateStock, usePurchaseOrders, usePurchaseOrderItems,
-  useUpdatePurchaseOrder, useCreatePurchaseOrder,
-  useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
+  useUpdateStock, useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
   useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
-  useCreateRefillTemplate, useDeleteRefillTemplate,
+  useCreateRefillTemplate, useDeleteRefillTemplate, useAddToPurchaseList, useCreateInventoryItem,
   InventoryItem, InventoryTransaction, PurchaseTemplate,
 } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
-import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS, ORDER_STATUS_COLORS } from '../lib/inventoryConstants';
+import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS } from '../lib/inventoryConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import BulkActionBar from '../components/BulkActionBar';
 import {
-  Package, AlertTriangle, Search, Plus, Camera, CheckCircle,
-  Loader2, ArrowDown, ArrowUp, Truck, ClipboardList, RotateCcw,
-  ChevronDown, ChevronUp, Trash2, Pencil, Save, ListPlus, Play, Minus,
+  Package, AlertTriangle, Search, Plus, CheckCircle,
+  Loader2, ArrowDown, ArrowUp, ClipboardList, RotateCcw,
+  ChevronDown, ChevronUp, Trash2, Pencil, Save, ListPlus, Minus, ShoppingCart, PlusCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { ItemBatchDates, fmtDate } from '../components/ItemBatchDates';
 
@@ -55,12 +54,10 @@ function QtyEditor({ value, onChange, min = 1 }: { value: number; onChange: (v: 
 
 export default function InventoryPage() {
   const [searchParams] = useSearchParams();
-  const { t, language } = useOpsLanguage();
+  const { t } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
-  const { data: orders = [] } = usePurchaseOrders();
 
   const lowStockCount = items.filter((i) => i.current_stock <= i.reorder_point).length;
-  const activeOrders = orders.filter(o => ['Approved', 'Ordered'].includes(o.status)).length;
 
   if (isLoading) {
     return (
@@ -73,7 +70,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-3">
       {/* Summary strip */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Card>
           <CardContent className="p-2.5 text-center">
             <p className="text-lg font-bold leading-tight">{items.length}</p>
@@ -86,15 +83,9 @@ export default function InventoryPage() {
             <p className="text-[10px] text-muted-foreground">{t('inv.lowStock')}</p>
           </CardContent>
         </Card>
-        <Card className={activeOrders > 0 ? 'border-purple-300' : ''}>
-          <CardContent className="p-2.5 text-center">
-            <p className={`text-lg font-bold leading-tight ${activeOrders > 0 ? 'text-purple-600' : ''}`}>{activeOrders}</p>
-            <p className="text-[10px] text-muted-foreground">{t('inv.orderedTab')}</p>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* 5-Tab Interface */}
+      {/* 4-Tab Interface */}
       <Tabs defaultValue={searchParams.get('tab') || 'overview'}>
         <TabsList className="w-full flex overflow-x-auto scrollbar-hide">
           <TabsTrigger value="overview" className="flex-shrink-0 text-xs px-3">{t('inv.overviewTab')}</TabsTrigger>
@@ -102,17 +93,12 @@ export default function InventoryPage() {
             {t('inv.dueTab')}
             {lowStockCount > 0 && <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{lowStockCount}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="ordered" className="flex-shrink-0 text-xs px-3">
-            {t('inv.orderedTab')}
-            {activeOrders > 0 && <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{activeOrders}</Badge>}
-          </TabsTrigger>
           <TabsTrigger value="log" className="flex-shrink-0 text-xs px-3">{t('inv.logTab')}</TabsTrigger>
           <TabsTrigger value="templates" className="flex-shrink-0 text-xs px-3">Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
         <TabsContent value="due"><DueForOrderTab items={items} /></TabsContent>
-        <TabsContent value="ordered"><OrderedOnWayTab /></TabsContent>
         <TabsContent value="log"><LogUsageTab items={items} /></TabsContent>
         <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
       </Tabs>
@@ -125,16 +111,24 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
   const batchDeleteItems = useBatchDeleteInventoryItems();
-  const createOrder = useCreatePurchaseOrder();
+  const updateItem = useUpdateInventoryItem();
+  const addToList = useAddToPurchaseList();
+  const createInventoryItem = useCreateInventoryItem();
+
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
-  const [selectedForPO, setSelectedForPO] = useState<Set<string>>(new Set());
-  const [poQuantities, setPoQuantities] = useState<Record<string, number>>({});
-  const [poMode, setPoMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [listMode, setListMode] = useState(false);
+  const [listQuantities, setListQuantities] = useState<Record<string, number>>({});
+  const [showAddItem, setShowAddItem] = useState(false);
+
+  // Bulk edit state
+  const [bulkEditField, setBulkEditField] = useState<string>('');
+  const [bulkEditValue, setBulkEditValue] = useState('');
+  const [bulkPending, setBulkPending] = useState(false);
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
@@ -148,10 +142,8 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
     });
   }, [items, search, categoryFilter, language]);
 
-  const allFilteredSelected = filtered.length > 0 && filtered.every((item) => selectedForDelete.has(item.id));
-
   const toggleSelect = (id: string) => {
-    setSelectedForDelete((prev) => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -159,20 +151,8 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
     });
   };
 
-  const toggleSelectAllFiltered = () => {
-    setSelectedForDelete((prev) => {
-      const next = new Set(prev);
-      if (allFilteredSelected) {
-        filtered.forEach((item) => next.delete(item.id));
-      } else {
-        filtered.forEach((item) => next.add(item.id));
-      }
-      return next;
-    });
-  };
-
-  const togglePOSelect = (id: string) => {
-    setSelectedForPO((prev) => {
+  const toggleListSelect = (id: string) => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -180,42 +160,113 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
         next.add(id);
         const item = items.find(i => i.id === id);
         if (item) {
-          setPoQuantities(q => ({ ...q, [id]: Math.max(1, item.par_level - item.current_stock) }));
+          setListQuantities(q => ({ ...q, [id]: Math.max(1, item.par_level - item.current_stock) }));
         }
       }
       return next;
     });
   };
 
-  const handleCreatePOFromOverview = async () => {
-    if (selectedForPO.size === 0) return;
-    const cart = Array.from(selectedForPO).map(id => {
-      return { item_id: id, quantity: poQuantities[id] || 1 };
-    });
+  const handleAddToList = async () => {
+    if (selectedIds.size === 0) return;
+    const cart = Array.from(selectedIds).map(id => ({
+      item_id: id,
+      quantity: listQuantities[id] || 1,
+    }));
     try {
-      await createOrder.mutateAsync(cart);
-      toast.success(t('purchase.orderCreated'));
-      setSelectedForPO(new Set());
-      setPoMode(false);
+      await addToList.mutateAsync(cart);
+      toast.success(`${cart.length} item(s) added to purchase list`);
+      setSelectedIds(new Set());
+      setListMode(false);
     } catch (e: any) {
       toast.error(e.message);
     }
   };
 
-  const handleBatchDelete = async () => {
-    const ids = Array.from(selectedForDelete);
+  const handleBulkAction = async (action: string) => {
+    const ids = Array.from(selectedIds);
     if (!ids.length) return;
-    const confirmed = window.confirm(`Delete ${ids.length} selected item(s)?`);
-    if (!confirmed) return;
 
-    try {
-      await batchDeleteItems.mutateAsync(ids);
-      toast.success(`${ids.length} item(s) deleted`);
-      setSelectedForDelete(new Set());
-      setEditMode(false);
-      setExpandedItem(null);
-    } catch (e: any) {
-      toast.error(e.message);
+    if (action === 'delete') {
+      const confirmed = window.confirm(`Delete ${ids.length} selected item(s)?`);
+      if (!confirmed) return;
+      setBulkPending(true);
+      try {
+        await batchDeleteItems.mutateAsync(ids);
+        toast.success(`${ids.length} item(s) deleted`);
+        setSelectedIds(new Set());
+      } catch (e: any) {
+        toast.error(e.message);
+      } finally {
+        setBulkPending(false);
+      }
+      return;
+    }
+
+    // Bulk edit fields
+    if (action === 'apply_bulk_edit') {
+      if (!bulkEditField || !bulkEditValue) {
+        toast.error('Select a field and enter a value');
+        return;
+      }
+      const numValue = parseInt(bulkEditValue);
+      if (isNaN(numValue) || numValue < 0) {
+        toast.error('Enter a valid number');
+        return;
+      }
+      const confirmed = window.confirm(`Set ${bulkEditField} to ${numValue} for ${ids.length} item(s)?`);
+      if (!confirmed) return;
+
+      setBulkPending(true);
+      try {
+        for (const id of ids) {
+          const updates: Record<string, unknown> = {};
+          if (bulkEditField === 'par_level') updates.par_level = numValue;
+          if (bulkEditField === 'reorder_point') updates.reorder_point = numValue;
+          if (bulkEditField === 'mfg_offset_days') updates.mfg_offset_days = numValue;
+          if (bulkEditField === 'expiry_warn_days') updates.expiry_warn_days = numValue || null;
+
+          await updateItem.mutateAsync({ id, updates: updates as any });
+
+          // Recalculate batches if mfg or shelf life changed
+          if (bulkEditField === 'mfg_offset_days' || bulkEditField === 'expiry_warn_days') {
+            const { data: batches } = await supabase
+              .from('ops_inventory_expiry')
+              .select('id, received_date')
+              .eq('item_id', id)
+              .eq('is_disposed', false);
+            if (batches) {
+              for (const batch of batches) {
+                if (batch.received_date) {
+                  const rcvd = new Date(batch.received_date);
+                  const batchUpdates: Record<string, unknown> = {};
+                  if (bulkEditField === 'mfg_offset_days') {
+                    const mfgDate = new Date(rcvd);
+                    mfgDate.setDate(mfgDate.getDate() - numValue);
+                    batchUpdates.mfg_date = mfgDate.toISOString().split('T')[0];
+                  }
+                  if (bulkEditField === 'expiry_warn_days' && numValue) {
+                    const expDate = new Date(rcvd);
+                    expDate.setDate(expDate.getDate() + numValue);
+                    batchUpdates.expiry_date = expDate.toISOString().split('T')[0];
+                  }
+                  if (Object.keys(batchUpdates).length > 0) {
+                    await supabase.from('ops_inventory_expiry').update(batchUpdates as any).eq('id', batch.id);
+                  }
+                }
+              }
+            }
+          }
+        }
+        toast.success(`${bulkEditField} updated for ${ids.length} item(s)`);
+        setBulkEditField('');
+        setBulkEditValue('');
+      } catch (e: any) {
+        toast.error(e.message);
+      } finally {
+        setBulkPending(false);
+      }
+      return;
     }
   };
 
@@ -238,14 +289,21 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
       {isAdmin && (
         <div className="flex flex-wrap gap-2">
           <Button
+            size="sm" variant="outline" className="text-xs gap-1"
+            onClick={() => setShowAddItem(true)}
+          >
+            <PlusCircle className="h-3 w-3" /> Add Item
+          </Button>
+
+          <Button
             size="sm"
             variant={editMode ? 'secondary' : 'outline'}
             className="text-xs"
             onClick={() => {
               setEditMode((prev) => !prev);
               setExpandedItem(null);
-              if (editMode) setSelectedForDelete(new Set());
-              if (poMode) { setPoMode(false); setSelectedForPO(new Set()); }
+              if (editMode) { setSelectedIds(new Set()); setBulkEditField(''); setBulkEditValue(''); }
+              if (listMode) { setListMode(false); setSelectedIds(new Set()); }
             }}
           >
             {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
@@ -254,48 +312,64 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
           {!editMode && (
             <Button
               size="sm"
-              variant={poMode ? 'secondary' : 'outline'}
+              variant={listMode ? 'secondary' : 'outline'}
               className="text-xs gap-1"
               onClick={() => {
-                setPoMode((prev) => !prev);
-                if (poMode) setSelectedForPO(new Set());
+                setListMode((prev) => !prev);
+                if (listMode) setSelectedIds(new Set());
               }}
             >
-              <Truck className="h-3 w-3" />
-              {poMode ? 'Cancel PO' : 'Add to PO'}
+              <ShoppingCart className="h-3 w-3" />
+              {listMode ? 'Cancel' : 'Add to List'}
             </Button>
           )}
 
-          {poMode && selectedForPO.size > 0 && (
+          {listMode && selectedIds.size > 0 && (
             <Button
               size="sm"
               className="text-xs gap-1.5"
-              onClick={handleCreatePOFromOverview}
-              disabled={createOrder.isPending}
+              onClick={handleAddToList}
+              disabled={addToList.isPending}
             >
-              {createOrder.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
-              Create PO ({selectedForPO.size})
+              {addToList.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+              Add to List ({selectedIds.size})
             </Button>
           )}
+        </div>
+      )}
 
-          {editMode && filtered.length > 0 && (
-            <Button size="sm" variant="outline" className="text-xs" onClick={toggleSelectAllFiltered}>
-              {allFilteredSelected ? 'Unselect Visible' : 'Select Visible'}
-            </Button>
-          )}
-
-          {editMode && selectedForDelete.size > 0 && (
-            <Button
-              size="sm"
-              variant="destructive"
-              className="text-xs gap-1.5"
-              onClick={handleBatchDelete}
-              disabled={batchDeleteItems.isPending}
-            >
-              {batchDeleteItems.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              Delete Selected ({selectedForDelete.size})
-            </Button>
-          )}
+      {/* Bulk Action Bar for edit mode */}
+      {editMode && selectedIds.size > 0 && (
+        <div className="space-y-2">
+          <BulkActionBar
+            selectedCount={selectedIds.size}
+            totalCount={filtered.length}
+            onSelectAll={() => setSelectedIds(new Set(filtered.map(i => i.id)))}
+            onDeselectAll={() => setSelectedIds(new Set())}
+            actions={[
+              { label: 'Delete', value: 'delete', variant: 'destructive', icon: <Trash2 className="h-3 w-3" /> },
+              { label: 'Bulk Edit Field', value: 'apply_bulk_edit', icon: <Pencil className="h-3 w-3" /> },
+            ]}
+            onAction={handleBulkAction}
+            isPending={bulkPending}
+          />
+          {/* Bulk edit controls */}
+          <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-muted/50 border">
+            <Select value={bulkEditField} onValueChange={setBulkEditField}>
+              <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue placeholder="Select field..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="par_level">Par Level</SelectItem>
+                <SelectItem value="reorder_point">Reorder Point</SelectItem>
+                <SelectItem value="mfg_offset_days">Mfg Offset (days)</SelectItem>
+                <SelectItem value="expiry_warn_days">Shelf Life (days)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              type="number" min="0" value={bulkEditValue}
+              onChange={e => setBulkEditValue(e.target.value)}
+              placeholder="Value" className="h-7 w-20 text-xs"
+            />
+          </div>
         </div>
       )}
 
@@ -303,10 +377,10 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
         {filtered.map((item) => {
           const status = STOCK_STATUS(item.current_stock, item.par_level, item.reorder_point);
           const isExpanded = expandedItem === item.id;
-          const isSelected = selectedForDelete.has(item.id);
+          const isSelected = selectedIds.has(item.id);
 
           return (
-            <Card key={item.id} className={poMode && selectedForPO.has(item.id) ? 'border-primary bg-primary/5' : ''}>
+            <Card key={item.id} className={listMode && isSelected ? 'border-primary bg-primary/5' : ''}>
               <CardContent className="p-2.5">
                 <div className="flex items-start gap-2">
                   {isAdmin && editMode && (
@@ -316,16 +390,16 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
                       className="mt-1"
                     />
                   )}
-                  {poMode && !editMode && (
+                  {listMode && !editMode && (
                     <div className="flex flex-col items-center gap-1 mt-1">
                       <Checkbox
-                        checked={selectedForPO.has(item.id)}
-                        onCheckedChange={() => togglePOSelect(item.id)}
+                        checked={isSelected}
+                        onCheckedChange={() => toggleListSelect(item.id)}
                       />
-                      {selectedForPO.has(item.id) && (
+                      {isSelected && (
                         <QtyEditor
-                          value={poQuantities[item.id] || Math.max(1, item.par_level - item.current_stock)}
-                          onChange={v => setPoQuantities(q => ({ ...q, [item.id]: v }))}
+                          value={listQuantities[item.id] || Math.max(1, item.par_level - item.current_stock)}
+                          onChange={v => setListQuantities(q => ({ ...q, [item.id]: v }))}
                         />
                       )}
                     </div>
@@ -373,7 +447,97 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
       {editingItem && (
         <EditItemDialog item={editingItem} onClose={() => setEditingItem(null)} />
       )}
+
+      {showAddItem && (
+        <AddItemDialog onClose={() => setShowAddItem(false)} />
+      )}
     </div>
+  );
+}
+
+/* ─── Add New Inventory Item Dialog ─── */
+function AddItemDialog({ onClose }: { onClose: () => void }) {
+  const createItem = useCreateInventoryItem();
+  const [nameEn, setNameEn] = useState('');
+  const [category, setCategory] = useState('F&B');
+  const [unit, setUnit] = useState('pcs');
+  const [parLevel, setParLevel] = useState('5');
+  const [reorderPoint, setReorderPoint] = useState('2');
+  const [shelfLife, setShelfLife] = useState('');
+  const [mfgOffset, setMfgOffset] = useState('2');
+
+  const handleSave = async () => {
+    if (!nameEn.trim()) { toast.error('Name is required'); return; }
+    try {
+      await createItem.mutateAsync({
+        name_en: nameEn.trim(),
+        category,
+        unit,
+        par_level: parseInt(parLevel) || 5,
+        reorder_point: parseInt(reorderPoint) || 2,
+        expiry_warn_days: shelfLife ? parseInt(shelfLife) : null,
+      });
+      toast.success(`${nameEn} added to inventory`);
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm">Add New Inventory Item</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Name *</label>
+            <Input value={nameEn} onChange={e => setNameEn(e.target.value)} placeholder="e.g. Coffee Sachets" className="mt-1 text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INVENTORY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Unit</label>
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INVENTORY_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Par Level</label>
+              <Input type="number" min="1" value={parLevel} onChange={e => setParLevel(e.target.value)} className="mt-1 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Reorder Point</label>
+              <Input type="number" min="0" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="mt-1 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Shelf Life (days)</label>
+              <Input type="number" min="0" value={shelfLife} onChange={e => setShelfLife(e.target.value)} placeholder="Optional" className="mt-1 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Mfg Offset (days)</label>
+              <Input type="number" min="0" value={mfgOffset} onChange={e => setMfgOffset(e.target.value)} className="mt-1 text-sm" />
+            </div>
+          </div>
+          <Button onClick={handleSave} disabled={createItem.isPending} className="w-full text-xs gap-1.5">
+            {createItem.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlusCircle className="h-3.5 w-3.5" />}
+            Add Item
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -501,6 +665,7 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
     </Dialog>
   );
 }
+
 function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) {
   const { t } = useOpsLanguage();
   const { data: txns, isLoading } = useInventoryTransactions(itemId);
@@ -554,9 +719,11 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
     </div>
   );
 }
+
+/* ─── Tab 2: Due For Order ─── */
 function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
-  const createOrder = useCreatePurchaseOrder();
+  const addToList = useAddToPurchaseList();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [dueQuantities, setDueQuantities] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
@@ -592,14 +759,15 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
     setSelectedItems(next);
   };
 
-  const handleGeneratePO = async () => {
+  const handleAddToList = async () => {
     if (selectedItems.size === 0) return;
-    const cart = Array.from(selectedItems).map(id => {
-      return { item_id: id, quantity: dueQuantities[id] || Math.max(1, (items.find(i => i.id === id)?.par_level || 1) - (items.find(i => i.id === id)?.current_stock || 0)) };
-    });
+    const cart = Array.from(selectedItems).map(id => ({
+      item_id: id,
+      quantity: dueQuantities[id] || Math.max(1, (items.find(i => i.id === id)?.par_level || 1) - (items.find(i => i.id === id)?.current_stock || 0)),
+    }));
     try {
-      await createOrder.mutateAsync(cart);
-      toast.success(t('purchase.orderCreated'));
+      await addToList.mutateAsync(cart);
+      toast.success(`${cart.length} item(s) added to purchase list`);
       setSelectedItems(new Set());
     } catch (e: any) {
       toast.error(e.message);
@@ -610,7 +778,6 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
 
   return (
     <div className="space-y-2 mt-2">
-      {/* Search & Filter */}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -643,12 +810,12 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
             {selectedItems.size > 0 && (
               <Button
                 size="sm"
-                onClick={handleGeneratePO}
-                disabled={createOrder.isPending}
+                onClick={handleAddToList}
+                disabled={addToList.isPending}
                 className="text-xs gap-1.5"
               >
-                {createOrder.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
-                {t('inv.generatePO')} ({selectedItems.size} items)
+                {addToList.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+                Add to List ({selectedItems.size} items)
               </Button>
             )}
           </div>
@@ -704,277 +871,7 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   );
 }
 
-/* ─── Tab 3: Ordered on Way ─── */
-function OrderedOnWayTab() {
-  const { t, language } = useOpsLanguage();
-  const { profile, isAdmin } = useOpsAuth();
-  const { data: items = [] } = useInventoryItems();
-  const { data: orders = [] } = usePurchaseOrders();
-  const { data: profiles = [] } = useOpsProfiles();
-  const updateOrder = useUpdatePurchaseOrder();
-  const addExpiry = useAddExpiry();
-
-  const [receivingOrder, setReceivingOrder] = useState<string | null>(null);
-  const [receiveProofFile, setReceiveProofFile] = useState<File | null>(null);
-  const [receiveNotes, setReceiveNotes] = useState('');
-
-  const getName = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    if (!item) return itemId.slice(0, 8);
-    return language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
-  };
-
-  const getProfileName = (userId: string) => {
-    const p = profiles.find(pr => pr.user_id === userId);
-    return p?.display_name || userId.slice(0, 8);
-  };
-
-  const activeOrders = orders.filter(o => ['Requested', 'Approved', 'Ordered'].includes(o.status));
-
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    try {
-      const updates: Record<string, unknown> = { status: newStatus };
-      if (newStatus === 'Approved') updates.approved_by = profile?.userId;
-      if (newStatus === 'Ordered') updates.ordered_at = new Date().toISOString();
-      await updateOrder.mutateAsync({ id: orderId, updates });
-      toast.success(`Order ${newStatus.toLowerCase()}`);
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
-  const handleReceive = async (orderId: string) => {
-    if (!receiveProofFile) {
-      toast.error(t('purchase.proofRequired'));
-      return;
-    }
-    try {
-      const filePath = `${profile!.branchId}/purchase/${orderId}/${crypto.randomUUID()}-${receiveProofFile.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('ops-attachments')
-        .upload(filePath, receiveProofFile);
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('ops-attachments')
-        .getPublicUrl(filePath);
-
-      const receiveDate = new Date();
-
-      const { data: orderItems, error: orderItemsError } = await supabase
-        .from('ops_purchase_order_items')
-        .select('*')
-        .eq('order_id', orderId);
-      if (orderItemsError) throw orderItemsError;
-
-      if (orderItems) {
-        for (const oi of orderItems) {
-          const addQty = Math.max(0, Number((oi as any).received_quantity ?? (oi as any).quantity ?? 0));
-          if (!addQty) continue;
-          const itemId = (oi as any).item_id;
-
-          const { data: inv, error: invError } = await supabase
-            .from('ops_inventory_items')
-            .select('current_stock, mfg_offset_days, expiry_warn_days')
-            .eq('id', itemId)
-            .single();
-          if (invError) throw invError;
-
-          const mfgOffsetDays = (inv as any).mfg_offset_days ?? 2;
-          const shelfLifeDays = (inv as any).expiry_warn_days;
-
-          // Update stock + last_received_at
-          const { error: updateStockError } = await supabase
-            .from('ops_inventory_items')
-            .update({
-              current_stock: ((inv as any).current_stock as number) + addQty,
-              last_received_at: receiveDate.toISOString(),
-            } as any)
-            .eq('id', itemId);
-          if (updateStockError) throw updateStockError;
-
-          const { error: txError } = await supabase
-            .from('ops_inventory_transactions')
-            .insert({
-              branch_id: profile!.branchId,
-              item_id: itemId,
-              type: 'in',
-              quantity: addQty,
-              notes: `PO received: ${orderId.slice(0, 8)}`,
-              performed_by: profile!.userId,
-              related_order_id: orderId,
-            } as any);
-          if (txError) throw txError;
-
-          // Create batch entry with received_date, mfg_date, expiry_date
-          const receiveDateStr = format(receiveDate, 'yyyy-MM-dd');
-          const mfgDate = new Date(receiveDate);
-          mfgDate.setDate(mfgDate.getDate() - mfgOffsetDays);
-          const mfgDateStr = format(mfgDate, 'yyyy-MM-dd');
-
-          let expiryDateStr = format(new Date(mfgDate.getTime() + 365 * 86400000), 'yyyy-MM-dd'); // default 1yr
-          if (shelfLifeDays) {
-            const expiryDate = new Date(mfgDate);
-            expiryDate.setDate(expiryDate.getDate() + shelfLifeDays);
-            expiryDateStr = format(expiryDate, 'yyyy-MM-dd');
-          }
-
-          const { error: batchError } = await supabase
-            .from('ops_inventory_expiry')
-            .insert({
-              branch_id: profile!.branchId,
-              item_id: itemId,
-              quantity: addQty,
-              received_date: receiveDateStr,
-              mfg_date: mfgDateStr,
-              expiry_date: expiryDateStr,
-              batch_label: `PO-${orderId.slice(0, 6)}-${format(receiveDate, 'ddMMM')}`,
-            } as any);
-          if (batchError) throw batchError;
-        }
-      }
-
-      await updateOrder.mutateAsync({
-        id: orderId,
-        updates: {
-          status: 'Received',
-          received_at: receiveDate.toISOString(),
-          receive_proof_url: urlData.publicUrl,
-          receive_notes: receiveNotes || null,
-        },
-      });
-
-      toast.success(t('purchase.received'));
-      setReceivingOrder(null);
-      setReceiveProofFile(null);
-      setReceiveNotes('');
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
-  return (
-    <div className="space-y-2 mt-2">
-      {activeOrders.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <Truck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">{t('inv.noActiveOrders')}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        activeOrders.map(order => (
-          <Card key={order.id}>
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-mono text-[10px] text-muted-foreground">{order.id.slice(0, 8)}</span>
-                    <Badge variant="outline" className={`text-[10px] ${ORDER_STATUS_COLORS[order.status] || ''}`}>
-                      {order.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs mt-0.5">{getProfileName(order.requested_by)} · {format(parseISO(order.created_at), 'dd/MM/yyyy')}</p>
-                  {order.vendor && <p className="text-[10px] text-muted-foreground">Vendor: {order.vendor}</p>}
-                </div>
-                <div className="flex gap-1 shrink-0 flex-wrap justify-end">
-                  {isAdmin && order.status === 'Requested' && (
-                    <>
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleStatusChange(order.id, 'Approved')}>
-                        {t('purchase.approve')}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-destructive" onClick={() => handleStatusChange(order.id, 'Cancelled')}>
-                        ✕
-                      </Button>
-                    </>
-                  )}
-                  {isAdmin && order.status === 'Approved' && (
-                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleStatusChange(order.id, 'Ordered')}>
-                      {t('purchase.markOrdered')}
-                    </Button>
-                  )}
-                  {order.status === 'Ordered' && (
-                    <Button size="sm" variant="default" className="h-6 text-[10px] px-2" onClick={() => setReceivingOrder(order.id)}>
-                      <Camera className="h-3 w-3 mr-1" />{t('inv.receiveOrder')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <OrderItemsList orderId={order.id} />
-            </CardContent>
-          </Card>
-        ))
-      )}
-
-      {/* Receive Dialog */}
-      <Dialog open={!!receivingOrder} onOpenChange={(open) => { if (!open) setReceivingOrder(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-sm">{t('purchase.receiveOrder')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium">{t('purchase.proofPhoto')} *</label>
-              <Input
-                type="file" accept="image/*" capture="environment"
-                onChange={(e) => setReceiveProofFile(e.target.files?.[0] || null)}
-                className="mt-1 text-xs"
-              />
-              {!receiveProofFile && (
-                <p className="text-[10px] text-destructive mt-1">{t('purchase.proofRequired')}</p>
-              )}
-            </div>
-            <div>
-              <label className="text-xs font-medium">{t('purchase.notes')}</label>
-              <Input
-                value={receiveNotes}
-                onChange={(e) => setReceiveNotes(e.target.value)}
-                placeholder={t('purchase.notesPlaceholder')}
-                className="mt-1 text-xs"
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Expiry dates will be auto-calculated for perishable items (mfg = receive date − 2 days)
-            </p>
-            <Button
-              onClick={() => receivingOrder && handleReceive(receivingOrder)}
-              disabled={!receiveProofFile || updateOrder.isPending}
-              className="w-full text-xs"
-            >
-              {updateOrder.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('purchase.confirmReceive')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function OrderItemsList({ orderId }: { orderId: string }) {
-  const { data: orderItems, isLoading } = usePurchaseOrderItems(orderId);
-  const { data: items = [] } = useInventoryItems();
-  const { language } = useOpsLanguage();
-
-  if (isLoading) return <Loader2 className="h-3 w-3 animate-spin" />;
-  if (!orderItems || orderItems.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-1">
-      {orderItems.map(oi => {
-        const item = items.find(i => i.id === oi.item_id);
-        const name = item ? (language === 'ml' && item.name_ml ? item.name_ml : item.name_en) : oi.item_id.slice(0, 6);
-        return (
-          <Badge key={oi.id} variant="secondary" className="text-[10px]">
-            {name} ×{oi.quantity}
-          </Badge>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ─── Tab 4: Log Usage / Refill ─── */
+/* ─── Tab 3: Log Usage / Refill ─── */
 function LogUsageTab({ items }: { items: InventoryItem[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
@@ -1132,7 +1029,6 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 space-y-3">
-            {/* Select room type to view/add */}
             <Select value={templateRoomType} onValueChange={setTemplateRoomType}>
               <SelectTrigger className="text-xs"><SelectValue placeholder="Select room type" /></SelectTrigger>
               <SelectContent>
@@ -1144,7 +1040,6 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
 
             {templateRoomType && (
               <>
-                {/* Current items in template */}
                 {filteredTemplates.length > 0 ? (
                   <div className="space-y-1">
                     <p className="text-[10px] font-medium text-muted-foreground uppercase">Items in "{templateRoomType}" template</p>
@@ -1167,10 +1062,8 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
                   <p className="text-xs text-muted-foreground text-center py-2">No items in this template yet</p>
                 )}
 
-                {/* Add item to template */}
                 <div className="border-t pt-2 space-y-2">
                   <p className="text-[10px] font-medium text-muted-foreground">Add item to template</p>
-                  {/* Category filter for refill template items */}
                   <Select value={templateCategoryFilter ?? 'all'} onValueChange={(v) => setTemplateCategoryFilter(v)}>
                     <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Category" /></SelectTrigger>
                     <SelectContent>
@@ -1236,7 +1129,6 @@ function LogUsageTab({ items }: { items: InventoryItem[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-3 space-y-2">
-          {/* Log type selector */}
           <div className="flex gap-1">
             {(['issue', 'damage', 'waste'] as const).map(type => (
               <Button
@@ -1347,14 +1239,14 @@ function RecentTransactions({ items }: { items: InventoryItem[] }) {
   );
 }
 
-/* ─── Tab 5: Templates ─── */
+/* ─── Tab 4: Templates ─── */
 function TemplatesTab({ items }: { items: InventoryItem[] }) {
   const { language } = useOpsLanguage();
   const { data: templates = [], isLoading } = usePurchaseTemplates();
   const { data: profiles = [] } = useOpsProfiles();
   const createTemplate = useCreatePurchaseTemplate();
   const deleteTemplate = useDeletePurchaseTemplate();
-  const createOrder = useCreatePurchaseOrder();
+  const addToList = useAddToPurchaseList();
   const [showCreate, setShowCreate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templateDesc, setTemplateDesc] = useState('');
@@ -1414,8 +1306,8 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
   const handleUseTemplate = async (template: PurchaseTemplate) => {
     try {
       const cart = template.items_json.map(ti => ({ item_id: ti.item_id, quantity: ti.quantity }));
-      await createOrder.mutateAsync(cart);
-      toast.success('Purchase order created from template');
+      await addToList.mutateAsync(cart);
+      toast.success('Items added to purchase list from template');
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -1447,7 +1339,6 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
         </Card>
       )}
 
-      {/* Create Template Form */}
       {showCreate && (
         <Card>
           <CardHeader className="py-2.5 px-3">
@@ -1463,7 +1354,6 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
               placeholder="Description (optional)" className="text-xs"
             />
 
-            {/* Search and add items */}
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -1486,7 +1376,6 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
               )}
             </div>
 
-            {/* Selected items */}
             {templateItems.length > 0 && (
               <div className="space-y-1 border border-border rounded-md p-2">
                 {templateItems.map(ti => (
@@ -1506,48 +1395,36 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
             )}
 
             <div className="flex gap-2">
-              <Button onClick={handleCreate} disabled={!templateName.trim() || templateItems.length === 0 || createTemplate.isPending} className="flex-1 text-xs gap-1">
+              <Button variant="ghost" className="flex-1 text-xs" onClick={() => { setShowCreate(false); setTemplateItems([]); }}>Cancel</Button>
+              <Button className="flex-1 text-xs gap-1" onClick={handleCreate} disabled={!templateName.trim() || templateItems.length === 0 || createTemplate.isPending}>
                 {createTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                 Save
-              </Button>
-              <Button variant="outline" onClick={() => { setShowCreate(false); setTemplateItems([]); setTemplateName(''); }} className="text-xs">
-                Cancel
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Existing Templates */}
-      {templates.map(tpl => (
-        <Card key={tpl.id}>
+      {templates.map(tmpl => (
+        <Card key={tmpl.id}>
           <CardContent className="p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-sm">{tpl.name}</p>
-                {tpl.description && <p className="text-[10px] text-muted-foreground">{tpl.description}</p>}
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {tpl.items_json.length} items · by {getProfileName(tpl.created_by)}
-                </p>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-medium text-sm">{tmpl.name}</p>
+                {tmpl.description && <p className="text-[10px] text-muted-foreground">{tmpl.description}</p>}
+                <p className="text-[10px] text-muted-foreground">by {getProfileName(tmpl.created_by)}</p>
               </div>
               <div className="flex gap-1 shrink-0">
-                <Button
-                  size="sm" variant="default" className="h-7 text-[10px] px-2 gap-1"
-                  onClick={() => handleUseTemplate(tpl)}
-                  disabled={createOrder.isPending}
-                >
-                  <Play className="h-3 w-3" /> Use
+                <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleUseTemplate(tmpl)}>
+                  Add to List
                 </Button>
-                <Button
-                  size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive"
-                  onClick={() => handleDelete(tpl.id)}
-                >
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => handleDelete(tmpl.id)}>
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {tpl.items_json.map(ti => (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {tmpl.items_json.map(ti => (
                 <Badge key={ti.item_id} variant="secondary" className="text-[10px]">
                   {getName(ti.item_id)} ×{ti.quantity}
                 </Badge>
