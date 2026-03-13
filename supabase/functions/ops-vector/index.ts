@@ -809,6 +809,92 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ success: true, deleted_count: tasks.length, deleted_titles: titles });
       }
 
+      case "bulk_update_tasks": {
+        if (!isAdmin) return "Only admins can perform bulk updates.";
+        const taskIds = args.task_ids as string[];
+        const updates = args.updates as Record<string, unknown>;
+        if (!taskIds?.length) return "No task IDs provided.";
+        
+        const { data: tasks } = await sb.from("ops_tasks").select("id, title_en, title_original, status").eq("branch_id", branchId).in("id", taskIds);
+        if (!tasks?.length) return "No matching tasks found.";
+        
+        const dbUpdates: any = { updated_at: new Date().toISOString() };
+        if (updates.status) dbUpdates.status = updates.status;
+        if (updates.priority) dbUpdates.priority = updates.priority;
+        if (updates.category) dbUpdates.category = updates.category;
+        
+        const { error } = await sb.from("ops_tasks").update(dbUpdates).eq("branch_id", branchId).in("id", taskIds);
+        if (error) return `Error: ${error.message}`;
+        
+        for (const t of tasks) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "task", entity_id: t.id, action: "bulk_update",
+            performed_by: userId, branch_id: branchId,
+            before_json: { status: t.status }, after_json: dbUpdates,
+          });
+        }
+        
+        return JSON.stringify({ success: true, updated_count: tasks.length, updates: Object.keys(dbUpdates).filter(k => k !== "updated_at"), titles: tasks.map(t => t.title_en || t.title_original) });
+      }
+
+      case "bulk_delete_purchase_items": {
+        if (!isAdmin) return "Only admins can bulk delete purchase items.";
+        const itemIds = args.item_ids as string[];
+        if (!itemIds?.length) return "No item IDs provided.";
+        
+        const { data: items } = await sb.from("ops_purchase_order_items").select("id, item_id, quantity, ops_inventory_items(name_en)").in("id", itemIds);
+        if (!items?.length) return "No matching items found.";
+        
+        const { error } = await sb.from("ops_purchase_order_items").delete().in("id", itemIds);
+        if (error) return `Error: ${error.message}`;
+        
+        for (const i of items) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "purchase_list_item", entity_id: i.id, action: "bulk_delete",
+            performed_by: userId, branch_id: branchId,
+            before_json: { item: (i.ops_inventory_items as any)?.name_en, quantity: i.quantity },
+          });
+        }
+        
+        return JSON.stringify({ success: true, deleted_count: items.length, items: items.map(i => (i.ops_inventory_items as any)?.name_en) });
+      }
+
+      case "bulk_update_laundry": {
+        const batchIds = args.batch_ids as string[];
+        const action = args.action as string;
+        if (!batchIds?.length) return "No batch IDs provided.";
+        
+        if (action === "receive") {
+          const now = new Date().toISOString();
+          const { error } = await sb.from("ops_laundry_batches").update({
+            actual_return_at: now, status: "returned", received_by: userId,
+          }).eq("branch_id", branchId).in("id", batchIds);
+          if (error) return `Error: ${error.message}`;
+          return JSON.stringify({ success: true, action: "received", count: batchIds.length });
+        }
+        return `Unknown laundry action: ${action}`;
+      }
+
+      case "bulk_update_inventory": {
+        if (!isAdmin) return "Only admins can bulk update inventory.";
+        const itemIds = args.item_ids as string[];
+        const action = args.action as string;
+        if (!itemIds?.length) return "No item IDs provided.";
+        
+        const isActive = action === "reactivate";
+        const { error } = await sb.from("ops_inventory_items").update({ is_active: isActive, updated_at: new Date().toISOString() }).eq("branch_id", branchId).in("id", itemIds);
+        if (error) return `Error: ${error.message}`;
+        
+        for (const id of itemIds) {
+          await sb.from("ops_audit_log").insert({
+            entity_type: "inventory_item", entity_id: id, action: `bulk_${action}`,
+            performed_by: userId, branch_id: branchId, after_json: { is_active: isActive },
+          });
+        }
+        
+        return JSON.stringify({ success: true, action, count: itemIds.length });
+      }
+
       case "get_tasks_summary": {
         let q = sb.from("ops_tasks").select("*, ops_task_attachments(id, type)").eq("branch_id", branchId).order("created_at", { ascending: false });
         if (args.status) q = q.eq("status", args.status as string);
