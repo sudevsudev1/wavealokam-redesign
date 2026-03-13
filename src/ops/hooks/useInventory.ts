@@ -879,6 +879,24 @@ export function useDeletePurchaseTemplate() {
   });
 }
 
+export function useUpdatePurchaseTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, name, description, items_json }: { id: string; name?: string; description?: string; items_json?: { item_id: string; quantity: number }[] }) => {
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (description !== undefined) updates.description = description;
+      if (items_json !== undefined) updates.items_json = items_json;
+      const { error } = await supabase.from('ops_purchase_templates').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_purchase_templates'] });
+    },
+  });
+}
+
 export function useApplyRefillTemplate() {
   const queryClient = useQueryClient();
   const { profile } = useOpsAuth();
