@@ -1260,7 +1260,7 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
   const updateStock = useUpdateStock();
   const createRefillTemplate = useCreateRefillTemplate();
   const deleteRefillTemplate = useDeleteRefillTemplate();
-  const queryClient = useQueryClient();
+  
 
   const [showCreate, setShowCreate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
