@@ -1172,6 +1172,125 @@ export type Database = {
           },
         ]
       }
+      ops_recurring_meta_tasks: {
+        Row: {
+          branch_id: string
+          category: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          priority: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          category?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_recurring_meta_tasks_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_recurring_tasks: {
+        Row: {
+          assigned_to: string[]
+          branch_id: string
+          category: string
+          created_at: string
+          created_by: string
+          description: string | null
+          frequency_days: number
+          id: string
+          is_active: boolean
+          last_executed_at: string | null
+          meta_task_id: string | null
+          next_execution_at: string
+          priority: string
+          related_room_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string[]
+          branch_id: string
+          category?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          frequency_days?: number
+          id?: string
+          is_active?: boolean
+          last_executed_at?: string | null
+          meta_task_id?: string | null
+          next_execution_at?: string
+          priority?: string
+          related_room_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string[]
+          branch_id?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          frequency_days?: number
+          id?: string
+          is_active?: boolean
+          last_executed_at?: string | null
+          meta_task_id?: string | null
+          next_execution_at?: string
+          priority?: string
+          related_room_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_recurring_tasks_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_recurring_tasks_meta_task_id_fkey"
+            columns: ["meta_task_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recurring_meta_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_reminders: {
         Row: {
           branch_id: string
