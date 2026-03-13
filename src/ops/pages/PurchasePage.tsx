@@ -234,14 +234,15 @@ export default function PurchasePage() {
 
           {search.trim().length >= 2 && searchResults && searchResults.invMatches.length === 0 && searchResults.catMatches.length === 0 && (
             <div className="border border-dashed border-primary/30 rounded-lg p-2 space-y-1.5">
-              <p className="text-[10px] text-muted-foreground">"{search.trim()}" not found. Add as new item:</p>
+              <p className="text-[10px] text-muted-foreground">"{search.trim()}" not found. Add as:</p>
               <div className="flex items-center gap-1.5">
                 <div className="flex items-center gap-1">
                   <button onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))} className="h-5 w-5 rounded bg-muted flex items-center justify-center"><Minus className="h-2.5 w-2.5" /></button>
                   <Input type="number" min="1" value={newItemQty} onChange={e => setNewItemQty(Math.max(1, parseInt(e.target.value) || 1))} className="h-5 w-10 text-[10px] text-center px-0.5" />
                   <button onClick={() => setNewItemQty(newItemQty + 1)} className="h-5 w-5 rounded bg-muted flex items-center justify-center"><Plus className="h-2.5 w-2.5" /></button>
                 </div>
-                <button onClick={handleAddOneTime} className="text-[9px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-0.5"><PlusCircle className="h-3 w-3" /> Add to list</button>
+                <button onClick={() => createAndAddFromFreeText('catalog')} className="text-[9px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-0.5"><PlusCircle className="h-3 w-3" /> Catalog</button>
+                <button onClick={() => createAndAddFromFreeText('one_time')} className="text-[9px] px-2 py-1 rounded bg-muted text-foreground hover:bg-muted/80 flex items-center gap-0.5"><PlusCircle className="h-3 w-3" /> One-time</button>
               </div>
             </div>
           )}
