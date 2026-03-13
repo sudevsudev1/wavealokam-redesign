@@ -75,8 +75,22 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "bulk_delete_tasks",
+      description: "Delete multiple tasks at once. Use get_tasks_summary or search_tasks first to collect IDs, then pass them here. Confirms count before executing.",
+      parameters: {
+        type: "object",
+        properties: {
+          task_ids: { type: "array", items: { type: "string" }, description: "Array of task UUIDs to delete" },
+        },
+        required: ["task_ids"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_tasks_summary",
-      description: "Get task summary for a user or all users.",
+      description: "Get task summary for a user or all users. Use to list tasks before bulk operations like delete.",
       parameters: {
         type: "object",
         properties: {
