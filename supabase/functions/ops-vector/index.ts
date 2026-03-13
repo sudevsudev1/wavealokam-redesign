@@ -2962,6 +2962,18 @@ Run laundry_forecast daily to proactively flag shortages.
 "Sent 3 sets to laundry" → send_laundry.
 "Laundry came back" → receive_laundry (need batch_id, get from forecast data).
 
+═══ RECURRING TASKS ═══
+Recurring tasks are scheduled maintenance duties with a set frequency (e.g., every 7 days, every 90 days).
+Meta tasks GROUP related recurring tasks (e.g., "AC Filter Cleaning" groups per-room tasks for 101-104, 202).
+- "Show recurring tasks" / "what's due soon?" → get_recurring_tasks
+- "Create a recurring task to clean kitchen every 30 days" → create_recurring_task
+- "Create a group for bathroom deep clean" → create_recurring_meta_task, then create sub-tasks
+- "Mark AC filter 101 as done" → update_recurring_task with mark_executed=true (resets next_execution_at)
+- "Assign AC filter cleaning to Anandhu" → update_recurring_task with assigned_to_names
+- "What recurring tasks are overdue?" → get_recurring_tasks, filter for OVERDUE status
+- Delete recurring task/meta task → admin only via delete_recurring_task / delete_recurring_meta_task
+When a recurring task is marked executed, next_execution_at advances by frequency_days.
+
 ═══ BULK OPERATIONS ═══
 When asked to do something across "all" tasks/items (e.g., "delete all pending tasks", "cancel all blocked tasks"):
 1. Query first: get_tasks_summary, get_purchase_list, laundry_forecast, get_inventory_status
