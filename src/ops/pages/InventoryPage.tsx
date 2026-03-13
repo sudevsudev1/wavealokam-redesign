@@ -126,9 +126,8 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
   const [showAddItem, setShowAddItem] = useState(false);
 
   // Bulk edit state
-  const [bulkEditField, setBulkEditField] = useState<string>('');
-  const [bulkEditValue, setBulkEditValue] = useState('');
   const [bulkPending, setBulkPending] = useState(false);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
 
   const getName = (item: { name_en: string; name_ml: string | null }) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
