@@ -31,7 +31,7 @@ export default function ShiftPunchPage() {
         <Clock className="h-4 w-4 text-primary" />
         {t('nav.shiftPunch')}
       </h1>
-      <PunchCard />
+      
       {isAdmin ? (
         <Tabs defaultValue="my">
           <TabsList className="w-full flex overflow-x-auto scrollbar-hide">
