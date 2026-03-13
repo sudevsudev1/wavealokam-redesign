@@ -557,8 +557,22 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_room_readiness",
+      description: "Check which rooms have been refreshed today vs which rooms had checkouts. Returns readiness status per room. Use for walk-in inquiries, daily report mismatch detection, and room allocation.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "ISO date string. Defaults to today." },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "recommend_room",
-      description: "Recommend the best room for a new guest based on check-in/out schedules, occupancy, and room availability. Considers expected check-in/out times of existing guests.",
+      description: "Recommend the best room for a new guest based on check-in/out schedules, occupancy, room availability, AND room readiness (whether it has been refreshed after last checkout). Considers expected check-in/out times of existing guests.",
       parameters: {
         type: "object",
         properties: {
