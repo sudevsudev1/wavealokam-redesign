@@ -1093,9 +1093,14 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
                             onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
                           />
                         )}
-                        {!editMode && !isSelected && (
+                        {!editMode && !isSelected && deficit > 0 && !isExpiryReason && (
                           <span className="text-[10px] text-muted-foreground">
-                            {isExpiryReason ? `Replenish: ${item.par_level} ${item.unit}` : `Need: ${deficit > 0 ? deficit : 0} ${item.unit}`}
+                            Need: {deficit} {item.unit}
+                          </span>
+                        )}
+                        {!editMode && !isSelected && isExpiryReason && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Replenish: {item.par_level} {item.unit}
                           </span>
                         )}
                       </div>
