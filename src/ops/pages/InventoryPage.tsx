@@ -239,7 +239,7 @@ function OverviewTab({ items }: { items: InventoryItem[] }) {
             onClick={() => {
               setEditMode((prev) => !prev);
               setExpandedItem(null);
-              if (editMode) { setSelectedIds(new Set()); setBulkEditField(''); setBulkEditValue(''); }
+              if (editMode) { setSelectedIds(new Set()); }
               if (listMode) { setListMode(false); setSelectedIds(new Set()); }
             }}
           >
