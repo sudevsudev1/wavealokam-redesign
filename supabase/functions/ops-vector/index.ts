@@ -1253,8 +1253,8 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const { data: invItems } = await sb.from("ops_inventory_items").select("id, name_en, unit, current_stock, mfg_offset_days, expiry_warn_days").eq("branch_id", branchId).ilike("name_en", `%${args.item_name}%`);
         if (!invItems?.length) return `Item "${args.item_name}" not found`;
         
-        let { data: orders } = await sb.from("ops_purchase_orders").select("id").eq("branch_id", branchId).eq("status", "Active").limit(1);
-        if (!orders?.length) return "No active purchase list found";
+        const orderId = await getLatestActiveOrderId(sb, branchId);
+        if (!orderId) return "No active purchase list found";
         
         const item = invItems[0];
         const itemIds = invItems.map(i => i.id);
