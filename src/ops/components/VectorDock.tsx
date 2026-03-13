@@ -665,7 +665,7 @@ function MessageBubble({
           <p className="whitespace-pre-wrap">{msg.content}</p>
         )}
 
-        {/* Long-press action popup */}
+        {/* Long-press action popup (both user and assistant) */}
         {showActions && (
           <div className={`absolute z-10 ${msg.role === 'user' ? 'right-0' : 'left-0'} -top-9 flex gap-1 bg-background border border-border rounded-lg shadow-lg px-1 py-1`}>
             <button
