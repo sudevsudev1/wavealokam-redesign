@@ -247,9 +247,7 @@ export default function QuickPurchaseDock() {
             unit: catalogEntry?.unit || c.unit,
             par_level: catalogEntry ? Math.ceil(catalogEntry.defaultQty) : 5,
             reorder_point: catalogEntry ? Math.max(1, Math.ceil(catalogEntry.defaultQty * 0.3)) : 2,
-            expiry_warn_days: catalogEntry
-              ? (catalogEntry.shelfLifeDays <= 7 ? 1 : catalogEntry.shelfLifeDays <= 30 ? 3 : 7)
-              : null,
+            expiry_warn_days: catalogEntry ? catalogEntry.shelfLifeDays : null,
           });
           newItemIds[c.item_id] = newItem.id;
         }

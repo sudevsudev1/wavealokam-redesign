@@ -131,7 +131,7 @@ export default function PurchasePage() {
       const newItem = await createInventoryItem.mutateAsync({
         name_en: entry.name, category: entry.category, unit: entry.unit,
         par_level: Math.ceil(entry.defaultQty), reorder_point: Math.max(1, Math.ceil(entry.defaultQty * 0.3)),
-        expiry_warn_days: entry.shelfLifeDays <= 7 ? 1 : entry.shelfLifeDays <= 30 ? 3 : 7,
+        expiry_warn_days: entry.shelfLifeDays,
       });
       await addToList.mutateAsync([{ item_id: newItem.id, quantity: entry.defaultQty }]);
       toast.success(`${entry.name} added to inventory & purchase list`);
