@@ -845,6 +845,32 @@ const VECTOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "create_issue_template",
+      description: "Create an issue template for grouped stock deductions. Use when user says 'create an issue template for kitchen daily with soap, sponge, dish cloth' or 'make a room refill template for Room 101'. The template name can be anything: room ID, 'Kitchen Daily', 'Office', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Template name (e.g., 'Kitchen Daily', 'Room 101', 'Office Supplies')" },
+          items: {
+            type: "array",
+            description: "Items to include in the template",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                quantity: { type: "number" },
+              },
+              required: ["name", "quantity"],
+            },
+          },
+        },
+        required: ["name", "items"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "create_purchase_template",
       description: "Create a purchase list template from the current purchase list or from specified items. When user says 'save current list as template' or 'create template from purchase list', use this. Can also create from scratch with item names.",
       parameters: {

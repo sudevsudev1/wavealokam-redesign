@@ -1234,7 +1234,7 @@ function TemplatesTab({ items }: { items: InventoryItem[] }) {
   );
 }
 
-/* ─── Issue Templates Section (Room Refill Templates) ─── */
+/* ─── Issue Templates Section (Room Refill + Custom Templates) ─── */
 function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
   const { language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
@@ -1245,25 +1245,14 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
   const createRefillTemplate = useCreateRefillTemplate();
   const deleteRefillTemplate = useDeleteRefillTemplate();
 
-  const [selectedRoom, setSelectedRoom] = useState('');
-  const [showTemplateManager, setShowTemplateManager] = useState(false);
-  const [templateRoomType, setTemplateRoomType] = useState('');
-  const [templateItemId, setTemplateItemId] = useState('');
-  const [templateItemSearch, setTemplateItemSearch] = useState('');
-  const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all');
-  const [templateQty, setTemplateQty] = useState('1');
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateItems, setNewTemplateItems] = useState<{ item_id: string; quantity: number }[]>([]);
+  const [searchItem, setSearchItem] = useState('');
+  const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
 
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
-
-  const filteredRefillItems = useMemo(() => {
-    return items.filter(i => {
-      const name = getName(i);
-      const matchSearch = !templateItemSearch || name.toLowerCase().includes(templateItemSearch.toLowerCase()) || i.name_en.toLowerCase().includes(templateItemSearch.toLowerCase());
-      const matchCat = templateCategoryFilter === 'all' || i.category === templateCategoryFilter;
-      return matchSearch && matchCat;
-    });
-  }, [items, templateItemSearch, templateCategoryFilter, language]);
 
   const getItemName = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
@@ -1271,38 +1260,79 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
     return getName(item);
   };
 
-  const roomTypes = [...new Set(rooms.map(r => r.room_type))];
+  // Group templates by room_type (which serves as template name)
+  const templateGroups = useMemo(() => {
+    const groups: Record<string, typeof refillTemplates> = {};
+    for (const rt of refillTemplates) {
+      const key = (rt as any).room_type || 'Unknown';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(rt);
+    }
+    return groups;
+  }, [refillTemplates]);
 
-  const handleRoomRefill = async () => {
-    if (!selectedRoom) return;
-    const room = rooms.find(r => r.id === selectedRoom);
-    if (!room) return;
+  const filteredSearchItems = useMemo(() => {
+    if (!searchItem) return [];
+    return items.filter(i =>
+      i.name_en.toLowerCase().includes(searchItem.toLowerCase()) &&
+      !newTemplateItems.some(ti => ti.item_id === i.id)
+    ).slice(0, 8);
+  }, [items, searchItem, newTemplateItems]);
+
+  const addItemToNew = (itemId: string) => {
+    setNewTemplateItems(prev => [...prev, { item_id: itemId, quantity: 1 }]);
+    setSearchItem('');
+  };
+
+  const removeItemFromNew = (itemId: string) => {
+    setNewTemplateItems(prev => prev.filter(ti => ti.item_id !== itemId));
+  };
+
+  const updateNewQty = (itemId: string, qty: number) => {
+    setNewTemplateItems(prev => prev.map(ti => ti.item_id === itemId ? { ...ti, quantity: Math.max(1, qty) } : ti));
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!newTemplateName.trim() || newTemplateItems.length === 0) return;
     try {
-      await applyRefill.mutateAsync({ roomType: room.room_type, roomId: room.id });
-      toast.success(`Room ${room.id} refilled`);
-      setSelectedRoom('');
+      for (const ti of newTemplateItems) {
+        await createRefillTemplate.mutateAsync({
+          room_type: newTemplateName.trim(),
+          item_id: ti.item_id,
+          quantity: ti.quantity,
+        });
+      }
+      toast.success(`Template "${newTemplateName}" saved with ${newTemplateItems.length} items`);
+      setShowCreate(false);
+      setNewTemplateName('');
+      setNewTemplateItems([]);
     } catch (e: any) {
       toast.error(e.message);
     }
   };
 
-  const handleAddToTemplate = async () => {
-    if (!templateRoomType || !templateItemId) return;
+  const handleApplyTemplate = async (templateName: string) => {
+    setApplyingTemplate(templateName);
     try {
-      await createRefillTemplate.mutateAsync({
-        room_type: templateRoomType,
-        item_id: templateItemId,
-        quantity: parseInt(templateQty) || 1,
-      });
-      toast.success('Item added to issue template');
-      setTemplateItemId('');
-      setTemplateQty('1');
+      const templateItems = templateGroups[templateName] || [];
+      for (const t of templateItems) {
+        const tAny = t as any;
+        await updateStock.mutateAsync({
+          itemId: tAny.item_id,
+          quantity: tAny.quantity,
+          type: 'out',
+          notes: `Issue template: ${templateName}`,
+        });
+      }
+      toast.success(`Issued ${templateItems.length} items from "${templateName}"`);
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setApplyingTemplate(null);
     }
   };
 
-  const handleDeleteTemplate = async (id: string) => {
+  const handleDeleteTemplateItem = async (id: string) => {
     try {
       await deleteRefillTemplate.mutateAsync(id);
       toast.success('Removed from template');
@@ -1311,156 +1341,119 @@ function IssueTemplatesSection({ items }: { items: InventoryItem[] }) {
     }
   };
 
-  const filteredTemplates = templateRoomType
-    ? refillTemplates.filter((rt: any) => rt.room_type === templateRoomType)
-    : refillTemplates;
-
   return (
     <div className="space-y-3">
-      <p className="text-[10px] text-muted-foreground">Issue templates deduct grouped items from inventory (e.g., room refresh, kitchen daily).</p>
+      <p className="text-[10px] text-muted-foreground">Issue templates deduct grouped items from inventory (e.g., room refresh, kitchen daily, office).</p>
 
-      {/* Quick Apply */}
-      <Card>
-        <CardHeader className="py-2.5 px-3">
-          <CardTitle className="text-sm flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <Package className="h-4 w-4 text-primary" />
-              Apply Issue Template
-            </span>
-            {isAdmin && (
-              <Button
-                size="sm"
-                variant={showTemplateManager ? 'secondary' : 'ghost'}
-                className="text-[10px] h-6 px-2"
-                onClick={() => setShowTemplateManager(prev => !prev)}
-              >
-                <Pencil className="h-3 w-3 mr-1" />
-                {showTemplateManager ? 'Close' : 'Manage'}
-              </Button>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-3 space-y-2">
-          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-            <SelectTrigger className="text-xs"><SelectValue placeholder="Select room to refill" /></SelectTrigger>
-            <SelectContent>
-              {rooms.map(r => (
-                <SelectItem key={r.id} value={r.id}>Room {r.id} ({r.room_type})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            onClick={handleRoomRefill}
-            disabled={!selectedRoom || applyRefill.isPending}
-            className="w-full text-xs gap-1.5"
-            variant="outline"
-          >
-            {applyRefill.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-            Issue Items
-          </Button>
-        </CardContent>
-      </Card>
+      {isAdmin && (
+        <Button onClick={() => { setShowCreate(true); setNewTemplateItems([]); setNewTemplateName(''); }} className="w-full text-xs gap-1.5" variant="outline">
+          <Plus className="h-3.5 w-3.5" /> Create Issue Template
+        </Button>
+      )}
 
-      {/* Template Manager */}
-      {isAdmin && showTemplateManager && (
+      {/* Create New Template */}
+      {showCreate && (
         <Card>
           <CardHeader className="py-2.5 px-3">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <ListPlus className="h-4 w-4 text-primary" />
-              Issue Template Items
-            </CardTitle>
+            <CardTitle className="text-sm">New Issue Template</CardTitle>
           </CardHeader>
-          <CardContent className="px-3 pb-3 space-y-3">
-            <Select value={templateRoomType} onValueChange={setTemplateRoomType}>
-              <SelectTrigger className="text-xs"><SelectValue placeholder="Select room type" /></SelectTrigger>
-              <SelectContent>
-                {roomTypes.map(rt => (
-                  <SelectItem key={rt} value={rt}>{rt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <CardContent className="px-3 pb-3 space-y-2">
+            <Input
+              value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
+              placeholder="Template name (e.g., Kitchen Daily, Room 101, Office)" className="text-sm"
+            />
 
-            {templateRoomType && (
-              <>
-                {filteredTemplates.length > 0 ? (
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Items in "{templateRoomType}" template</p>
-                    {filteredTemplates.map((rt: any) => (
-                      <div key={rt.id} className="flex items-center justify-between text-xs p-2 border rounded">
-                        <span className="truncate mr-2">{getItemName(rt.item_id)}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="font-mono text-muted-foreground">×{rt.quantity}</span>
-                          <Button
-                            size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive"
-                            onClick={() => handleDeleteTemplate(rt.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-2">No items in this template yet</p>
-                )}
-
-                <div className="border-t pt-2 space-y-2">
-                  <p className="text-[10px] font-medium text-muted-foreground">Add item to template</p>
-                  <Select value={templateCategoryFilter ?? 'all'} onValueChange={(v) => setTemplateCategoryFilter(v)}>
-                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Category" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {INVENTORY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      value={templateItemSearch}
-                      onChange={e => setTemplateItemSearch(e.target.value)}
-                      placeholder="Search items..."
-                      className="pl-7 text-xs h-8"
-                    />
-                  </div>
-                  {filteredRefillItems.length > 0 ? (
-                    <div className="max-h-36 overflow-y-auto border rounded-md">
-                      {filteredRefillItems.map(i => (
-                        <button
-                          key={i.id}
-                          onClick={() => { setTemplateItemId(i.id); }}
-                          className={`w-full text-left px-2.5 py-1.5 text-xs flex justify-between hover:bg-muted ${templateItemId === i.id ? 'bg-primary/10 font-medium' : ''}`}
-                        >
-                          <span className="truncate">{getName(i)}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0 ml-2">{i.category}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    templateItemSearch && <p className="text-[10px] text-muted-foreground text-center py-1">No items found</p>
-                  )}
-                  <div className="flex gap-2">
-                    <Input
-                      type="number" min="1" value={templateQty}
-                      onChange={e => setTemplateQty(e.target.value)}
-                      placeholder="Qty"
-                      className="w-20 text-xs"
-                    />
-                    <Button
-                      onClick={handleAddToTemplate}
-                      disabled={!templateItemId || createRefillTemplate.isPending}
-                      className="flex-1 text-xs gap-1"
-                      size="sm"
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={searchItem} onChange={e => setSearchItem(e.target.value)}
+                placeholder="Search items to add..." className="pl-7 text-xs h-8"
+              />
+              {filteredSearchItems.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                  {filteredSearchItems.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => addItemToNew(item.id)}
+                      className="w-full text-left px-3 py-1.5 hover:bg-muted text-xs flex justify-between"
                     >
-                      {createRefillTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                      Add to Template
-                    </Button>
-                  </div>
+                      <span>{item.name_en}</span>
+                      <span className="text-muted-foreground">{item.category}</span>
+                    </button>
+                  ))}
                 </div>
-              </>
+              )}
+            </div>
+
+            {newTemplateItems.length > 0 && (
+              <div className="space-y-1 border border-border rounded-md p-2">
+                {newTemplateItems.map(ti => (
+                  <div key={ti.item_id} className="flex items-center justify-between text-xs">
+                    <span className="truncate flex-1">{getItemName(ti.item_id)}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => updateNewQty(ti.item_id, ti.quantity - 1)}>−</Button>
+                      <span className="w-6 text-center font-mono">{ti.quantity}</span>
+                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => updateNewQty(ti.item_id, ti.quantity + 1)}>+</Button>
+                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive" onClick={() => removeItemFromNew(ti.item_id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
+
+            <div className="flex gap-2">
+              <Button variant="ghost" className="flex-1 text-xs" onClick={() => { setShowCreate(false); setNewTemplateItems([]); }}>Cancel</Button>
+              <Button className="flex-1 text-xs gap-1" onClick={handleSaveTemplate} disabled={!newTemplateName.trim() || newTemplateItems.length === 0 || createRefillTemplate.isPending}>
+                {createRefillTemplate.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                Save Template
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Existing Templates */}
+      {Object.keys(templateGroups).length === 0 && !showCreate && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No issue templates yet.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {Object.entries(templateGroups).map(([name, templateItems]) => (
+        <Card key={name}>
+          <CardContent className="p-3">
+            <div className="flex items-start justify-between mb-1.5">
+              <div>
+                <p className="font-medium text-sm">{name}</p>
+                <p className="text-[10px] text-muted-foreground">{templateItems.length} items</p>
+              </div>
+              <Button
+                size="sm" variant="outline" className="h-6 text-[10px] px-2 gap-1"
+                onClick={() => handleApplyTemplate(name)}
+                disabled={applyingTemplate === name}
+              >
+                {applyingTemplate === name ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUp className="h-3 w-3" />}
+                Issue All
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {templateItems.map((rt: any) => (
+                <Badge key={rt.id} variant="secondary" className="text-[10px] gap-0.5">
+                  {getItemName(rt.item_id)} ×{rt.quantity}
+                  {isAdmin && (
+                    <button className="ml-0.5 hover:text-destructive" onClick={() => handleDeleteTemplateItem(rt.id)}>×</button>
+                  )}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
