@@ -45,6 +45,8 @@ export default function LaundryPage() {
   const [sendNotes, setSendNotes] = useState('');
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
 
   // Fetch config
   const { data: configData } = useQuery({
