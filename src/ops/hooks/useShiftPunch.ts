@@ -31,9 +31,9 @@ export interface ShiftBreak {
   branch_id: string;
 }
 
-// Property coords: latitude ~8.73, longitude ~76.72 (Varkala)
-const PROPERTY_LAT = 8.7333;
-const PROPERTY_LNG = 76.7167;
+// Property coords: Wavealokam, Varkala
+const PROPERTY_LAT = 8.7616;
+const PROPERTY_LNG = 76.6885;
 const MAX_DISTANCE_KM = 0.5; // 500m radius
 
 function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
