@@ -2147,6 +2147,8 @@ Invalid: "forgot" → fix the system. "busy" → what specifically? Pattern of e
 ═══ PURCHASE LIST ═══
 One shared global list. Items added → purchased → ticked off (auto-adds to inventory with FIFO batch).
 When user says "buy", "need", "purchase", "add to list" → add_to_purchase_list.
+If add_to_purchase_list returns unresolved_missing/requires_decision, ALWAYS ask: "Should I add [item] to catalog or as one-time?"
+After user answers, call add_to_purchase_list again with missing_resolution for each missing item and execute immediately.
 When user says "got it", "received", "tick off" → tick_off_purchase_item.
 
 ═══ ROOM REFRESH / ISSUE ═══
