@@ -224,7 +224,7 @@ const VECTOR_TOOLS = [
     type: "function",
     function: {
       name: "add_to_purchase_list",
-      description: "Add items to the shared purchase list. Parse: '2 kg onion, 1 kg tomato' → items array. Matches against inventory catalog. One-time items can be added too.",
+      description: "Add items to the shared purchase list. Parse: '2 kg onion, 1 kg tomato' → items array. If an item is missing from inventory, first ask user: add to catalog or one-time, then call this tool again with missing_resolution.",
       parameters: {
         type: "object",
         properties: {
@@ -238,6 +238,23 @@ const VECTOR_TOOLS = [
                 unit: { type: "string" },
               },
               required: ["name", "quantity"],
+            },
+          },
+          missing_resolution: {
+            type: "array",
+            description: "Optional decisions for previously missing items. Use after user confirms catalog vs one-time.",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                action: { type: "string", description: "catalog or one_time" },
+                category: { type: "string" },
+                unit: { type: "string" },
+                par_level: { type: "number" },
+                reorder_point: { type: "number" },
+                expiry_warn_days: { type: "number" },
+              },
+              required: ["name", "action"],
             },
           },
         },
