@@ -501,6 +501,7 @@ export function useCompleteListItem() {
       queryClient.invalidateQueries({ queryKey: ['ops_purchase_list'] });
       queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
       queryClient.invalidateQueries({ queryKey: ['ops_inventory_transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_inventory_expiry'] });
     },
   });
 }
