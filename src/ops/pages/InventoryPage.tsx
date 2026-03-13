@@ -853,13 +853,8 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
 
-  const tomorrow = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
-  }, []);
 
-  const isConsumable = (category: string) => CONSUMABLE_CATEGORIES.includes(category);
+
 
   const dueItemsWithReason = useMemo(() => {
     return items
