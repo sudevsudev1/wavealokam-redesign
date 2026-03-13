@@ -140,17 +140,26 @@ export default function PurchasePage() {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const handleAddOneTime = async () => {
+  const createAndAddFromFreeText = async (mode: 'catalog' | 'one_time') => {
     const name = search.trim();
     if (!name) return;
+
+    const defaults = mode === 'catalog'
+      ? { category: 'F&B', unit: 'pcs', par_level: 5, reorder_point: 2, expiry_warn_days: null as number | null }
+      : { category: 'F&B', unit: 'pcs', par_level: 1, reorder_point: 0, expiry_warn_days: null as number | null };
+
     try {
       const newItem = await createInventoryItem.mutateAsync({
-        name_en: name, category: 'F&B', unit: 'pcs', par_level: 5, reorder_point: 2, expiry_warn_days: null,
+        name_en: name,
+        ...defaults,
       });
       await addToList.mutateAsync([{ item_id: newItem.id, quantity: newItemQty }]);
-      toast.success(`"${name}" added to inventory & purchase list`);
-      setSearch(''); setNewItemQty(1);
-    } catch (e: any) { toast.error(e.message); }
+      toast.success(mode === 'catalog' ? `"${name}" added to catalog & purchase list` : `"${name}" added as one-time purchase item`);
+      setSearch('');
+      setNewItemQty(1);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   const handleDuplicateAction = async (action: 'add_more' | 'change_qty') => {
