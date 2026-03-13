@@ -936,15 +936,8 @@ function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expi
   };
 
   const totalDue = useMemo(() => {
-    return items.filter(i => {
-      if (isConsumable(i.category)) {
-        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
-        if (batches.length === 0) return i.current_stock > 0;
-        return batches.some(b => b.expiry_date <= tomorrow);
-      }
-      return i.current_stock <= i.reorder_point;
-    }).length;
-  }, [items, expiryBatches, tomorrow]);
+    return items.filter(i => getDueReason(i, expiryBatches) !== null).length;
+  }, [items, expiryBatches]);
 
   return (
     <div className="space-y-2 mt-2">
