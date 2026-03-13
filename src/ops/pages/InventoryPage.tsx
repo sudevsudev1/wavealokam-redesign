@@ -189,7 +189,7 @@ export default function InventoryPage() {
         </Card>
       </div>
 
-      {/* 4-Tab Interface */}
+      {/* 3-Tab Interface */}
       <Tabs defaultValue={searchParams.get('tab') || 'overview'}>
         <TabsList className="w-full flex overflow-x-auto scrollbar-hide">
           <TabsTrigger value="overview" className="flex-shrink-0 text-xs px-3">{t('inv.overviewTab')}</TabsTrigger>
@@ -197,13 +197,11 @@ export default function InventoryPage() {
             {t('inv.dueTab')}
             {lowStockCount > 0 && <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-[8px] flex items-center justify-center rounded-full">{lowStockCount}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="log" className="flex-shrink-0 text-xs px-3">{t('inv.logTab')}</TabsTrigger>
           <TabsTrigger value="templates" className="flex-shrink-0 text-xs px-3">Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
         <TabsContent value="due"><DueForOrderTab items={items} expiryBatches={expiryBatches} /></TabsContent>
-        <TabsContent value="log"><LogUsageTab items={items} /></TabsContent>
         <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
       </Tabs>
     </div>
