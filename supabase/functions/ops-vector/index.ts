@@ -2043,12 +2043,14 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const dayStart = `${date}T00:00:00`;
         const dayEnd = `${date}T23:59:59`;
         
-        const [tasksR, guestsR, shiftsR, lowStockR, expiringR] = await Promise.all([
+        const [tasksR, guestsR, shiftsR, lowStockR, expiringR, refreshTxnsR] = await Promise.all([
           sb.from("ops_tasks").select("*").eq("branch_id", branchId).or(`created_at.gte.${dayStart},updated_at.gte.${dayStart}`).limit(200),
           sb.from("ops_guest_log").select("*").eq("branch_id", branchId).or(`check_in_at.gte.${dayStart},and(check_in_at.lte.${dayEnd},or(check_out_at.is.null,check_out_at.gte.${dayStart}))`).limit(200),
           sb.from("ops_shift_punches").select("*").eq("branch_id", branchId).gte("clock_in_at", dayStart).lte("clock_in_at", dayEnd),
           sb.from("ops_inventory_items").select("*").eq("branch_id", branchId).eq("is_active", true),
           sb.from("ops_inventory_expiry").select("*, ops_inventory_items(name_en)").eq("branch_id", branchId).eq("is_disposed", false).lte("expiry_date", new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]),
+          // Room refresh transactions today
+          sb.from("ops_inventory_transactions").select("notes, created_at").eq("branch_id", branchId).gte("created_at", dayStart).lte("created_at", dayEnd).or("notes.ilike.%Room % refresh%,notes.ilike.%Issue template:%"),
         ]);
         
         const tasks = tasksR.data || [];
@@ -2056,6 +2058,18 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         const shifts = shiftsR.data || [];
         const dueForOrder = (lowStockR.data || []).filter(i => i.current_stock <= i.reorder_point);
         const inHouse = guests.filter(g => g.status === "checked_in");
+
+        // Room readiness analysis
+        const checkedOutRooms = guests.filter(g => g.check_out_at && g.check_out_at >= dayStart && g.check_out_at <= dayEnd).map(g => g.room_id).filter(Boolean);
+        const refreshedRooms = new Set<string>();
+        for (const tx of (refreshTxnsR.data || [])) {
+          const match1 = (tx.notes || "").match(/Room (\S+) refresh/i);
+          if (match1) refreshedRooms.add(match1[1]);
+          const match2 = (tx.notes || "").match(/Issue template:\s*(.+)/i);
+          if (match2) refreshedRooms.add(match2[1].trim());
+        }
+        const uniqueCheckedOutRooms = [...new Set(checkedOutRooms)];
+        const unrefreshedRooms = uniqueCheckedOutRooms.filter(r => !refreshedRooms.has(r!));
         
         const userIds = [...new Set([...tasks.flatMap(t => [...t.assigned_to, t.created_by]), ...shifts.map(s => s.user_id)])];
         const { data: profiles } = await sb.from("ops_user_profiles").select("user_id, display_name").in("user_id", userIds.length ? userIds : ["none"]);
@@ -2073,7 +2087,14 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
           occupancy: {
             in_house: inHouse.length, total_adults: inHouse.reduce((s, g) => s + g.adults, 0), total_children: inHouse.reduce((s, g) => s + g.children, 0),
             check_ins_today: guests.filter(g => g.check_in_at >= dayStart && g.check_in_at <= dayEnd).length,
-            check_outs_today: guests.filter(g => g.check_out_at && g.check_out_at >= dayStart && g.check_out_at <= dayEnd).length,
+            check_outs_today: uniqueCheckedOutRooms.length,
+            checked_out_rooms: uniqueCheckedOutRooms,
+          },
+          room_readiness: {
+            refreshed_rooms: [...refreshedRooms],
+            unrefreshed_after_checkout: unrefreshedRooms,
+            mismatch: unrefreshedRooms.length > 0,
+            alert: unrefreshedRooms.length > 0 ? `⚠️ ${unrefreshedRooms.length} room(s) checked out but NOT refreshed: ${unrefreshedRooms.join(", ")}` : null,
           },
           inventory: {
             due_for_order: dueForOrder.map(i => ({ name: i.name_en, stock: i.current_stock, reorder: i.reorder_point })),
