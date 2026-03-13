@@ -1521,6 +1521,7 @@ export type Database = {
           description_original: string | null
           due_datetime: string | null
           id: string
+          is_hidden: boolean
           original_language: string
           priority: string
           proof_required: boolean
@@ -1553,6 +1554,7 @@ export type Database = {
           description_original?: string | null
           due_datetime?: string | null
           id?: string
+          is_hidden?: boolean
           original_language?: string
           priority?: string
           proof_required?: boolean
@@ -1585,6 +1587,7 @@ export type Database = {
           description_original?: string | null
           due_datetime?: string | null
           id?: string
+          is_hidden?: boolean
           original_language?: string
           priority?: string
           proof_required?: boolean
