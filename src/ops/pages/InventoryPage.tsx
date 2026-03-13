@@ -115,7 +115,7 @@ export default function InventoryPage() {
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
-        <TabsContent value="due"><DueForOrderTab items={items} /></TabsContent>
+        <TabsContent value="due"><DueForOrderTab items={items} expiryBatches={expiryBatches} /></TabsContent>
         <TabsContent value="log"><LogUsageTab items={items} /></TabsContent>
         <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
       </Tabs>
