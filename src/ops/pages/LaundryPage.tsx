@@ -48,6 +48,17 @@ interface LinenItem {
 }
 
 const LINEN_TYPES = ['Bedsheet', 'Pillow Cover', 'Towel', 'Bath Towel', 'Hand Towel', 'Blanket', 'Duvet Cover', 'Mattress Protector'] as const;
+
+const DEFAULT_SET_COMPOSITION: Record<string, number> = {
+  'Bedsheet': 1,
+  'Pillow Cover': 2,
+  'Towel': 1,
+  'Bath Towel': 1,
+  'Hand Towel': 1,
+  'Blanket': 1,
+  'Duvet Cover': 1,
+  'Mattress Protector': 1,
+};
 const LINEN_STATUSES = ['fresh', 'in_use', 'need_laundry', 'awaiting_return'] as const;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
