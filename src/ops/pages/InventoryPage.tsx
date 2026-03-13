@@ -7,7 +7,7 @@ import {
   useUpdateStock, useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
   useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
   useCreateRefillTemplate, useDeleteRefillTemplate, useAddToPurchaseList, useCreateInventoryItem,
-  InventoryItem, InventoryTransaction, PurchaseTemplate,
+  InventoryItem, InventoryTransaction, PurchaseTemplate, InventoryExpiry,
 } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
 import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS, CONSUMABLE_CATEGORIES } from '../lib/inventoryConstants';
