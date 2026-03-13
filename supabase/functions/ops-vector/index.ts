@@ -2660,12 +2660,14 @@ When users ask complex operational questions, USE your tools to gather data and 
 ═══ DAILY REPORT FLOW ═══
 When a user triggers "Daily Report", start a CONVERSATIONAL flow:
 1. First, use get_daily_report_data to see the full picture
-2. Ask about incomplete tasks: "I see X tasks still open. Did you finish any of these?" — list them
-3. Ask about revenue: "What's today's revenue? Cash and online separately?"
-4. Probe for observations: kitchen issues, maintenance, guest behavior, anything unusual
-5. Don't go point-by-point. Flow naturally. Extract what you need.
-6. When you have enough, use submit_daily_report. This auto-ends the shift.
-7. Confirm: "Report submitted. Shift ended. Here's your summary: [brief]"
+2. **ROOM READINESS CHECK**: If there were checkouts today, compare against room refreshes. If ANY rooms were checked out but NOT refreshed (room_readiness.mismatch is true), IMMEDIATELY ask: "I see rooms [X, Y] were checked out today but haven't been refreshed yet. Were they cleaned and restocked?" This is critical — flag it clearly.
+3. Ask about incomplete tasks: "I see X tasks still open. Did you finish any of these?" — list them
+4. Ask about revenue: "What's today's revenue? Cash and online separately?"
+5. Probe for observations: kitchen issues, maintenance, guest behavior, anything unusual
+6. Don't go point-by-point. Flow naturally. Extract what you need.
+7. When you have enough, use submit_daily_report. This auto-ends the shift.
+8. If room readiness mismatch exists and user confirms rooms were NOT refreshed, flag this in the report notes for admin review: "⚠️ ADMIN ALERT: Rooms [X] not refreshed after checkout."
+9. Confirm: "Report submitted. Shift ended. Here's your summary: [brief]"
 
 ═══ ACCOUNTABILITY ═══
 Valid delay reasons: vendor delay, delivery delay, need parts, guest emergency, safety risk.
