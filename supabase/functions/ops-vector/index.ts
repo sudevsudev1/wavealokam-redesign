@@ -13,6 +13,39 @@ function getSupabase() {
   );
 }
 
+const ACTIVE_PURCHASE_ORDER_STATUSES = ["Draft", "Requested", "Approved", "Ordered", "Active"] as const;
+
+type PurchaseItemInput = { name: string; quantity: number; unit?: string };
+type MissingResolutionInput = {
+  name: string;
+  action: "catalog" | "one_time";
+  category?: string;
+  unit?: string;
+  par_level?: number;
+  reorder_point?: number;
+  expiry_warn_days?: number | null;
+};
+
+function normalizeText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function findInventoryMatch(items: { id: string; name_en: string; unit: string }[], query: string) {
+  const q = normalizeText(query);
+  if (!q) return null;
+
+  const exact = items.find((item) => normalizeText(item.name_en) === q);
+  if (exact) return exact;
+
+  const includes = items.find((item) => normalizeText(item.name_en).includes(q) || q.includes(normalizeText(item.name_en)));
+  return includes || null;
+}
+
+function getMissingResolution(missingResolutions: MissingResolutionInput[], itemName: string) {
+  const target = normalizeText(itemName);
+  return missingResolutions.find((r) => normalizeText(r.name) === target || target.includes(normalizeText(r.name)) || normalizeText(r.name).includes(target)) || null;
+}
+
 // ─── Tool definitions ───
 
 const VECTOR_TOOLS = [
