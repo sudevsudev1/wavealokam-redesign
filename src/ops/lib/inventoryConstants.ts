@@ -4,6 +4,12 @@ export const INVENTORY_CATEGORIES = [
   'Toiletries', 'Linens', 'Cleaning', 'F&B', 'Maintenance', 'Stationery', 'Safety',
 ] as const;
 
+// Categories where "due for order" is based on expiry (1 day before) rather than quantity
+export const CONSUMABLE_CATEGORIES: string[] = [
+  'Vegetables', 'Fruits', 'Dairy & Eggs', 'Staples', 'Pulses', 'Spices',
+  'Oils & Condiments', 'Proteins',
+];
+
 export const INVENTORY_UNITS = [
   'pcs', 'kg', 'liter', 'bunch', 'pack', 'loaf', 'roll',
   'bottles', 'cans', 'reams', 'boxes', 'books', 'kits',
