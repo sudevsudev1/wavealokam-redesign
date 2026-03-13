@@ -7,10 +7,10 @@ import {
   useUpdateStock, useInventoryTransactions, useRooms, useRefillTemplates, useApplyRefillTemplate,
   useUpdateInventoryItem, useBatchDeleteInventoryItems, usePurchaseTemplates, useCreatePurchaseTemplate, useDeletePurchaseTemplate,
   useCreateRefillTemplate, useDeleteRefillTemplate, useAddToPurchaseList, useCreateInventoryItem,
-  InventoryItem, InventoryTransaction, PurchaseTemplate,
+  InventoryItem, InventoryTransaction, PurchaseTemplate, InventoryExpiry,
 } from '../hooks/useInventory';
 import { useOpsProfiles } from '../hooks/useTasks';
-import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS } from '../lib/inventoryConstants';
+import { STOCK_STATUS, INVENTORY_CATEGORIES, INVENTORY_UNITS, CONSUMABLE_CATEGORIES } from '../lib/inventoryConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,10 +56,27 @@ export default function InventoryPage() {
   const [searchParams] = useSearchParams();
   const { t } = useOpsLanguage();
   const { data: items = [], isLoading } = useInventoryItems();
+  const { data: expiryBatches = [], isLoading: expiryLoading } = useExpiryItems();
 
-  const lowStockCount = items.filter((i) => i.current_stock <= i.reorder_point).length;
+  // For consumable categories, "due" means earliest active batch expires within 1 day
+  // For non-consumable categories, "due" means current_stock <= reorder_point
+  const lowStockCount = useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
-  if (isLoading) {
+    return items.filter((i) => {
+      if (CONSUMABLE_CATEGORIES.includes(i.category)) {
+        // Check if any active batch expires within 1 day (or already expired)
+        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
+        if (batches.length === 0) return i.current_stock > 0; // has stock but no batches tracked = show
+        return batches.some(b => b.expiry_date <= tomorrowStr);
+      }
+      return i.current_stock <= i.reorder_point;
+    }).length;
+  }, [items, expiryBatches]);
+
+  if (isLoading || expiryLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -98,7 +115,7 @@ export default function InventoryPage() {
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab items={items} /></TabsContent>
-        <TabsContent value="due"><DueForOrderTab items={items} /></TabsContent>
+        <TabsContent value="due"><DueForOrderTab items={items} expiryBatches={expiryBatches} /></TabsContent>
         <TabsContent value="log"><LogUsageTab items={items} /></TabsContent>
         <TabsContent value="templates"><TemplatesTab items={items} /></TabsContent>
       </Tabs>
@@ -797,7 +814,7 @@ function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) 
 }
 
 /* ─── Tab 2: Due For Order ─── */
-function DueForOrderTab({ items }: { items: InventoryItem[] }) {
+function DueForOrderTab({ items, expiryBatches }: { items: InventoryItem[]; expiryBatches: InventoryExpiry[] }) {
   const { t, language } = useOpsLanguage();
   const { isAdmin } = useOpsAuth();
   const addToList = useAddToPurchaseList();
@@ -815,15 +832,37 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
   const getName = (item: InventoryItem) =>
     language === 'ml' && item.name_ml ? item.name_ml : item.name_en;
 
+  const tomorrow = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
+  const isConsumable = (category: string) => CONSUMABLE_CATEGORIES.includes(category);
+
   const dueItems = useMemo(() => {
     return items.filter(i => {
-      if (i.current_stock > i.reorder_point) return false;
+      if (isConsumable(i.category)) {
+        // Consumable: due when any active batch expires within 1 day
+        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
+        if (batches.length === 0 && i.current_stock > 0) {
+          // Has stock but no tracked batches — flag it
+        } else if (batches.length === 0) {
+          return false;
+        } else {
+          const isDue = batches.some(b => b.expiry_date <= tomorrow);
+          if (!isDue) return false;
+        }
+      } else {
+        // Non-consumable: quantity-based
+        if (i.current_stock > i.reorder_point) return false;
+      }
       const name = getName(i);
       const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || i.name_en.toLowerCase().includes(search.toLowerCase());
       const matchesCat = categoryFilter === 'all' || i.category === categoryFilter;
       return matchesSearch && matchesCat;
     });
-  }, [items, search, categoryFilter, language]);
+  }, [items, expiryBatches, search, categoryFilter, language, tomorrow]);
 
   const toggleItem = (id: string) => {
     const next = new Set(selectedItems);
@@ -880,7 +919,16 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
     }
   };
 
-  const totalDue = items.filter(i => i.current_stock <= i.reorder_point).length;
+  const totalDue = useMemo(() => {
+    return items.filter(i => {
+      if (isConsumable(i.category)) {
+        const batches = expiryBatches.filter(b => b.item_id === i.id && !b.is_disposed);
+        if (batches.length === 0) return i.current_stock > 0;
+        return batches.some(b => b.expiry_date <= tomorrow);
+      }
+      return i.current_stock <= i.reorder_point;
+    }).length;
+  }, [items, expiryBatches, tomorrow]);
 
   return (
     <div className="space-y-2 mt-2">
@@ -963,10 +1011,18 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
           {dueItems.map(item => {
             const deficit = item.par_level - item.current_stock;
             const isSelected = selectedItems.has(item.id);
+            const consumable = isConsumable(item.category);
+            // For consumables, find earliest expiring batch
+            const earliestExpiry = consumable
+              ? expiryBatches
+                  .filter(b => b.item_id === item.id && !b.is_disposed)
+                  .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date))[0]?.expiry_date
+              : null;
+            const isExpired = earliestExpiry && earliestExpiry <= new Date().toISOString().slice(0, 10);
             return (
               <Card
                 key={item.id}
-                className={`cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-orange-200'}`}
+                className={`cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : consumable ? (isExpired ? 'border-destructive/50' : 'border-amber-300') : 'border-orange-200'}`}
                 onClick={() => { if (!editMode) toggleItem(item.id); }}
               >
                 <CardContent className="p-3">
@@ -987,6 +1043,11 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
                       <div className="min-w-0">
                         <span className="font-medium text-sm truncate block">{getName(item)}</span>
                         <span className="text-[10px] text-muted-foreground">{item.category} · {item.unit}</span>
+                        {consumable && earliestExpiry && (
+                          <span className={`text-[10px] block ${isExpired ? 'text-destructive font-medium' : 'text-amber-600'}`}>
+                            {isExpired ? '⚠ Expired' : '⏰ Expiring'}: {fmtDate(earliestExpiry)}
+                          </span>
+                        )}
                         <ItemBatchDates itemId={item.id} editable={isAdmin && editMode} />
                       </div>
                     </div>
@@ -1001,17 +1062,19 @@ function DueForOrderTab({ items }: { items: InventoryItem[] }) {
                       )}
                       <div className="text-right space-y-1">
                         <div className="flex items-baseline gap-1">
-                          <span className="font-mono text-sm font-bold text-orange-600">{item.current_stock}</span>
+                          <span className={`font-mono text-sm font-bold ${consumable ? (isExpired ? 'text-destructive' : 'text-amber-600') : 'text-orange-600'}`}>{item.current_stock}</span>
                           <span className="text-[10px] text-muted-foreground">/ {item.par_level}</span>
                         </div>
                         {!editMode && isSelected && (
                           <QtyEditor
-                            value={dueQuantities[item.id] || Math.max(1, deficit)}
+                            value={dueQuantities[item.id] || Math.max(1, consumable ? item.par_level : deficit)}
                             onChange={v => setDueQuantities(q => ({ ...q, [item.id]: v }))}
                           />
                         )}
                         {!editMode && !isSelected && (
-                          <span className="text-[10px] text-muted-foreground">Need: {deficit > 0 ? deficit : 0} {item.unit}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {consumable ? `Replenish: ${item.par_level} ${item.unit}` : `Need: ${deficit > 0 ? deficit : 0} ${item.unit}`}
+                          </span>
                         )}
                       </div>
                     </div>
