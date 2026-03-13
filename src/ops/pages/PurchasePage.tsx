@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Plus, Minus, Trash2, Pencil, X, AlertTriangle, PlusCircle, Loader2, Check, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Pencil, X, AlertTriangle, PlusCircle, Loader2, Check, ShoppingCart, Printer, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { copyToClipboard, printToPdf, formatListForCopy } from '../lib/printCopy';
 
 export default function PurchasePage() {
   const { t, language } = useOpsLanguage();
@@ -180,6 +181,26 @@ export default function PurchasePage() {
           {t('purchase.title')}
           {pendingItems.length > 0 && <Badge variant="default" className="text-[10px] h-5 px-1.5">{pendingItems.length}</Badge>}
         </h1>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Copy"
+            onClick={() => {
+              const all = [...pendingItems, ...completedItems].map(i => ({
+                name: getName(i.item_id), qty: i.quantity, unit: getUnit(i.item_id), done: !!i.completed_at,
+              }));
+              copyToClipboard(formatListForCopy(all));
+            }}>
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Print PDF"
+            onClick={() => {
+              const all = [...pendingItems, ...completedItems];
+              printToPdf('Purchase List', all.map(i => [
+                i.completed_at ? '✓' : '○', getName(i.item_id), `${i.quantity} ${getUnit(i.item_id)}`,
+              ]));
+            }}>
+            <Printer className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Search to add items */}

@@ -33,6 +33,7 @@ export interface OpsTask {
   receipt_required: boolean;
   tags: string[];
   related_room_id: string | null;
+  is_hidden: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +119,7 @@ export function useCreateTask() {
       receipt_required: boolean;
       related_room_id?: string;
       template_id?: string;
+      is_hidden?: boolean;
     }) => {
       if (!profile) throw new Error('Not authenticated');
 
@@ -143,6 +145,7 @@ export function useCreateTask() {
         receipt_required: task.receipt_required,
         related_room_id: task.related_room_id || null,
         template_id: task.template_id || null,
+        is_hidden: task.is_hidden || false,
       } as any).select().single();
 
       if (error) throw error;

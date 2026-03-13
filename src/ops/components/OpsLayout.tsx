@@ -14,7 +14,6 @@ const navItems = (isAdmin: boolean) => [
   { to: '/ops/home', labelKey: 'nav.home', icon: Home },
   { to: '/ops/tasks', labelKey: 'nav.tasks', icon: ClipboardList },
   { to: '/ops/inventory', labelKey: 'nav.inventory', icon: Package },
-  { to: '/ops/purchase', labelKey: 'nav.purchase', icon: ShoppingCart },
   { to: '/ops/guest-log', labelKey: 'nav.guestLog', icon: Users },
   { to: '/ops/shift-punch', labelKey: 'nav.shiftPunch', icon: Clock },
   { to: '/ops/daily-report', labelKey: 'nav.dailyReport', icon: FileText },

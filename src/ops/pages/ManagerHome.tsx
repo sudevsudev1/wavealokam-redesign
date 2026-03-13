@@ -1,19 +1,53 @@
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useMyTasks } from '../hooks/useTasks';
-import TaskRow from '../components/TaskRow';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, Loader2 } from 'lucide-react';
+import { useInventoryItems, useExpiryItems } from '../hooks/useInventory';
+import { Card, CardContent } from '@/components/ui/card';
+import { AlertTriangle, Clock, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import QuickPurchaseDock from '../components/QuickPurchaseDock';
+import { useMemo, useState } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import PurchasePage from './PurchasePage';
+import { CONSUMABLE_CATEGORIES } from '../lib/inventoryConstants';
+import type { InventoryExpiry } from '../hooks/useInventory';
+
+function getDueCount(items: any[], batches: InventoryExpiry[]) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+  return items.filter(item => {
+    if (!item.is_active || item.par_level <= 0) return false;
+    const activeBatches = batches.filter((b: any) => b.item_id === item.id && !b.is_disposed);
+    const isConsumable = CONSUMABLE_CATEGORIES.includes(item.category);
+    if (activeBatches.length > 0) {
+      if (activeBatches.some((b: any) => b.expiry_date <= todayStr)) return true;
+      if (activeBatches.some((b: any) => b.expiry_date <= tomorrowStr)) return true;
+    }
+    if (isConsumable) return false;
+    if (item.current_stock <= item.reorder_point && item.current_stock < item.par_level) return true;
+    return false;
+  }).length;
+}
 
 export default function ManagerHome() {
   const { profile } = useOpsAuth();
   const { t } = useOpsLanguage();
-  const { data: tasks, isLoading } = useMyTasks();
+  const { data: tasks } = useMyTasks();
+  const { data: items = [] } = useInventoryItems();
+  const { data: expiryBatches = [] } = useExpiryItems();
   const navigate = useNavigate();
+  const [purchaseOpen, setPurchaseOpen] = useState(true);
 
-  const activeTasks = tasks?.filter(t => !['Done', 'Cancelled'].includes(t.status)) || [];
+  const overdueTasks = useMemo(() =>
+    tasks?.filter(t =>
+      t.due_datetime && new Date(t.due_datetime) < new Date() && !['Done', 'Cancelled'].includes(t.status)
+    ) || [],
+    [tasks]
+  );
+
+  const dueForOrder = useMemo(() => getDueCount(items, expiryBatches), [items, expiryBatches]);
 
   return (
     <div className="space-y-4">
@@ -21,35 +55,44 @@ export default function ManagerHome() {
         {t('home.welcome')}, {profile?.displayName}
       </h1>
 
-      <Card>
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-1.5 text-sm">
-            <ClipboardList className="h-4 w-4 text-primary" />
-            {t('home.myTasks')} ({activeTasks.length})
-          </CardTitle>
-          <button onClick={() => navigate('/ops/tasks')} className="text-[10px] text-primary hover:underline">
-            View all →
-          </button>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : activeTasks.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground text-xs">{t('home.noTasks')}</div>
-          ) : (
-            <div className="space-y-2">
-              {activeTasks.slice(0, 5).map(task => <TaskRow key={task.id} task={task} />)}
-              {activeTasks.length > 5 && (
-                <button onClick={() => navigate('/ops/tasks')} className="text-[10px] text-primary hover:underline w-full text-center py-2">
-                  +{activeTasks.length - 5} more →
-                </button>
-              )}
+      {/* At-Risk Strip */}
+      <div className="grid grid-cols-2 gap-2">
+        <Card
+          className={`cursor-pointer hover:bg-muted/50 transition-colors ${overdueTasks.length > 0 ? 'border-destructive/50' : ''}`}
+          onClick={() => navigate('/ops/tasks')}
+        >
+          <CardContent className="p-3 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <Clock className={`h-3.5 w-3.5 ${overdueTasks.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+              <span className={`text-lg font-bold ${overdueTasks.length > 0 ? 'text-destructive' : ''}`}>{overdueTasks.length}</span>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{t('home.overdueTasks')}</div>
+          </CardContent>
+        </Card>
+        <Card
+          className={`cursor-pointer hover:bg-muted/50 transition-colors ${dueForOrder > 0 ? 'border-orange-300' : ''}`}
+          onClick={() => navigate('/ops/inventory?tab=due')}
+        >
+          <CardContent className="p-3 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <AlertTriangle className={`h-3.5 w-3.5 ${dueForOrder > 0 ? 'text-orange-600' : 'text-muted-foreground'}`} />
+              <span className={`text-lg font-bold ${dueForOrder > 0 ? 'text-orange-600' : ''}`}>{dueForOrder}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{t('home.dueForOrder')}</div>
+          </CardContent>
+        </Card>
+      </div>
 
-      <QuickPurchaseDock />
+      {/* Collapsible Purchase List */}
+      <Collapsible open={purchaseOpen} onOpenChange={setPurchaseOpen}>
+        <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+          <span className="text-sm font-semibold">Purchase List</span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${purchaseOpen ? 'rotate-180' : ''}`} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <PurchasePage />
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

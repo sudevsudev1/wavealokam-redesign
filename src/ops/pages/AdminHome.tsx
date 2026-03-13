@@ -1,27 +1,56 @@
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
-import { useTasks, useOpsProfiles } from '../hooks/useTasks';
-import TaskRow from '../components/TaskRow';
-import CreateTaskDialog from '../components/CreateTaskDialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, Activity, Loader2 } from 'lucide-react';
+import { useTasks } from '../hooks/useTasks';
+import { useInventoryItems, useExpiryItems } from '../hooks/useInventory';
+import { Card, CardContent } from '@/components/ui/card';
+import { AlertTriangle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import QuickPurchaseDock from '../components/QuickPurchaseDock';
+import { useMemo } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import PurchasePage from './PurchasePage';
+import CreateTaskDialog from '../components/CreateTaskDialog';
+import { CONSUMABLE_CATEGORIES } from '../lib/inventoryConstants';
+import type { InventoryExpiry } from '../hooks/useInventory';
+
+function getDueCount(items: any[], batches: InventoryExpiry[]) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+  return items.filter(item => {
+    if (!item.is_active || item.par_level <= 0) return false;
+    const activeBatches = batches.filter((b: any) => b.item_id === item.id && !b.is_disposed);
+    const isConsumable = CONSUMABLE_CATEGORIES.includes(item.category);
+    if (activeBatches.length > 0) {
+      if (activeBatches.some((b: any) => b.expiry_date <= todayStr)) return true;
+      if (activeBatches.some((b: any) => b.expiry_date <= tomorrowStr)) return true;
+    }
+    if (isConsumable) return false;
+    if (item.current_stock <= item.reorder_point && item.current_stock < item.par_level) return true;
+    return false;
+  }).length;
+}
 
 export default function AdminHome() {
   const { profile } = useOpsAuth();
   const { t } = useOpsLanguage();
-  const { data: allTasks, isLoading } = useTasks();
-  const { data: profiles } = useOpsProfiles();
+  const { data: allTasks } = useTasks();
+  const { data: items = [] } = useInventoryItems();
+  const { data: expiryBatches = [] } = useExpiryItems();
   const navigate = useNavigate();
+  const [purchaseOpen, setPurchaseOpen] = useState(true);
 
-  const myTasks = allTasks?.filter(task => task.assigned_to.includes(profile?.userId || '')) || [];
-  const activeTasks = myTasks.filter(t => !['Done', 'Cancelled'].includes(t.status));
-  const allOverdue = allTasks?.filter(t =>
-    t.due_datetime && new Date(t.due_datetime) < new Date() && !['Done', 'Cancelled'].includes(t.status)
-  ) || [];
+  const allOverdue = useMemo(() =>
+    allTasks?.filter(t =>
+      t.due_datetime && new Date(t.due_datetime) < new Date() && !['Done', 'Cancelled'].includes(t.status)
+    ) || [],
+    [allTasks]
+  );
 
-  const managers = profiles?.filter(p => p.role === 'manager') || [];
+  const dueForOrder = useMemo(() => getDueCount(items, expiryBatches), [items, expiryBatches]);
 
   return (
     <div className="space-y-4">
@@ -30,81 +59,44 @@ export default function AdminHome() {
         <CreateTaskDialog />
       </div>
 
-      {/* At-Risk Strip */}
+      {/* At-Risk Strip - only overdue tasks & due for order */}
       <div className="grid grid-cols-2 gap-2">
-        {[
-          { label: t('home.overdueTasks'), value: String(allOverdue.length) },
-          { label: t('home.dueForOrder'), value: '0' },
-          { label: t('home.delayedOrders'), value: '0' },
-          { label: t('home.missingSyncs'), value: '0' },
-        ].map((item) => (
-          <Card key={item.label}>
-            <CardContent className="p-3 text-center">
-              <div className="text-lg font-bold">{item.value}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">{item.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        <Card
+          className={`cursor-pointer hover:bg-muted/50 transition-colors ${allOverdue.length > 0 ? 'border-destructive/50' : ''}`}
+          onClick={() => navigate('/ops/tasks')}
+        >
+          <CardContent className="p-3 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <Clock className={`h-3.5 w-3.5 ${allOverdue.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+              <span className={`text-lg font-bold ${allOverdue.length > 0 ? 'text-destructive' : ''}`}>{allOverdue.length}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{t('home.overdueTasks')}</div>
+          </CardContent>
+        </Card>
+        <Card
+          className={`cursor-pointer hover:bg-muted/50 transition-colors ${dueForOrder > 0 ? 'border-orange-300' : ''}`}
+          onClick={() => navigate('/ops/inventory?tab=due')}
+        >
+          <CardContent className="p-3 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <AlertTriangle className={`h-3.5 w-3.5 ${dueForOrder > 0 ? 'text-orange-600' : 'text-muted-foreground'}`} />
+              <span className={`text-lg font-bold ${dueForOrder > 0 ? 'text-orange-600' : ''}`}>{dueForOrder}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{t('home.dueForOrder')}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* My Tasks */}
-      <Card>
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-1.5 text-sm">
-            <ClipboardList className="h-4 w-4 text-primary" />
-            {t('home.myTasks')} ({activeTasks.length})
-          </CardTitle>
-          <button onClick={() => navigate('/ops/tasks')} className="text-[10px] text-primary hover:underline">View all →</button>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : activeTasks.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground text-xs">{t('home.noTasks')}</div>
-          ) : (
-            <div className="space-y-2">
-              {activeTasks.slice(0, 5).map(task => <TaskRow key={task.id} task={task} />)}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Live Operations */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-1.5 text-sm">
-            <Activity className="h-4 w-4 text-primary" />
-            {t('home.liveOps')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {managers.map(m => {
-            const managerTasks = allTasks?.filter(
-              t => t.assigned_to.includes(m.user_id) && !['Done', 'Cancelled'].includes(t.status)
-            ) || [];
-            return (
-              <div key={m.user_id}>
-                <h3 className="text-xs font-semibold mb-1.5">{m.display_name} ({managerTasks.length})</h3>
-                {managerTasks.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground">No active tasks</p>
-                ) : (
-                  <div className="space-y-2">
-                    {managerTasks.slice(0, 3).map(task => <TaskRow key={task.id} task={task} />)}
-                    {managerTasks.length > 3 && (
-                      <button onClick={() => navigate('/ops/tasks')} className="text-[10px] text-primary hover:underline">
-                        +{managerTasks.length - 3} more →
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      {/* Quick Purchase */}
-      <QuickPurchaseDock />
+      {/* Collapsible Purchase List */}
+      <Collapsible open={purchaseOpen} onOpenChange={setPurchaseOpen}>
+        <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+          <span className="text-sm font-semibold">Purchase List</span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${purchaseOpen ? 'rotate-180' : ''}`} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <PurchasePage />
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
