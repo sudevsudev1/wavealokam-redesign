@@ -17,6 +17,8 @@ import { TASK_STATUSES, TASK_CATEGORIES, TASK_PRIORITIES } from '../lib/taskCons
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { copyToClipboard, printToPdf, formatTasksForCopy } from '../lib/printCopy';
+import { Button } from '@/components/ui/button';
 
 export default function TasksPage() {
   const { isAdmin, profile } = useOpsAuth();
