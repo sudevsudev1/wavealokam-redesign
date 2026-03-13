@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Plus, Minus, Trash2, Pencil, X, AlertTriangle, PlusCircle, Loader2, Check, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Pencil, X, AlertTriangle, PlusCircle, Loader2, Check, ShoppingCart, Printer, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { copyToClipboard, printToPdf, formatListForCopy } from '../lib/printCopy';
 
 export default function PurchasePage() {
   const { t, language } = useOpsLanguage();
