@@ -517,6 +517,9 @@ function EditItemDialog({ item, onClose }: { item: InventoryItem; onClose: () =>
   const [mfgOffsetDays, setMfgOffsetDays] = useState(String(item.mfg_offset_days ?? 2));
   const [category, setCategory] = useState(item.category);
   const [unit, setUnit] = useState(item.unit);
+  const [lastPurchased, setLastPurchased] = useState(
+    item.last_received_at ? new Date(item.last_received_at).toISOString().split('T')[0] : ''
+  );
 
   const handleSave = async () => {
     try {
