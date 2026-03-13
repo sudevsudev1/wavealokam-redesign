@@ -4,12 +4,12 @@ import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsOffline } from '../contexts/OpsOfflineContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Bot, X, Send, Copy, MessageSquare, Loader2, Minimize2, Maximize2, GripHorizontal, Languages, Reply, Zap, ListPlus, ClipboardList } from 'lucide-react';
+import { Bot, X, Send, Copy, MessageSquare, Loader2, Minimize2, GripHorizontal, Languages, Reply, Zap, ListPlus, ClipboardList } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-type Msg = { role: 'user' | 'assistant'; content: string };
+type Msg = { role: 'user' | 'assistant'; content: string; timestamp?: string };
 
 const WHATSAPP_BASE = 'https://wa.me/?text=';
 
@@ -18,6 +18,31 @@ const MIN_H = 350;
 const DEFAULT_W = 400;
 const DEFAULT_H = 600;
 
+const CHAT_STORAGE_KEY = 'vector_chat_history';
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+function loadPersistedMessages(): { quick: Msg[]; internal: Msg[] } {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) return { quick: [], internal: [] };
+    const data = JSON.parse(raw);
+    const cutoff = new Date(Date.now() - THREE_DAYS_MS).toISOString();
+    const filterRecent = (msgs: Msg[]) => msgs.filter(m => !m.timestamp || m.timestamp > cutoff);
+    return {
+      quick: filterRecent(data.quick || []),
+      internal: filterRecent(data.internal || []),
+    };
+  } catch {
+    return { quick: [], internal: [] };
+  }
+}
+
+function persistMessages(quick: Msg[], internal: Msg[]) {
+  try {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ quick, internal }));
+  } catch { /* quota exceeded */ }
+}
+
 export default function VectorDock() {
   const { profile, isAdmin } = useOpsAuth();
   const { t, language } = useOpsLanguage();
@@ -25,12 +50,16 @@ export default function VectorDock() {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [mode, setMode] = useState<'quick' | 'internal'>('quick');
-  const [quickMessages, setQuickMessages] = useState<Msg[]>([]);
-  const [internalMessages, setInternalMessages] = useState<Msg[]>([]);
+
+  // Load persisted messages
+  const persisted = useRef(loadPersistedMessages());
+  const [quickMessages, setQuickMessages] = useState<Msg[]>(persisted.current.quick);
+  const [internalMessages, setInternalMessages] = useState<Msg[]>(persisted.current.internal);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Position & size state (desktop only)
@@ -43,6 +72,11 @@ export default function VectorDock() {
 
   const messages = mode === 'quick' ? quickMessages : internalMessages;
   const setMessages = mode === 'quick' ? setQuickMessages : setInternalMessages;
+
+  // Persist messages on change
+  useEffect(() => {
+    persistMessages(quickMessages, internalMessages);
+  }, [quickMessages, internalMessages]);
 
   // Button position state
   const [btnPos, setBtnPos] = useState({ x: -1, y: -1 });
@@ -59,13 +93,28 @@ export default function VectorDock() {
     }
   }, [open]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Auto-scroll to bottom when messages change or chat opens
+  const scrollToBottom = useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, []);
 
   useEffect(() => {
-    if (open && !minimized) inputRef.current?.focus();
-  }, [open, mode, minimized]);
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (open && !minimized) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+        inputRef.current?.focus();
+      });
+    }
+  }, [open, mode, minimized, scrollToBottom]);
 
   // Drag handlers
   const onDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
@@ -123,12 +172,13 @@ export default function VectorDock() {
     return null;
   }, [messages]);
 
-  // Core send function — for quick actions, sends ONLY instruction + text (no history)
+  // Core send function
   const sendToVector = useCallback(async (text: string, options?: { systemInstruction?: string; displayLabel?: string }) => {
     if (!text.trim() || loading || !profile) return;
 
     const displayText = options?.displayLabel || text;
-    const userMsg: Msg = { role: 'user', content: displayText };
+    const now = new Date().toISOString();
+    const userMsg: Msg = { role: 'user', content: displayText, timestamp: now };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput('');
@@ -136,14 +186,12 @@ export default function VectorDock() {
     setLoading(true);
 
     if (networkStatus === 'offline') {
-      setMessages([...updatedMessages, { role: 'assistant', content: '⚠️ Offline. Vector needs a live connection.' }]);
+      setMessages([...updatedMessages, { role: 'assistant', content: '⚠️ Offline. Vector needs a live connection.', timestamp: now }]);
       setLoading(false);
       return;
     }
 
     try {
-      // For quick actions: send ONLY the system instruction + the text to act on
-      // For regular chat: send the full conversation history
       const sendMessages = options?.systemInstruction
         ? [
             { role: 'system' as const, content: options.systemInstruction },
@@ -163,14 +211,15 @@ export default function VectorDock() {
       });
 
       if (error) throw error;
+      const responseNow = new Date().toISOString();
       if (data?.error) {
-        setMessages([...updatedMessages, { role: 'assistant', content: `⚠️ ${data.error}` }]);
+        setMessages([...updatedMessages, { role: 'assistant', content: `⚠️ ${data.error}`, timestamp: responseNow }]);
       } else {
-        setMessages([...updatedMessages, { role: 'assistant', content: data?.content || 'No response.' }]);
+        setMessages([...updatedMessages, { role: 'assistant', content: data?.content || 'No response.', timestamp: responseNow }]);
       }
     } catch (e) {
       console.error('Vector error:', e);
-      setMessages([...updatedMessages, { role: 'assistant', content: '⚠️ Failed to reach Vector. Please try again.' }]);
+      setMessages([...updatedMessages, { role: 'assistant', content: '⚠️ Failed to reach Vector. Please try again.', timestamp: now }]);
     } finally {
       setLoading(false);
     }
@@ -290,7 +339,7 @@ export default function VectorDock() {
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5 sm:rounded-t-xl sm:cursor-grab sm:active:cursor-grabbing select-none"
+        className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5 sm:rounded-t-xl sm:cursor-grab sm:active:cursor-grabbing select-none shrink-0"
         onMouseDown={onDragStart}
         onTouchStart={onDragStart}
       >
@@ -314,7 +363,7 @@ export default function VectorDock() {
 
       {/* Tabs */}
       <Tabs value={mode} onValueChange={(v) => setMode(v as 'quick' | 'internal')} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="mx-3 mt-2 grid grid-cols-2">
+        <TabsList className="mx-3 mt-2 grid grid-cols-2 shrink-0">
           <TabsTrigger value="quick" className="text-xs gap-1">
             <Zap className="h-3 w-3" />
             {t('vector.quickTab')}
@@ -328,37 +377,41 @@ export default function VectorDock() {
         <TabsContent value="quick" className="flex-1 flex flex-col min-h-0 m-0">
           <ChatArea
             messages={quickMessages}
+            scrollContainerRef={scrollContainerRef}
             messagesEndRef={messagesEndRef}
             mode="quick"
             onCopy={copyToClipboard}
             onWhatsApp={openWhatsApp}
             onReply={(text) => { setReplyTo(text); inputRef.current?.focus(); }}
             t={t}
+            isCurrentMode={mode === 'quick'}
           />
         </TabsContent>
         <TabsContent value="internal" className="flex-1 flex flex-col min-h-0 m-0">
           <ChatArea
             messages={internalMessages}
+            scrollContainerRef={scrollContainerRef}
             messagesEndRef={messagesEndRef}
             mode="internal"
             onCopy={copyToClipboard}
             onWhatsApp={openWhatsApp}
             onReply={(text) => { setReplyTo(text); inputRef.current?.focus(); }}
             t={t}
+            isCurrentMode={mode === 'internal'}
           />
         </TabsContent>
       </Tabs>
 
-      {/* Quick Action Buttons (quick tab: translations/guest reply; internal tab: add task/purchase) */}
+      {/* Quick Action Buttons */}
       {mode === 'quick' && (
-        <div className="border-t border-border px-2 py-1.5 flex gap-1.5 overflow-x-auto">
+        <div className="border-t border-border px-2 py-1.5 flex gap-1.5 overflow-x-auto shrink-0">
           <QuickActionBtn label={t('vector.actionEnToMl')} icon={<Languages className="h-3 w-3" />} onClick={() => handleQuickAction('en_to_ml')} disabled={loading} />
           <QuickActionBtn label={t('vector.actionMlToEn')} icon={<Languages className="h-3 w-3" />} onClick={() => handleQuickAction('ml_to_en')} disabled={loading} />
           <QuickActionBtn label={t('vector.actionGuestReply')} icon={<Send className="h-3 w-3" />} onClick={() => handleQuickAction('guest_reply')} disabled={loading} />
         </div>
       )}
       {mode === 'internal' && (
-        <div className="border-t border-border px-2 py-1.5 flex gap-1.5 overflow-x-auto">
+        <div className="border-t border-border px-2 py-1.5 flex gap-1.5 overflow-x-auto shrink-0">
           <QuickActionBtn
             label={t('vector.addTask')}
             icon={<ClipboardList className="h-3 w-3" />}
@@ -406,7 +459,7 @@ export default function VectorDock() {
 
       {/* Reply indicator */}
       {replyTo && (
-        <div className="px-3 py-1 bg-muted/50 border-t border-border flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="px-3 py-1 bg-muted/50 border-t border-border flex items-center gap-2 text-xs text-muted-foreground shrink-0">
           <Reply className="h-3 w-3 shrink-0" />
           <span className="truncate flex-1">{replyTo.slice(0, 80)}...</span>
           <button onClick={() => setReplyTo(null)} className="shrink-0 hover:text-foreground">
@@ -416,7 +469,7 @@ export default function VectorDock() {
       )}
 
       {/* Input */}
-      <div className="border-t border-border p-2 flex gap-2 items-center">
+      <div className="border-t border-border p-2 flex gap-2 items-center shrink-0">
         <input
           ref={inputRef}
           value={input}
@@ -467,25 +520,40 @@ function QuickActionBtn({ label, icon, onClick, disabled }: { label: string; ico
 // ─── Chat area sub-component ───
 function ChatArea({
   messages,
+  scrollContainerRef,
   messagesEndRef,
   mode,
   onCopy,
   onWhatsApp,
   onReply,
   t,
+  isCurrentMode,
 }: {
   messages: Msg[];
+  scrollContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   mode: 'quick' | 'internal';
   onCopy: (text: string) => void;
   onWhatsApp: (text: string) => void;
   onReply: (text: string) => void;
   t: (key: string) => string;
+  isCurrentMode: boolean;
 }) {
+  // Scroll to bottom when this tab becomes active
+  useEffect(() => {
+    if (isCurrentMode && scrollContainerRef.current) {
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        }
+      });
+    }
+  }, [isCurrentMode, messages.length, scrollContainerRef]);
+
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4 text-center">
-        <div className="space-y-2">
+      <div className="flex-1 flex items-end justify-center p-4 text-center">
+        <div className="space-y-2 pb-4">
           <Bot className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <p className="text-xs text-muted-foreground">
             {mode === 'quick' ? t('vector.quickEmpty') : t('vector.internalEmpty')}
@@ -503,19 +571,21 @@ function ChatArea({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 space-y-3">
-      {messages.map((msg, i) => (
-        <MessageBubble
-          key={i}
-          msg={msg}
-          mode={mode}
-          onCopy={onCopy}
-          onWhatsApp={onWhatsApp}
-          onReply={onReply}
-          t={t}
-        />
-      ))}
-      <div ref={messagesEndRef} />
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 flex flex-col justify-end min-h-0">
+      <div className="space-y-3">
+        {messages.map((msg, i) => (
+          <MessageBubble
+            key={i}
+            msg={msg}
+            mode={mode}
+            onCopy={onCopy}
+            onWhatsApp={onWhatsApp}
+            onReply={onReply}
+            t={t}
+          />
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
     </div>
   );
 }
