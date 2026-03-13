@@ -742,7 +742,7 @@ function BulkEditDialog({ itemIds, items, isSingleCategory, onClose, onDone }: {
   );
 }
 
-
+function ItemLedger({ itemId, itemName }: { itemId: string; itemName: string }) {
   const { t } = useOpsLanguage();
   const { data: txns, isLoading } = useInventoryTransactions(itemId);
   const { data: profiles } = useOpsProfiles();
