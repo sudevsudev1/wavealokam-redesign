@@ -91,7 +91,35 @@ export default function TasksPage() {
           <ClipboardList className="h-4 w-4 text-primary" />
           {t('nav.tasks')}
         </h1>
-        {isAdmin && <CreateTaskDialog />}
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Copy"
+            onClick={() => {
+              const tasks = applyFilters(allTasks || []);
+              const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+              const text = formatTasksForCopy(tasks.map(t => ({
+                title: t.title_en || t.title_original,
+                status: t.status, priority: t.priority,
+                assignee: t.assigned_to.map(id => profileMap.get(id) || '?').join(', '),
+                due: t.due_datetime ? new Date(t.due_datetime).toLocaleDateString() : undefined,
+              })));
+              copyToClipboard(text);
+            }}>
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Print PDF"
+            onClick={() => {
+              const tasks = applyFilters(allTasks || []);
+              const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+              printToPdf('Tasks', tasks.map(t => [
+                t.title_en || t.title_original, t.status, t.priority,
+                t.assigned_to.map(id => profileMap.get(id) || '?').join(', '),
+                t.due_datetime ? new Date(t.due_datetime).toLocaleDateString() : 'No due date',
+              ]));
+            }}>
+            <Printer className="h-3.5 w-3.5" />
+          </Button>
+          {isAdmin && <CreateTaskDialog />}
+        </div>
       </div>
 
       {/* Filters (admin only) */}
