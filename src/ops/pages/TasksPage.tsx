@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import RecurringTasksTab from '../components/RecurringTasksTab';
 
 export default function TasksPage() {
+  const [topTab, setTopTab] = useState<'tasks' | 'recurring'>('tasks');
   const { isAdmin, profile } = useOpsAuth();
   const { t } = useOpsLanguage();
   const { data: allTasks, isLoading } = useTasks();
