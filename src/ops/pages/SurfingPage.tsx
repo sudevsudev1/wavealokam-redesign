@@ -708,7 +708,7 @@ function SurfLessonsTab() {
                   <TableCell className="text-[11px] px-2 py-1.5">₹{l.auto_fare}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5">
                     <Badge variant={l.is_paid ? 'default' : 'outline'} className="text-[9px] h-4 px-1">
-                      {l.is_paid ? 'Paid' : 'Unpaid'}
+                      {l.is_paid ? 'Comm. Paid' : 'Comm. Owed'}
                     </Badge>
                   </TableCell>
                 </TableRow>
