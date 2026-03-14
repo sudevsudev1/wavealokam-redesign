@@ -555,21 +555,18 @@ function SurfLessonsTab() {
 
   return (
     <div className="space-y-3">
-      {/* Commissions Owed */}
+      {/* Commissions Owed - compact inline */}
       {Object.keys(commissionsOwed).length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-wrap gap-2">
           {Object.entries(commissionsOwed).map(([sid, info]) => (
-            <Card key={sid} className="border-orange-300">
-              <CardContent className="p-3">
-                <p className="text-xs font-medium">{info.name}</p>
-                <p className="text-lg font-bold text-orange-600">₹{info.owed.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground">commission owed</p>
-                <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px]"
-                  onClick={() => setPaymentDialog({ stayId: sid, stayName: info.name })}>
-                  <DollarSign className="h-3 w-3 mr-1" /> Mark Paid
-                </Button>
-              </CardContent>
-            </Card>
+            <div key={sid} className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-orange-300 bg-orange-50 text-xs">
+              <span className="font-medium truncate max-w-[80px]">{info.name}</span>
+              <span className="font-bold text-orange-600">₹{info.owed.toLocaleString()}</span>
+              <button className="text-[9px] text-primary underline ml-1"
+                onClick={() => setPaymentDialog({ stayId: sid, stayName: info.name })}>
+                Pay
+              </button>
+            </div>
           ))}
         </div>
       )}
