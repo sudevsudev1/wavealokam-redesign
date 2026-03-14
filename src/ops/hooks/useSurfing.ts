@@ -272,7 +272,7 @@ export function useAddSurfLesson() {
 export function useUpdateSurfLesson() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; is_paid?: boolean; paid_at?: string | null }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; lesson_date?: string; num_lessons?: number; guest_name?: string; guest_stay_id?: string; fee_per_lesson?: number; total_fees?: number; commission_per_lesson?: number; total_commission?: number; auto_fare?: number; is_paid?: boolean; paid_at?: string | null }) => {
       const { error } = await supabase.from('ops_surf_lessons').update(updates).eq('id', id);
       if (error) throw error;
     },
