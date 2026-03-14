@@ -8,6 +8,9 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig(({ mode }) => {
   const buildTime = new Date().toISOString().slice(5, 16).replace('T', ' ');
   return {
+  define: {
+    __BUILD_TIME__: JSON.stringify(buildTime),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -74,4 +77,5 @@ export default defineConfig(({ mode }) => {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}));
+};
+});
