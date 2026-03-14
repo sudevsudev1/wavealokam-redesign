@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      selfDestroying: true,
       includeAssets: ["favicon.ico", "ops-icon-192.png", "ops-icon-512.png"],
       manifest: false, // use public/manifest.json
       workbox: {
