@@ -33,6 +33,12 @@ export default function PwaInstallPrompt() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  useEffect(() => {
+    if (needRefresh) {
+      updateServiceWorker(true);
+    }
+  }, [needRefresh, updateServiceWorker]);
+
   const handleInstall = async () => {
     if (!installPrompt) return;
     await installPrompt.prompt();
