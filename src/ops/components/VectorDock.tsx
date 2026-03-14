@@ -226,12 +226,18 @@ export default function VectorDock() {
     }
   }, [loading, messages, mode, profile, isAdmin, networkStatus, setMessages, language]);
 
-  // Regular send
+  // Regular send — check for pending action first
   const sendMessage = useCallback(() => {
     const text = replyTo ? `[Replying to: "${replyTo.slice(0, 100)}..."]\n\n${input.trim()}` : input.trim();
     if (!text) return;
-    sendToVector(text);
-  }, [input, replyTo, sendToVector]);
+
+    if (pendingAction && pendingAction.mode === mode) {
+      setPendingAction(null);
+      applyPendingAction(text, pendingAction.action);
+    } else {
+      sendToVector(text);
+    }
+  }, [input, replyTo, sendToVector, pendingAction, mode, applyPendingAction]);
 
   // Quick action instruction hints
   const quickActionHints: Record<string, string> = {
