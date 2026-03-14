@@ -467,31 +467,19 @@ export default function VectorDock() {
           <QuickActionBtn
             label={t('vector.addTask')}
             icon={<ClipboardList className="h-3 w-3" />}
-            onClick={() => {
-              const text = input.trim();
-              if (!text) { toast.error('Type a task description first'); return; }
-              sendToVector(`[ADD_TASK] ${text}`);
-            }}
+            onClick={() => handleInternalAction('add_task', (text) => sendToVector(`[ADD_TASK] ${text}`))}
             disabled={loading}
           />
           <QuickActionBtn
             label={t('vector.addToList')}
             icon={<ListPlus className="h-3 w-3" />}
-            onClick={() => {
-              const text = input.trim();
-              if (!text) { toast.error('Type items to add first'); return; }
-              sendToVector(`[ADD_TO_PURCHASE_LIST] ${text}`);
-            }}
+            onClick={() => handleInternalAction('add_to_list', (text) => sendToVector(`[ADD_TO_PURCHASE_LIST] ${text}`))}
             disabled={loading}
           />
           <QuickActionBtn
             label="Issue"
             icon={<Bot className="h-3 w-3" />}
-            onClick={() => {
-              const text = input.trim();
-              if (!text) { toast.error('Type item or room (e.g. "room 102 refreshed")'); return; }
-              sendToVector(text);
-            }}
+            onClick={() => handleInternalAction('issue', (text) => sendToVector(text))}
             disabled={loading}
           />
           <QuickActionBtn
