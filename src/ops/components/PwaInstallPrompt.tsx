@@ -101,8 +101,10 @@ function PwaInstallPromptContent() {
     );
   }
 
+  const isGuestForm = window.location.pathname.includes('/ops/guest-form');
+
   // iOS install guide
-  if (showIosGuide && window.location.pathname.startsWith('/ops')) {
+  if (showIosGuide && window.location.pathname.startsWith('/ops') && !isGuestForm) {
     return (
       <div className="fixed bottom-4 left-4 right-4 z-50 bg-card border border-border rounded-lg shadow-lg p-4 max-w-sm mx-auto">
         <div className="flex items-start justify-between gap-2 mb-2">
