@@ -32,6 +32,7 @@ function BoardRentalTab() {
   const { data: config = [] } = useSurfConfig();
   const addRental = useAddBoardRental();
   const updateRental = useUpdateBoardRental();
+  const deleteRental = useDeleteBoardRental();
   const applyPayment = useApplyBoardPayment();
 
   const activeSchools = schools.filter(s => s.is_active);
