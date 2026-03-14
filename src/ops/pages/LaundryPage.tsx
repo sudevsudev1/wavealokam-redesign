@@ -669,8 +669,13 @@ function LinenTracker({
   profile: any;
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [newType, setNewType] = useState('Bedsheet');
-  const [newLabel, setNewLabel] = useState('');
+  const [batchItems, setBatchItems] = useState<Record<string, { selected: boolean; quantity: number; label: string }>>(() => {
+    const init: Record<string, { selected: boolean; quantity: number; label: string }> = {};
+    for (const lt of LINEN_TYPES) {
+      init[lt] = { selected: false, quantity: 1, label: '' };
+    }
+    return init;
+  });
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Group linens by status
@@ -692,10 +697,27 @@ function LinenTracker({
     ? ['in_use', 'need_laundry', 'awaiting_return', 'fresh'] 
     : [statusFilter];
 
-  const handleAdd = () => {
-    onAdd({ item_type: newType, item_label: newLabel || undefined });
-    setNewLabel('');
+  const selectedCount = Object.values(batchItems).filter(v => v.selected).length;
+
+  const handleBatchAdd = () => {
+    const toAdd = Object.entries(batchItems).filter(([, v]) => v.selected && v.quantity > 0);
+    if (toAdd.length === 0) { toast.error('Select at least one item'); return; }
+    for (const [type, val] of toAdd) {
+      for (let i = 0; i < val.quantity; i++) {
+        const label = val.quantity > 1 ? `${val.label ? val.label + ' ' : ''}#${i + 1}` : val.label || undefined;
+        onAdd({ item_type: type, item_label: label });
+      }
+    }
+    // Reset selections
+    setBatchItems(prev => {
+      const reset = { ...prev };
+      for (const key of Object.keys(reset)) {
+        reset[key] = { selected: false, quantity: 1, label: '' };
+      }
+      return reset;
+    });
     setShowAdd(false);
+    toast.success(`Added ${toAdd.reduce((s, [, v]) => s + v.quantity, 0)} linen item(s)`);
   };
 
   // Next status mapping for quick transitions
@@ -729,32 +751,51 @@ function LinenTracker({
       </div>
 
       {/* Add button */}
-      <Button onClick={() => setShowAdd(true)} variant="outline" className="w-full text-xs gap-1.5">
-        <Plus className="h-3.5 w-3.5" /> Add Linen Item
-      </Button>
-
-      {showAdd && (
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <Select value={newType} onValueChange={setNewType}>
-              <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {LINEN_TYPES.map(lt => <SelectItem key={lt} value={lt}>{lt}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Input
-              value={newLabel} onChange={e => setNewLabel(e.target.value)}
-              placeholder="Label (optional, e.g. #1, Blue)" className="text-xs h-8"
-            />
-            <div className="flex gap-2">
-              <Button variant="ghost" className="flex-1 text-xs" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button className="flex-1 text-xs" onClick={handleAdd} disabled={addPending}>
-                {addPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="w-full text-xs gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> Add Linen Items
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">Add Linen Items</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1">
+            {LINEN_TYPES.map(lt => {
+              const item = batchItems[lt];
+              return (
+                <div key={lt} className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${item.selected ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                  <Checkbox
+                    checked={item.selected}
+                    onCheckedChange={(checked) => setBatchItems(prev => ({ ...prev, [lt]: { ...prev[lt], selected: !!checked } }))}
+                  />
+                  <span className="text-sm font-medium flex-1">{lt}</span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline" size="icon" className="h-6 w-6"
+                      disabled={!item.selected || item.quantity <= 1}
+                      onClick={() => setBatchItems(prev => ({ ...prev, [lt]: { ...prev[lt], quantity: Math.max(1, prev[lt].quantity - 1) } }))}
+                    >−</Button>
+                    <span className="text-sm font-mono w-6 text-center">{item.quantity}</span>
+                    <Button
+                      variant="outline" size="icon" className="h-6 w-6"
+                      disabled={!item.selected}
+                      onClick={() => setBatchItems(prev => ({ ...prev, [lt]: { ...prev[lt], quantity: prev[lt].quantity + 1 } }))}
+                    >+</Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="ghost" className="flex-1 text-xs" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button className="flex-1 text-xs" onClick={handleBatchAdd} disabled={addPending || selectedCount === 0}>
+              {addPending ? <Loader2 className="h-3 w-3 animate-spin" /> : `Add ${selectedCount} Type${selectedCount !== 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Grouped linen items */}
       {filteredStatuses.map(status => {
