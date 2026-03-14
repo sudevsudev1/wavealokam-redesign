@@ -57,6 +57,37 @@ function BoardRentalTab() {
   // Settings dialog
   const [showSettings, setShowSettings] = useState(false);
 
+  // Edit dialog
+  const [editRental, setEditRental] = useState<BoardRental | null>(null);
+  const [editFields, setEditFields] = useState<{
+    school_id: string; rental_date: string; num_boards: number; rate_per_board: number;
+    boards_returned: number; all_boards_good_condition: boolean; is_paid: boolean;
+  }>({ school_id: '', rental_date: '', num_boards: 1, rate_per_board: 500, boards_returned: 0, all_boards_good_condition: true, is_paid: false });
+
+  const openEditRental = (r: BoardRental) => {
+    setEditRental(r);
+    setEditFields({
+      school_id: r.school_id, rental_date: r.rental_date, num_boards: r.num_boards,
+      rate_per_board: r.rate_per_board, boards_returned: r.boards_returned,
+      all_boards_good_condition: r.all_boards_good_condition, is_paid: r.is_paid,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editRental) return;
+    const amount_due = editFields.num_boards * editFields.rate_per_board;
+    try {
+      await updateRental.mutateAsync({
+        id: editRental.id,
+        ...editFields,
+        amount_due,
+        paid_at: editFields.is_paid && !editRental.is_paid ? new Date().toISOString() : editFields.is_paid ? editRental.paid_at : null,
+      });
+      toast.success('Rental updated');
+      setEditRental(null);
+    } catch { toast.error('Failed to update'); }
+  };
+
   // Calculate amounts owed per school
   const amountsOwed = useMemo(() => {
     const map: Record<string, { schoolName: string; owed: number; totalPaid: number }> = {};
@@ -204,6 +235,7 @@ function BoardRentalTab() {
       )}
 
       {/* Rentals Table */}
+      <p className="text-[10px] text-muted-foreground">Tap a row to edit</p>
       <div className="overflow-auto">
         <Table>
           <TableHeader>
@@ -211,8 +243,8 @@ function BoardRentalTab() {
               <TableHead className="text-[10px] px-2">Date</TableHead>
               <TableHead className="text-[10px] px-2">School</TableHead>
               <TableHead className="text-[10px] px-2">Boards</TableHead>
-              <TableHead className="text-[10px] px-2">Returned</TableHead>
-              <TableHead className="text-[10px] px-2">Condition</TableHead>
+              <TableHead className="text-[10px] px-2">Ret.</TableHead>
+              <TableHead className="text-[10px] px-2">OK</TableHead>
               <TableHead className="text-[10px] px-2">Amount</TableHead>
               <TableHead className="text-[10px] px-2">Status</TableHead>
             </TableRow>
@@ -222,18 +254,12 @@ function BoardRentalTab() {
               <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-4">No rentals</TableCell></TableRow>
             ) : (
               filtered.map(r => (
-                <TableRow key={r.id}>
+                <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEditRental(r)}>
                   <TableCell className="text-[11px] px-2 py-1.5">{format(parseISO(r.rental_date), 'dd MMM')}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5">{schoolMap.get(r.school_id) || '?'}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5">{r.num_boards}</TableCell>
-                  <TableCell className="text-[11px] px-2 py-1.5">
-                    <Input type="number" min={0} max={r.num_boards} value={r.boards_returned} className="h-6 w-12 text-[10px]"
-                      onChange={e => updateRental.mutate({ id: r.id, boards_returned: parseInt(e.target.value) || 0 })} />
-                  </TableCell>
-                  <TableCell className="text-[11px] px-2 py-1.5">
-                    <Checkbox checked={r.all_boards_good_condition}
-                      onCheckedChange={v => updateRental.mutate({ id: r.id, all_boards_good_condition: !!v })} />
-                  </TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">{r.boards_returned}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">{r.all_boards_good_condition ? '✓' : '✗'}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5 font-medium">₹{r.amount_due}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5">
                     <Badge variant={r.is_paid ? 'default' : 'outline'} className="text-[9px] h-4 px-1">
@@ -246,6 +272,57 @@ function BoardRentalTab() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Edit Rental Dialog */}
+      <Dialog open={!!editRental} onOpenChange={() => setEditRental(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="text-sm">Edit Rental</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">School</label>
+                <Select value={editFields.school_id} onValueChange={v => setEditFields(p => ({ ...p, school_id: v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {activeSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Date</label>
+                <Input type="date" value={editFields.rental_date} onChange={e => setEditFields(p => ({ ...p, rental_date: e.target.value }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Boards</label>
+                <Input type="number" min={1} value={editFields.num_boards} onChange={e => setEditFields(p => ({ ...p, num_boards: parseInt(e.target.value) || 1 }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Rate/Board (₹)</label>
+                <Input type="number" value={editFields.rate_per_board} onChange={e => setEditFields(p => ({ ...p, rate_per_board: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Returned</label>
+                <Input type="number" min={0} max={editFields.num_boards} value={editFields.boards_returned} onChange={e => setEditFields(p => ({ ...p, boards_returned: parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
+              </div>
+              <div className="flex items-center gap-2 pt-4">
+                <Checkbox checked={editFields.all_boards_good_condition} onCheckedChange={v => setEditFields(p => ({ ...p, all_boards_good_condition: !!v }))} />
+                <span className="text-[10px]">Good condition</span>
+              </div>
+            </div>
+            <div className="text-xs font-medium">Amount: ₹{(editFields.num_boards * editFields.rate_per_board).toLocaleString()}</div>
+            <div className="flex items-center gap-2">
+              <Checkbox checked={editFields.is_paid} onCheckedChange={v => setEditFields(p => ({ ...p, is_paid: !!v }))} />
+              <span className="text-xs font-medium">Paid</span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSaveEdit} disabled={updateRental.isPending}>
+                {updateRental.isPending ? 'Saving...' : 'Save'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditRental(null)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog open={!!paymentDialog} onOpenChange={() => setPaymentDialog(null)}>
