@@ -324,11 +324,15 @@ function BoardRentalTab() {
               <Checkbox checked={editFields.is_paid} onCheckedChange={v => setEditFields(p => ({ ...p, is_paid: !!v }))} />
               <span className="text-xs font-medium">Paid</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Button size="sm" onClick={handleSaveEdit} disabled={updateRental.isPending}>
                 {updateRental.isPending ? 'Saving...' : 'Save'}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setEditRental(null)}>Cancel</Button>
+              <div className="flex-1" />
+              <Button size="sm" variant="destructive" onClick={handleDeleteRental} disabled={deleteRental.isPending}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         </DialogContent>
