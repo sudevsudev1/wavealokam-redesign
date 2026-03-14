@@ -76,12 +76,10 @@ function BoardRentalTab() {
 
   const handleSaveEdit = async () => {
     if (!editRental) return;
-    const amount_due = editFields.num_boards * editFields.rate_per_board;
     try {
       await updateRental.mutateAsync({
         id: editRental.id,
         ...editFields,
-        amount_due,
         paid_at: editFields.is_paid && !editRental.is_paid ? new Date().toISOString() : editFields.is_paid ? editRental.paid_at : null,
       });
       toast.success('Rental updated');
