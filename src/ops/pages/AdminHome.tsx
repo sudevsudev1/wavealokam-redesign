@@ -63,8 +63,11 @@ function TaskItem({ task, language }: { task: OpsTask; language: string }) {
           <Badge variant="outline" className={`text-[9px] px-1 py-0 h-4 ${PRIORITY_COLOR[task.priority] || ''}`}>{task.priority}</Badge>
           {isOverdue && <span className="text-[9px] text-destructive font-medium">Overdue</span>}
         </div>
+        </div>
       </div>
-    </div>
+
+      {/* Surfing Widget */}
+      <HomeSurfingWidget />
   );
 }
 
