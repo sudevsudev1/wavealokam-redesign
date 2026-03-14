@@ -429,6 +429,7 @@ function SurfLessonsTab() {
   const { data: lessons = [] } = useSurfLessons();
   const addLesson = useAddSurfLesson();
   const updateLesson = useUpdateSurfLesson();
+  const deleteLesson = useDeleteSurfLesson();
   const applyPayment = useApplyLessonPayment();
 
   const activeStays = guestStays.filter(s => s.is_active);
