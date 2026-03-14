@@ -952,7 +952,15 @@ export default function SurfingPage() {
         <h1 className="text-base font-bold">Surfing</h1>
       </div>
 
-      <RevenueSummary />
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center justify-between w-full text-left">
+          <span className="text-xs font-semibold flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Revenue Summary</span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <RevenueSummary />
+        </CollapsibleContent>
+      </Collapsible>
 
       <Tabs defaultValue="board-rental">
         <TabsList className="w-full">
