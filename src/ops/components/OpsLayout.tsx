@@ -8,7 +8,7 @@ import NotificationBell from './NotificationBell';
 import VectorDock from './VectorDock';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X, Shirt } from 'lucide-react';
+import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X, Shirt, Waves } from 'lucide-react';
 import { useState } from 'react';
 
 declare const __BUILD_TIME__: string | undefined;
