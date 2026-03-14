@@ -226,7 +226,7 @@ export function useAddBoardRental() {
 export function useUpdateBoardRental() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; boards_returned?: number; all_boards_good_condition?: boolean; is_paid?: boolean; paid_at?: string | null }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; school_id?: string; rental_date?: string; num_boards?: number; rate_per_board?: number; amount_due?: number; boards_returned?: number; all_boards_good_condition?: boolean; is_paid?: boolean; paid_at?: string | null }) => {
       const { error } = await supabase.from('ops_surf_board_rentals').update(updates).eq('id', id);
       if (error) throw error;
     },
