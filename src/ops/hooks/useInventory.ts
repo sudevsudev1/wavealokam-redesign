@@ -139,6 +139,18 @@ export function useCreateInventoryItem() {
   });
 }
 
+// Reverse map: inventory item name → linen item_type for lifecycle sync
+const INVENTORY_TO_LINEN_TYPE: Record<string, string> = {
+  'Bed Sheet (Double)': 'Bedsheet',
+  'Bed Sheet (Single)': 'Duvet Cover',
+  'Pillow Cover': 'Pillow Cover',
+  'Hand Towel': 'Hand Towel',
+  'Bath Towel (Large)': 'Bath Towel',
+  'Blanket': 'Blanket',
+  'Bath Mat': 'Mattress Protector',
+  'Towel': 'Towel',
+};
+
 export function useUpdateStock() {
   const queryClient = useQueryClient();
   const { profile } = useOpsAuth();
@@ -163,15 +175,17 @@ export function useUpdateStock() {
       } as any);
       if (txError) throw txError;
 
-      // Get current stock
+      // Get current item details (need name for linen mapping)
       const { data: item } = await supabase
         .from('ops_inventory_items')
-        .select('current_stock')
+        .select('current_stock, name_en, category')
         .eq('id', itemId)
         .single();
       if (!item) throw new Error('Item not found');
 
       const currentStock = (item as any).current_stock as number;
+      const itemName = (item as any).name_en as string;
+      const itemCategory = (item as any).category as string;
       let newStock: number;
       const isDeduction = type === 'out' || type === 'expire' || type === 'refill' || type === 'damage' || type === 'waste';
       if (type === 'adjust') {
@@ -198,14 +212,12 @@ export function useUpdateStock() {
             if (remaining <= 0) break;
             const batchQty = (batch as any).quantity as number;
             if (batchQty <= remaining) {
-              // Fully consume this batch
               await supabase
                 .from('ops_inventory_expiry')
                 .update({ is_disposed: true, disposed_at: new Date().toISOString(), disposed_by: profile.userId } as any)
                 .eq('id', batch.id);
               remaining -= batchQty;
             } else {
-              // Partially consume - reduce quantity
               await supabase
                 .from('ops_inventory_expiry')
                 .update({ quantity: batchQty - remaining } as any)
@@ -224,10 +236,46 @@ export function useUpdateStock() {
         .update(updatePayload)
         .eq('id', itemId);
       if (updateError) throw updateError;
+
+      // ── Linen lifecycle sync ──
+      // When linen-category items are issued, transition ops_linen_items fresh→in_use
+      if (isDeduction && itemCategory === 'Linens') {
+        const linenType = INVENTORY_TO_LINEN_TYPE[itemName];
+        if (linenType) {
+          // Parse room from notes if present (e.g. "Room 102" or "Issue template: Room")
+          const roomMatch = notes?.match(/(?:Room\s*)(\d+)/i);
+          const roomId = roomMatch ? roomMatch[1] : null;
+
+          // Find fresh linen items of this type to transition
+          const { data: freshLinens } = await supabase
+            .from('ops_linen_items')
+            .select('id')
+            .eq('branch_id', profile.branchId)
+            .eq('item_type', linenType)
+            .eq('status', 'fresh')
+            .limit(Math.abs(quantity));
+
+          if (freshLinens && freshLinens.length > 0) {
+            const ids = freshLinens.map(l => l.id);
+            const updateData: any = {
+              status: 'in_use',
+              status_changed_at: new Date().toISOString(),
+              status_changed_by: profile.userId,
+            };
+            if (roomId) updateData.room_id = roomId;
+
+            await supabase
+              .from('ops_linen_items')
+              .update(updateData)
+              .in('id', ids);
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_inventory_items'] });
       queryClient.invalidateQueries({ queryKey: ['ops_inventory_expiry'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_linen_items'] });
     },
   });
 }
