@@ -139,7 +139,7 @@ function PwaInstallPromptContent() {
   }
 
   // Android / Chrome install prompt
-  if (installPrompt && !dismissed && window.location.pathname.startsWith('/ops')) {
+  if (installPrompt && !dismissed && window.location.pathname.startsWith('/ops') && !isGuestForm) {
     return (
       <div className="fixed bottom-4 left-4 right-4 z-50 bg-card border border-border rounded-lg shadow-lg p-3 flex items-center justify-between gap-2 max-w-sm mx-auto">
         <div className="flex items-center gap-2 text-xs">
