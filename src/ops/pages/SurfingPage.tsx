@@ -710,18 +710,21 @@ function SurfLessonsTab() {
         </Table>
       </div>
 
-      {/* Totals */}
-      <Card>
-        <CardContent className="p-3">
-          <p className="text-xs font-semibold mb-1">Totals (showing {filtered.length} entries)</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+      {/* Totals - collapsible */}
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center justify-between w-full text-left px-2 py-1">
+          <span className="text-[11px] font-semibold">Totals ({filtered.length} entries)</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] px-2 py-1">
             <span className="text-muted-foreground">Total Lessons:</span><span className="font-medium">{totals.lessons}</span>
             <span className="text-muted-foreground">Total Fees:</span><span className="font-medium">₹{totals.fees.toLocaleString()}</span>
             <span className="text-muted-foreground">Total Commission:</span><span className="font-medium">₹{totals.commissions.toLocaleString()}</span>
             <span className="text-muted-foreground">Total Auto Fare:</span><span className="font-medium">₹{totals.autoFare.toLocaleString()}</span>
           </div>
-        </CardContent>
-      </Card>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Edit Lesson Dialog */}
       <Dialog open={!!editLesson} onOpenChange={() => setEditLesson(null)}>
