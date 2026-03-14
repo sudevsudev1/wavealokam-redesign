@@ -232,4 +232,8 @@ const translations: Record<string, Record<Language, string>> = {
   // Guest exports
   'guest.exportCForm': { en: 'Export C-Form', ml: 'C-ഫോം എക്‌സ്‌പോർട്ട്' },
   'guest.analytics': { en: 'Analytics', ml: 'അനലിറ്റിക്‌സ്' },
+
+  // Surfing
+  'nav.surfing': { en: 'Surfing', ml: 'സർഫിംഗ്' },
+  'home.surfing': { en: 'Surfing', ml: 'സർഫിംഗ്' },
 };
