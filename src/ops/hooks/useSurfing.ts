@@ -227,7 +227,19 @@ export function useUpdateBoardRental() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; school_id?: string; rental_date?: string; num_boards?: number; rate_per_board?: number; amount_due?: number; boards_returned?: number; all_boards_good_condition?: boolean; is_paid?: boolean; paid_at?: string | null }) => {
-      const { error } = await supabase.from('ops_surf_board_rentals').update(updates).eq('id', id);
+      const { data, error } = await supabase.from('ops_surf_board_rentals').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['surf-board-rentals'] }),
+  });
+}
+
+export function useDeleteBoardRental() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ops_surf_board_rentals').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['surf-board-rentals'] }),
