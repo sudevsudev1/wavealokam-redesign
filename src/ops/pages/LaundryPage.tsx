@@ -239,7 +239,7 @@ export default function LaundryPage() {
 
   const alerts = useMemo(() => forecast.filter(d => d.available < 0), [forecast]);
 
-  // Send laundry mutation
+  // Send laundry mutation — also transitions linen items to awaiting_return
   const sendMutation = useMutation({
     mutationFn: async ({ sets, notes }: { sets: number; notes: string }) => {
       const now = new Date();
@@ -256,9 +256,34 @@ export default function LaundryPage() {
         notes: notes || null,
       } as any);
       if (error) throw error;
+
+      // Move linen items to awaiting_return based on set composition × sets count
+      for (const [itemType, perSet] of Object.entries(SET_COMPOSITION)) {
+        const needed = perSet * sets;
+        if (needed <= 0) continue;
+        // Find items that are need_laundry or fresh (prefer need_laundry first)
+        const candidates = linens
+          .filter(l => l.item_type === itemType && ['need_laundry', 'fresh', 'in_use'].includes(l.status))
+          .sort((a, b) => {
+            const order = { need_laundry: 0, in_use: 1, fresh: 2 };
+            return (order[a.status as keyof typeof order] ?? 3) - (order[b.status as keyof typeof order] ?? 3);
+          })
+          .slice(0, needed);
+        for (const c of candidates) {
+          await supabase.from('ops_linen_items').update({
+            status: 'awaiting_return',
+            status_changed_at: now.toISOString(),
+            status_changed_by: profile!.userId,
+            room_id: null,
+            guest_id: null,
+            updated_at: now.toISOString(),
+          } as any).eq('id', c.id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_laundry_batches'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_linen_items'] });
       toast.success(t('laundry.sent'));
       setSendDialogOpen(false);
       setSendSetsCount(1);
