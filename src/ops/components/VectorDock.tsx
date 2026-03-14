@@ -58,6 +58,7 @@ export default function VectorDock() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ action: string; mode: 'quick' | 'internal' } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
