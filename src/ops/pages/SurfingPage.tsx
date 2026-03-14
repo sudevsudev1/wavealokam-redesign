@@ -690,7 +690,7 @@ function SurfLessonsTab() {
               <TableHead className="text-[10px] px-2">Fees</TableHead>
               <TableHead className="text-[10px] px-2">Comm.</TableHead>
               <TableHead className="text-[10px] px-2">Auto</TableHead>
-              <TableHead className="text-[10px] px-2">Status</TableHead>
+              <TableHead className="text-[10px] px-2">Comm. Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
