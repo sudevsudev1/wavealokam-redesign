@@ -4,7 +4,7 @@ import {
   useSurfSchools, useGuestStays, useBoardRentals, useSurfLessons,
   useBoardPayments, useLessonPayments, useSurfConfig,
   useAddBoardRental, useUpdateBoardRental, useApplyBoardPayment,
-  useAddSurfLesson, useApplyLessonPayment,
+  useAddSurfLesson, useUpdateSurfLesson, useApplyLessonPayment,
   useUpsertSurfSchool, useDeleteSurfSchool, useUpsertGuestStay, useUpdateSurfConfig,
   SurfSchool, GuestStay, BoardRental, SurfLesson,
 } from '../hooks/useSurfing';
