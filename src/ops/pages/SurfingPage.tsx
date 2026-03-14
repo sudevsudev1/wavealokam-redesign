@@ -488,7 +488,16 @@ function SurfLessonsTab() {
       });
       toast.success('Lesson updated');
       setEditLesson(null);
-    } catch { toast.error('Failed to update'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+  };
+
+  const handleDeleteLesson = async () => {
+    if (!editLesson) return;
+    try {
+      await deleteLesson.mutateAsync(editLesson.id);
+      toast.success('Lesson deleted');
+      setEditLesson(null);
+    } catch { toast.error('Failed to delete'); }
   };
 
   // Update commission default when guest stay changes
