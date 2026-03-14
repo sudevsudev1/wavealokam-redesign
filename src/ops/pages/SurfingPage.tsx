@@ -86,7 +86,16 @@ function BoardRentalTab() {
       });
       toast.success('Rental updated');
       setEditRental(null);
-    } catch { toast.error('Failed to update'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+  };
+
+  const handleDeleteRental = async () => {
+    if (!editRental) return;
+    try {
+      await deleteRental.mutateAsync(editRental.id);
+      toast.success('Rental deleted');
+      setEditRental(null);
+    } catch { toast.error('Failed to delete'); }
   };
 
   // Calculate amounts owed per school
