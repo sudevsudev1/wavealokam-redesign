@@ -1,0 +1,776 @@
+import { useState, useMemo } from 'react';
+import { useOpsAuth } from '../contexts/OpsAuthContext';
+import {
+  useSurfSchools, useGuestStays, useBoardRentals, useSurfLessons,
+  useBoardPayments, useLessonPayments, useSurfConfig,
+  useAddBoardRental, useUpdateBoardRental, useApplyBoardPayment,
+  useAddSurfLesson, useApplyLessonPayment,
+  useUpsertSurfSchool, useDeleteSurfSchool, useUpsertGuestStay, useUpdateSurfConfig,
+  SurfSchool, GuestStay, BoardRental, SurfLesson,
+} from '../hooks/useSurfing';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Settings, Plus, DollarSign, Filter, Waves, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
+import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+// ─── Board Rental Tab ───
+
+function BoardRentalTab() {
+  const { isAdmin, profile } = useOpsAuth();
+  const { data: schools = [] } = useSurfSchools();
+  const { data: rentals = [] } = useBoardRentals();
+  const { data: payments = [] } = useBoardPayments();
+  const { data: config = [] } = useSurfConfig();
+  const addRental = useAddBoardRental();
+  const updateRental = useUpdateBoardRental();
+  const applyPayment = useApplyBoardPayment();
+
+  const activeSchools = schools.filter(s => s.is_active);
+  const boardRate = config.find(c => c.key === 'board_rate')?.value_json?.rate ?? 500;
+
+  // Form state
+  const [schoolId, setSchoolId] = useState('');
+  const [numBoards, setNumBoards] = useState(1);
+  const [rentalDate, setRentalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Filter state
+  const [filterSchool, setFilterSchool] = useState('all');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Payment dialog
+  const [paymentDialog, setPaymentDialog] = useState<{ schoolId: string; schoolName: string } | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+
+  // Settings dialog
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Calculate amounts owed per school
+  const amountsOwed = useMemo(() => {
+    const map: Record<string, { schoolName: string; owed: number; totalPaid: number }> = {};
+    activeSchools.forEach(s => {
+      const unpaidTotal = rentals
+        .filter(r => r.school_id === s.id && !r.is_paid)
+        .reduce((sum, r) => sum + r.amount_due, 0);
+      map[s.id] = { schoolName: s.name, owed: unpaidTotal, totalPaid: 0 };
+    });
+    return map;
+  }, [rentals, activeSchools]);
+
+  // Filter rentals
+  const filtered = useMemo(() => {
+    let result = rentals;
+    if (filterSchool !== 'all') result = result.filter(r => r.school_id === filterSchool);
+    if (filterDateFrom) result = result.filter(r => r.rental_date >= filterDateFrom);
+    if (filterDateTo) result = result.filter(r => r.rental_date <= filterDateTo);
+    return result;
+  }, [rentals, filterSchool, filterDateFrom, filterDateTo]);
+
+  const filteredTotal = filtered.reduce((s, r) => s + r.amount_due, 0);
+  const schoolMap = useMemo(() => new Map(schools.map(s => [s.id, s.name])), [schools]);
+
+  const handleAddRental = async () => {
+    if (!schoolId) { toast.error('Select a school'); return; }
+    try {
+      await addRental.mutateAsync({ school_id: schoolId, rental_date: rentalDate, num_boards: numBoards, rate_per_board: boardRate });
+      toast.success('Board rental added');
+      setShowAddForm(false);
+      setNumBoards(1);
+    } catch { toast.error('Failed to add rental'); }
+  };
+
+  const handleRecordPayment = async () => {
+    if (!paymentDialog || !paymentAmount) return;
+    try {
+      await applyPayment.mutateAsync({ school_id: paymentDialog.schoolId, amount: Number(paymentAmount), notes: paymentNotes || undefined });
+      toast.success('Payment recorded & applied to oldest unpaid entries');
+      setPaymentDialog(null);
+      setPaymentAmount('');
+      setPaymentNotes('');
+    } catch { toast.error('Failed to record payment'); }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Amounts Owed Summary */}
+      <div className="grid grid-cols-2 gap-2">
+        {Object.entries(amountsOwed).map(([sid, info]) => (
+          <Card key={sid} className={info.owed > 0 ? 'border-orange-300' : ''}>
+            <CardContent className="p-3">
+              <p className="text-xs font-medium truncate">{info.schoolName}</p>
+              <p className={`text-lg font-bold ${info.owed > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                ₹{info.owed.toLocaleString()}
+              </p>
+              <p className="text-[10px] text-muted-foreground">owed</p>
+              {info.owed > 0 && (
+                <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px]"
+                  onClick={() => setPaymentDialog({ schoolId: sid, schoolName: info.schoolName })}>
+                  <DollarSign className="h-3 w-3 mr-1" /> Record Payment
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 flex-wrap">
+        <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> Add Rental
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
+          <Filter className="h-3.5 w-3.5 mr-1" /> Filter
+        </Button>
+        {isAdmin && (
+          <Button size="sm" variant="outline" onClick={() => setShowSettings(true)}>
+            <Settings className="h-3.5 w-3.5 mr-1" /> Settings
+          </Button>
+        )}
+      </div>
+
+      {/* Add Form */}
+      {showAddForm && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">School</label>
+                <Select value={schoolId} onValueChange={setSchoolId}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select school" /></SelectTrigger>
+                  <SelectContent>
+                    {activeSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Date</label>
+                <Input type="date" value={rentalDate} onChange={e => setRentalDate(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Boards</label>
+                <Input type="number" min={1} value={numBoards} onChange={e => setNumBoards(parseInt(e.target.value) || 1)} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Amount</label>
+                <div className="h-8 flex items-center text-xs font-medium">₹{(numBoards * boardRate).toLocaleString()}</div>
+              </div>
+            </div>
+            <Button size="sm" onClick={handleAddRental} disabled={addRental.isPending}>
+              {addRental.isPending ? 'Adding...' : 'Add'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters */}
+      {showFilters && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">School</label>
+                <Select value={filterSchool} onValueChange={setFilterSchool}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Schools</SelectItem>
+                    {activeSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">From</label>
+                <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">To</label>
+                <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="h-8 text-xs" />
+              </div>
+            </div>
+            <div className="text-xs font-medium">Filtered Total: ₹{filteredTotal.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rentals Table */}
+      <div className="overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-[10px] px-2">Date</TableHead>
+              <TableHead className="text-[10px] px-2">School</TableHead>
+              <TableHead className="text-[10px] px-2">Boards</TableHead>
+              <TableHead className="text-[10px] px-2">Returned</TableHead>
+              <TableHead className="text-[10px] px-2">Condition</TableHead>
+              <TableHead className="text-[10px] px-2">Amount</TableHead>
+              <TableHead className="text-[10px] px-2">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-4">No rentals</TableCell></TableRow>
+            ) : (
+              filtered.map(r => (
+                <TableRow key={r.id}>
+                  <TableCell className="text-[11px] px-2 py-1.5">{format(parseISO(r.rental_date), 'dd MMM')}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">{schoolMap.get(r.school_id) || '?'}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">{r.num_boards}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">
+                    <Input type="number" min={0} max={r.num_boards} value={r.boards_returned} className="h-6 w-12 text-[10px]"
+                      onChange={e => updateRental.mutate({ id: r.id, boards_returned: parseInt(e.target.value) || 0 })} />
+                  </TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">
+                    <Checkbox checked={r.all_boards_good_condition}
+                      onCheckedChange={v => updateRental.mutate({ id: r.id, all_boards_good_condition: !!v })} />
+                  </TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5 font-medium">₹{r.amount_due}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">
+                    <Badge variant={r.is_paid ? 'default' : 'outline'} className="text-[9px] h-4 px-1">
+                      {r.is_paid ? 'Paid' : 'Unpaid'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Payment Dialog */}
+      <Dialog open={!!paymentDialog} onOpenChange={() => setPaymentDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="text-sm">Record Payment — {paymentDialog?.schoolName}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Outstanding: ₹{amountsOwed[paymentDialog?.schoolId || '']?.owed.toLocaleString() || 0}
+            </p>
+            <Input type="number" placeholder="Amount received" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} className="h-8 text-xs" />
+            <Input placeholder="Notes (optional)" value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)} className="h-8 text-xs" />
+            <p className="text-[10px] text-muted-foreground">Payment will be applied to the oldest unpaid entries first (FIFO).</p>
+            <Button size="sm" onClick={handleRecordPayment} disabled={applyPayment.isPending || !paymentAmount}>
+              {applyPayment.isPending ? 'Recording...' : 'Record Payment'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      {isAdmin && <BoardRentalSettings open={showSettings} onClose={() => setShowSettings(false)} />}
+    </div>
+  );
+}
+
+function BoardRentalSettings({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: schools = [] } = useSurfSchools();
+  const { data: config = [] } = useSurfConfig();
+  const upsertSchool = useUpsertSurfSchool();
+  const deleteSchool = useDeleteSurfSchool();
+  const updateConfig = useUpdateSurfConfig();
+
+  const [newSchool, setNewSchool] = useState('');
+  const boardRate = config.find(c => c.key === 'board_rate')?.value_json?.rate ?? 500;
+  const [rate, setRate] = useState(String(boardRate));
+
+  const handleAddSchool = async () => {
+    if (!newSchool.trim()) return;
+    await upsertSchool.mutateAsync({ name: newSchool.trim() });
+    setNewSchool('');
+    toast.success('School added');
+  };
+
+  const handleSaveRate = async () => {
+    await updateConfig.mutateAsync({ key: 'board_rate', value_json: { rate: Number(rate) } });
+    toast.success('Rate updated');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle className="text-sm">Board Rental Settings</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium">Rate per Board (₹)</label>
+            <div className="flex gap-2 mt-1">
+              <Input type="number" value={rate} onChange={e => setRate(e.target.value)} className="h-8 text-xs" />
+              <Button size="sm" onClick={handleSaveRate}>Save</Button>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium">Surf Schools</label>
+            <div className="space-y-1 mt-1">
+              {schools.map(s => (
+                <div key={s.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/50">
+                  <span className={!s.is_active ? 'line-through text-muted-foreground' : ''}>{s.name}</span>
+                  <Button size="sm" variant="ghost" className="h-5 text-[10px] text-destructive"
+                    onClick={() => { deleteSchool.mutate(s.id); toast.success('School deactivated'); }}>
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-2">
+              <Input value={newSchool} onChange={e => setNewSchool(e.target.value)} placeholder="New school name" className="h-8 text-xs" />
+              <Button size="sm" onClick={handleAddSchool}>Add</Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Surf Lessons Tab ───
+
+function SurfLessonsTab() {
+  const { isAdmin } = useOpsAuth();
+  const { data: guestStays = [] } = useGuestStays();
+  const { data: lessons = [] } = useSurfLessons();
+  const addLesson = useAddSurfLesson();
+  const applyPayment = useApplyLessonPayment();
+
+  const activeStays = guestStays.filter(s => s.is_active);
+  const stayMap = useMemo(() => new Map(guestStays.map(s => [s.id, s.name])), [guestStays]);
+
+  // Form
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [lessonDate, setLessonDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [numLessons, setNumLessons] = useState(1);
+  const [guestName, setGuestName] = useState('');
+  const [guestStayId, setGuestStayId] = useState('');
+  const [feePerLesson, setFeePerLesson] = useState('1500');
+  const [commissionPerLesson, setCommissionPerLesson] = useState('0');
+  const [autoFare, setAutoFare] = useState('0');
+
+  // Filters
+  const [filterStay, setFilterStay] = useState('all');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Payment dialog
+  const [paymentDialog, setPaymentDialog] = useState<{ stayId: string; stayName: string } | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+
+  // Settings
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Update commission default when guest stay changes
+  const handleStayChange = (stayId: string) => {
+    setGuestStayId(stayId);
+    const stay = guestStays.find(s => s.id === stayId);
+    if (stay) setCommissionPerLesson(String(stay.default_commission));
+  };
+
+  // Commissions owed per stay
+  const commissionsOwed = useMemo(() => {
+    const map: Record<string, { name: string; owed: number }> = {};
+    activeStays.forEach(s => {
+      const unpaid = lessons
+        .filter(l => l.guest_stay_id === s.id && !l.is_paid)
+        .reduce((sum, l) => sum + l.total_commission, 0);
+      if (unpaid > 0) map[s.id] = { name: s.name, owed: unpaid };
+    });
+    return map;
+  }, [lessons, activeStays]);
+
+  const filtered = useMemo(() => {
+    let result = lessons;
+    if (filterStay !== 'all') result = result.filter(l => l.guest_stay_id === filterStay);
+    if (filterDateFrom) result = result.filter(l => l.lesson_date >= filterDateFrom);
+    if (filterDateTo) result = result.filter(l => l.lesson_date <= filterDateTo);
+    return result;
+  }, [lessons, filterStay, filterDateFrom, filterDateTo]);
+
+  const totals = useMemo(() => ({
+    fees: filtered.reduce((s, l) => s + l.total_fees, 0),
+    commissions: filtered.reduce((s, l) => s + l.total_commission, 0),
+    autoFare: filtered.reduce((s, l) => s + l.auto_fare, 0),
+    lessons: filtered.reduce((s, l) => s + l.num_lessons, 0),
+  }), [filtered]);
+
+  const handleAddLesson = async () => {
+    if (!guestName || !guestStayId) { toast.error('Fill required fields'); return; }
+    try {
+      await addLesson.mutateAsync({
+        lesson_date: lessonDate, num_lessons: numLessons, guest_name: guestName,
+        guest_stay_id: guestStayId, fee_per_lesson: Number(feePerLesson),
+        commission_per_lesson: Number(commissionPerLesson), auto_fare: Number(autoFare),
+      });
+      toast.success('Lesson added');
+      setShowAddForm(false);
+      setGuestName('');
+      setNumLessons(1);
+      setAutoFare('0');
+    } catch { toast.error('Failed to add lesson'); }
+  };
+
+  const handlePayCommission = async () => {
+    if (!paymentDialog || !paymentAmount) return;
+    try {
+      await applyPayment.mutateAsync({ guest_stay_id: paymentDialog.stayId, amount: Number(paymentAmount) });
+      toast.success('Commission payment recorded');
+      setPaymentDialog(null);
+      setPaymentAmount('');
+    } catch { toast.error('Failed to record payment'); }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Commissions Owed */}
+      {Object.keys(commissionsOwed).length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(commissionsOwed).map(([sid, info]) => (
+            <Card key={sid} className="border-orange-300">
+              <CardContent className="p-3">
+                <p className="text-xs font-medium">{info.name}</p>
+                <p className="text-lg font-bold text-orange-600">₹{info.owed.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground">commission owed</p>
+                <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px]"
+                  onClick={() => setPaymentDialog({ stayId: sid, stayName: info.name })}>
+                  <DollarSign className="h-3 w-3 mr-1" /> Mark Paid
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2 flex-wrap">
+        <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> Add Lesson
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
+          <Filter className="h-3.5 w-3.5 mr-1" /> Filter
+        </Button>
+        {isAdmin && (
+          <Button size="sm" variant="outline" onClick={() => setShowSettings(true)}>
+            <Settings className="h-3.5 w-3.5 mr-1" /> Settings
+          </Button>
+        )}
+      </div>
+
+      {/* Add Form */}
+      {showAddForm && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Date</label>
+                <Input type="date" value={lessonDate} onChange={e => setLessonDate(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground"># Lessons</label>
+                <Input type="number" min={1} value={numLessons} onChange={e => setNumLessons(parseInt(e.target.value) || 1)} className="h-8 text-xs" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-medium text-muted-foreground">Guest Name</label>
+                <Input value={guestName} onChange={e => setGuestName(e.target.value)} placeholder="Guest name" className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Guest Stay</label>
+                <Select value={guestStayId} onValueChange={handleStayChange}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select stay" /></SelectTrigger>
+                  <SelectContent>
+                    {activeStays.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Fee/Lesson (₹)</label>
+                <Input type="number" value={feePerLesson} onChange={e => setFeePerLesson(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Commission/Lesson (₹)</label>
+                <Input type="number" value={commissionPerLesson} onChange={e => setCommissionPerLesson(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Auto Fare (₹)</label>
+                <Input type="number" value={autoFare} onChange={e => setAutoFare(e.target.value)} className="h-8 text-xs" />
+              </div>
+            </div>
+            <div className="text-xs font-medium">
+              Total Fees: ₹{(numLessons * Number(feePerLesson)).toLocaleString()} | Commission: ₹{(numLessons * Number(commissionPerLesson)).toLocaleString()}
+            </div>
+            <Button size="sm" onClick={handleAddLesson} disabled={addLesson.isPending}>
+              {addLesson.isPending ? 'Adding...' : 'Add'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters */}
+      {showFilters && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Guest Stay</label>
+                <Select value={filterStay} onValueChange={setFilterStay}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Stays</SelectItem>
+                    {activeStays.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">From</label>
+                <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">To</label>
+                <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="h-8 text-xs" />
+              </div>
+            </div>
+            <div className="text-xs font-medium space-x-3">
+              <span>{totals.lessons} lessons</span>
+              <span>Fees: ₹{totals.fees.toLocaleString()}</span>
+              <span>Commission: ₹{totals.commissions.toLocaleString()}</span>
+              <span>Auto: ₹{totals.autoFare.toLocaleString()}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lessons Table */}
+      <div className="overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-[10px] px-2">Date</TableHead>
+              <TableHead className="text-[10px] px-2">Guest</TableHead>
+              <TableHead className="text-[10px] px-2">Stay</TableHead>
+              <TableHead className="text-[10px] px-2">#</TableHead>
+              <TableHead className="text-[10px] px-2">Fees</TableHead>
+              <TableHead className="text-[10px] px-2">Comm.</TableHead>
+              <TableHead className="text-[10px] px-2">Auto</TableHead>
+              <TableHead className="text-[10px] px-2">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-4">No lessons</TableCell></TableRow>
+            ) : (
+              filtered.map(l => (
+                <TableRow key={l.id}>
+                  <TableCell className="text-[11px] px-2 py-1.5">{format(parseISO(l.lesson_date), 'dd MMM')}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5 max-w-[80px] truncate">{l.guest_name}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">{stayMap.get(l.guest_stay_id) || '?'}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">{l.num_lessons}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">₹{l.total_fees}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">₹{l.total_commission}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">₹{l.auto_fare}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-1.5">
+                    <Badge variant={l.is_paid ? 'default' : 'outline'} className="text-[9px] h-4 px-1">
+                      {l.is_paid ? 'Paid' : 'Unpaid'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Totals without filters */}
+      <Card>
+        <CardContent className="p-3">
+          <p className="text-xs font-semibold mb-1">Totals (showing {filtered.length} entries)</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+            <span className="text-muted-foreground">Total Lessons:</span><span className="font-medium">{totals.lessons}</span>
+            <span className="text-muted-foreground">Total Fees:</span><span className="font-medium">₹{totals.fees.toLocaleString()}</span>
+            <span className="text-muted-foreground">Total Commission:</span><span className="font-medium">₹{totals.commissions.toLocaleString()}</span>
+            <span className="text-muted-foreground">Total Auto Fare:</span><span className="font-medium">₹{totals.autoFare.toLocaleString()}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Commission Payment Dialog */}
+      <Dialog open={!!paymentDialog} onOpenChange={() => setPaymentDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="text-sm">Pay Commission — {paymentDialog?.stayName}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Outstanding: ₹{commissionsOwed[paymentDialog?.stayId || '']?.owed.toLocaleString() || 0}
+            </p>
+            <Input type="number" placeholder="Amount" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} className="h-8 text-xs" />
+            <p className="text-[10px] text-muted-foreground">All corresponding lessons will be marked as paid.</p>
+            <Button size="sm" onClick={handlePayCommission} disabled={applyPayment.isPending || !paymentAmount}>
+              {applyPayment.isPending ? 'Recording...' : 'Mark Paid'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      {isAdmin && <LessonSettings open={showSettings} onClose={() => setShowSettings(false)} />}
+    </div>
+  );
+}
+
+function LessonSettings({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: stays = [] } = useGuestStays();
+  const upsertStay = useUpsertGuestStay();
+  const [newStay, setNewStay] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCommission, setEditCommission] = useState('');
+
+  const handleAdd = async () => {
+    if (!newStay.trim()) return;
+    await upsertStay.mutateAsync({ name: newStay.trim() });
+    setNewStay('');
+    toast.success('Guest stay added');
+  };
+
+  const handleSave = async (id: string) => {
+    await upsertStay.mutateAsync({ id, name: editName, default_commission: Number(editCommission) });
+    setEditingId(null);
+    toast.success('Updated');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle className="text-sm">Surf Lesson Settings</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <label className="text-xs font-medium">Guest Stay Options</label>
+          {stays.map(s => (
+            <div key={s.id} className="flex items-center gap-2 text-xs">
+              {editingId === s.id ? (
+                <>
+                  <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-7 text-xs flex-1" />
+                  <Input type="number" value={editCommission} onChange={e => setEditCommission(e.target.value)} className="h-7 text-xs w-16" placeholder="Comm." />
+                  <Button size="sm" className="h-7" onClick={() => handleSave(s.id)}>Save</Button>
+                </>
+              ) : (
+                <>
+                  <span className={`flex-1 ${!s.is_active ? 'line-through text-muted-foreground' : ''}`}>{s.name}</span>
+                  <span className="text-muted-foreground">₹{s.default_commission}/lesson</span>
+                  <Button size="sm" variant="ghost" className="h-5 text-[10px]"
+                    onClick={() => { setEditingId(s.id); setEditName(s.name); setEditCommission(String(s.default_commission)); }}>
+                    Edit
+                  </Button>
+                </>
+              )}
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <Input value={newStay} onChange={e => setNewStay(e.target.value)} placeholder="New guest stay" className="h-8 text-xs" />
+            <Button size="sm" onClick={handleAdd}>Add</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Revenue Summary ───
+
+function RevenueSummary() {
+  const { data: rentals = [] } = useBoardRentals();
+  const { data: lessons = [] } = useSurfLessons();
+  const { data: config = [] } = useSurfConfig();
+
+  const monthlyExpenses = config.find(c => c.key === 'monthly_expenses')?.value_json ?? { miscellaneous: 0, instructor_salaries: 0 };
+  const { isAdmin } = useOpsAuth();
+  const updateConfig = useUpdateSurfConfig();
+  const [showExpenses, setShowExpenses] = useState(false);
+  const [misc, setMisc] = useState(String(monthlyExpenses.miscellaneous || 0));
+  const [salaries, setSalaries] = useState(String(monthlyExpenses.instructor_salaries || 0));
+
+  const totalBoardIncome = rentals.reduce((s, r) => s + r.amount_due, 0);
+  const totalLessonFees = lessons.reduce((s, l) => s + l.total_fees, 0);
+  const totalCommissions = lessons.reduce((s, l) => s + l.total_commission, 0);
+  const totalAutoFare = lessons.reduce((s, l) => s + l.auto_fare, 0);
+  const totalRevenue = totalBoardIncome + totalLessonFees;
+  const totalProfit = totalLessonFees + totalBoardIncome - totalCommissions - totalAutoFare - (monthlyExpenses.miscellaneous || 0) - (monthlyExpenses.instructor_salaries || 0);
+
+  const handleSaveExpenses = async () => {
+    await updateConfig.mutateAsync({ key: 'monthly_expenses', value_json: { miscellaneous: Number(misc), instructor_salaries: Number(salaries) } });
+    toast.success('Expenses updated');
+    setShowExpenses(false);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 pt-3 px-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-1.5"><TrendingUp className="h-4 w-4" /> Revenue Summary</CardTitle>
+          {isAdmin && (
+            <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setShowExpenses(!showExpenses)}>
+              <Settings className="h-3 w-3 mr-1" /> Expenses
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="px-3 pb-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+          <span className="text-muted-foreground">Total Revenue:</span><span className="font-bold">₹{totalRevenue.toLocaleString()}</span>
+          <span className="text-muted-foreground">Board Rental Income:</span><span className="font-medium">₹{totalBoardIncome.toLocaleString()}</span>
+          <span className="text-muted-foreground">Surf Lessons Income:</span><span className="font-medium">₹{totalLessonFees.toLocaleString()}</span>
+          <span className="text-muted-foreground">Total Auto Fare:</span><span className="font-medium text-destructive">-₹{totalAutoFare.toLocaleString()}</span>
+          <span className="text-muted-foreground">Total Commissions:</span><span className="font-medium text-destructive">-₹{totalCommissions.toLocaleString()}</span>
+          <span className="text-muted-foreground">Miscellaneous:</span><span className="font-medium text-destructive">-₹{(monthlyExpenses.miscellaneous || 0).toLocaleString()}</span>
+          <span className="text-muted-foreground">Instructor Salaries:</span><span className="font-medium text-destructive">-₹{(monthlyExpenses.instructor_salaries || 0).toLocaleString()}</span>
+          <span className="text-muted-foreground font-semibold border-t border-border pt-1">Total Profit:</span>
+          <span className={`font-bold border-t border-border pt-1 ${totalProfit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>₹{totalProfit.toLocaleString()}</span>
+        </div>
+
+        {showExpenses && (
+          <div className="mt-3 p-2 bg-muted/50 rounded space-y-2">
+            <div>
+              <label className="text-[10px] font-medium">Miscellaneous (₹)</label>
+              <Input type="number" value={misc} onChange={e => setMisc(e.target.value)} className="h-7 text-xs" />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium">Instructor Salaries (₹)</label>
+              <Input type="number" value={salaries} onChange={e => setSalaries(e.target.value)} className="h-7 text-xs" />
+            </div>
+            <Button size="sm" onClick={handleSaveExpenses}>Save Expenses</Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main Page ───
+
+export default function SurfingPage() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Waves className="h-5 w-5 text-primary" />
+        <h1 className="text-base font-bold">Surfing</h1>
+      </div>
+
+      <RevenueSummary />
+
+      <Tabs defaultValue="board-rental">
+        <TabsList className="w-full">
+          <TabsTrigger value="board-rental" className="flex-1 text-xs">Board Rental</TabsTrigger>
+          <TabsTrigger value="surf-lessons" className="flex-1 text-xs">Surf Lessons</TabsTrigger>
+        </TabsList>
+        <TabsContent value="board-rental">
+          <BoardRentalTab />
+        </TabsContent>
+        <TabsContent value="surf-lessons">
+          <SurfLessonsTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
