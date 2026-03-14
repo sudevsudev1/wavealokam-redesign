@@ -3,8 +3,8 @@ import { useOpsAuth } from '../contexts/OpsAuthContext';
 import {
   useSurfSchools, useGuestStays, useBoardRentals, useSurfLessons,
   useBoardPayments, useLessonPayments, useSurfConfig,
-  useAddBoardRental, useUpdateBoardRental, useApplyBoardPayment,
-  useAddSurfLesson, useUpdateSurfLesson, useApplyLessonPayment,
+  useAddBoardRental, useUpdateBoardRental, useDeleteBoardRental, useApplyBoardPayment,
+  useAddSurfLesson, useUpdateSurfLesson, useDeleteSurfLesson, useApplyLessonPayment,
   useUpsertSurfSchool, useDeleteSurfSchool, useUpsertGuestStay, useUpdateSurfConfig,
   SurfSchool, GuestStay, BoardRental, SurfLesson,
 } from '../hooks/useSurfing';
@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Settings, Plus, DollarSign, Filter, Waves, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
+import { Settings, Plus, DollarSign, Filter, Waves, ChevronDown, ChevronUp, TrendingUp, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -32,6 +32,7 @@ function BoardRentalTab() {
   const { data: config = [] } = useSurfConfig();
   const addRental = useAddBoardRental();
   const updateRental = useUpdateBoardRental();
+  const deleteRental = useDeleteBoardRental();
   const applyPayment = useApplyBoardPayment();
 
   const activeSchools = schools.filter(s => s.is_active);
@@ -85,7 +86,16 @@ function BoardRentalTab() {
       });
       toast.success('Rental updated');
       setEditRental(null);
-    } catch { toast.error('Failed to update'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+  };
+
+  const handleDeleteRental = async () => {
+    if (!editRental) return;
+    try {
+      await deleteRental.mutateAsync(editRental.id);
+      toast.success('Rental deleted');
+      setEditRental(null);
+    } catch { toast.error('Failed to delete'); }
   };
 
   // Calculate amounts owed per school
@@ -314,11 +324,15 @@ function BoardRentalTab() {
               <Checkbox checked={editFields.is_paid} onCheckedChange={v => setEditFields(p => ({ ...p, is_paid: !!v }))} />
               <span className="text-xs font-medium">Paid</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Button size="sm" onClick={handleSaveEdit} disabled={updateRental.isPending}>
                 {updateRental.isPending ? 'Saving...' : 'Save'}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setEditRental(null)}>Cancel</Button>
+              <div className="flex-1" />
+              <Button size="sm" variant="destructive" onClick={handleDeleteRental} disabled={deleteRental.isPending}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -415,6 +429,7 @@ function SurfLessonsTab() {
   const { data: lessons = [] } = useSurfLessons();
   const addLesson = useAddSurfLesson();
   const updateLesson = useUpdateSurfLesson();
+  const deleteLesson = useDeleteSurfLesson();
   const applyPayment = useApplyLessonPayment();
 
   const activeStays = guestStays.filter(s => s.is_active);
@@ -473,7 +488,16 @@ function SurfLessonsTab() {
       });
       toast.success('Lesson updated');
       setEditLesson(null);
-    } catch { toast.error('Failed to update'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update'); }
+  };
+
+  const handleDeleteLesson = async () => {
+    if (!editLesson) return;
+    try {
+      await deleteLesson.mutateAsync(editLesson.id);
+      toast.success('Lesson deleted');
+      setEditLesson(null);
+    } catch { toast.error('Failed to delete'); }
   };
 
   // Update commission default when guest stay changes
@@ -756,11 +780,15 @@ function SurfLessonsTab() {
               <Checkbox checked={editLF.is_paid} onCheckedChange={v => setEditLF(p => ({ ...p, is_paid: !!v }))} />
               <span className="text-xs font-medium">Paid</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Button size="sm" onClick={handleSaveEditLesson} disabled={updateLesson.isPending}>
                 {updateLesson.isPending ? 'Saving...' : 'Save'}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setEditLesson(null)}>Cancel</Button>
+              <div className="flex-1" />
+              <Button size="sm" variant="destructive" onClick={handleDeleteLesson} disabled={deleteLesson.isPending}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         </DialogContent>
