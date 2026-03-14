@@ -62,9 +62,6 @@ export default function OpsLayout() {
             <span className="text-xs text-foreground/70 capitalize shrink-0">({profile.role})</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <Badge variant="outline" className="h-5 px-1.5 text-[9px] font-mono leading-none" title="Build time">
-              b{BUILD_TAG}
-            </Badge>
             <NotificationBell />
             <NetworkStatus />
             <LanguageToggle />
