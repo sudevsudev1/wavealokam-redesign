@@ -58,6 +58,7 @@ export default function VectorDock() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ action: string; mode: 'quick' | 'internal' } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -225,26 +226,64 @@ export default function VectorDock() {
     }
   }, [loading, messages, mode, profile, isAdmin, networkStatus, setMessages, language]);
 
-  // Regular send
+  // Quick action instruction hints
+  const quickActionHints: Record<string, string> = {
+    en_to_ml: '📝 Paste or type the English text you want translated to Malayalam, then send.',
+    ml_to_en: '📝 Paste or type the Malayalam text you want translated to English, then send.',
+    guest_reply: '📝 Paste or type the guest message/query you want me to draft a reply for, then send.',
+    add_task: '📝 Type a task description (e.g. "Clean room 102 before 3pm"), then send.',
+    add_to_list: '📝 Type the items to add to the purchase list (e.g. "2kg rice, dish soap"), then send.',
+    issue: '📝 Type the issue details (e.g. "room 102 AC not working"), then send.',
+  };
+
+  const quickActionInstructions: Record<string, string> = {
+    en_to_ml: `Translate the following text from English to Malayalam. Return ONLY the translated text, nothing else. No explanation, no preamble.`,
+    ml_to_en: `Translate the following text from Malayalam to English. Return ONLY the translated text, nothing else. No explanation, no preamble.`,
+    guest_reply: `Write a professional, warm guest reply for Wavealokam (Kerala beach surf retreat). The user will provide a guest query or context. Output ONLY the reply text — no preamble, no "here's a draft", no meta-commentary. It should be ready to copy-paste into WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky.`,
+  };
+
+  // Apply pending action when user sends input
+  const applyPendingAction = useCallback((text: string, actionKey: string) => {
+    if (quickActionInstructions[actionKey]) {
+      const labels: Record<string, string> = {
+        en_to_ml: `🔄 EN→ML: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
+        ml_to_en: `🔄 ML→EN: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
+        guest_reply: `✍️ Guest Reply: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
+      };
+      sendToVector(text, { systemInstruction: quickActionInstructions[actionKey], displayLabel: labels[actionKey] });
+    } else if (actionKey === 'add_task') {
+      sendToVector(`[ADD_TASK] ${text}`);
+    } else if (actionKey === 'add_to_list') {
+      sendToVector(`[ADD_TO_PURCHASE_LIST] ${text}`);
+    } else if (actionKey === 'issue') {
+      sendToVector(text);
+    }
+  }, [sendToVector]);
+
+  // Regular send — check for pending action first
   const sendMessage = useCallback(() => {
     const text = replyTo ? `[Replying to: "${replyTo.slice(0, 100)}..."]\n\n${input.trim()}` : input.trim();
     if (!text) return;
-    sendToVector(text);
-  }, [input, replyTo, sendToVector]);
+
+    if (pendingAction && pendingAction.mode === mode) {
+      setPendingAction(null);
+      applyPendingAction(text, pendingAction.action);
+    } else {
+      sendToVector(text);
+    }
+  }, [input, replyTo, sendToVector, pendingAction, mode, applyPendingAction]);
 
   // Quick action handlers
   const handleQuickAction = useCallback((action: 'en_to_ml' | 'ml_to_en' | 'guest_reply') => {
     const text = input.trim() || getLastAssistantContent() || '';
     if (!text) {
-      toast.error(t('vector.noTextForAction'));
+      // Show instruction and set pending action
+      const now = new Date().toISOString();
+      setMessages(prev => [...prev, { role: 'assistant', content: quickActionHints[action], timestamp: now }]);
+      setPendingAction({ action, mode });
+      inputRef.current?.focus();
       return;
     }
-
-    const instructions: Record<string, string> = {
-      en_to_ml: `Translate the following text from English to Malayalam. Return ONLY the translated text, nothing else. No explanation, no preamble.`,
-      ml_to_en: `Translate the following text from Malayalam to English. Return ONLY the translated text, nothing else. No explanation, no preamble.`,
-      guest_reply: `Write a professional, warm guest reply for Wavealokam (Kerala beach surf retreat). The user will provide a guest query or context. Output ONLY the reply text — no preamble, no "here's a draft", no meta-commentary. It should be ready to copy-paste into WhatsApp. Use full URLs (not markdown links). Include https://wavealokam.com/#itinerary for any planning queries. Be warm but not quirky.`,
-    };
 
     const labels: Record<string, string> = {
       en_to_ml: `🔄 EN→ML: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
@@ -252,8 +291,21 @@ export default function VectorDock() {
       guest_reply: `✍️ Guest Reply: ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`,
     };
 
-    sendToVector(text, { systemInstruction: instructions[action], displayLabel: labels[action] });
-  }, [input, getLastAssistantContent, sendToVector, t]);
+    sendToVector(text, { systemInstruction: quickActionInstructions[action], displayLabel: labels[action] });
+  }, [input, getLastAssistantContent, sendToVector, mode, setMessages]);
+
+  // Internal action handler
+  const handleInternalAction = useCallback((actionKey: string, sendFn: (text: string) => void) => {
+    const text = input.trim();
+    if (!text) {
+      const now = new Date().toISOString();
+      setMessages(prev => [...prev, { role: 'assistant', content: quickActionHints[actionKey] || '📝 Type your input, then send.', timestamp: now }]);
+      setPendingAction({ action: actionKey, mode });
+      inputRef.current?.focus();
+      return;
+    }
+    sendFn(text);
+  }, [input, mode, setMessages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -415,31 +467,19 @@ export default function VectorDock() {
           <QuickActionBtn
             label={t('vector.addTask')}
             icon={<ClipboardList className="h-3 w-3" />}
-            onClick={() => {
-              const text = input.trim();
-              if (!text) { toast.error('Type a task description first'); return; }
-              sendToVector(`[ADD_TASK] ${text}`);
-            }}
+            onClick={() => handleInternalAction('add_task', (text) => sendToVector(`[ADD_TASK] ${text}`))}
             disabled={loading}
           />
           <QuickActionBtn
             label={t('vector.addToList')}
             icon={<ListPlus className="h-3 w-3" />}
-            onClick={() => {
-              const text = input.trim();
-              if (!text) { toast.error('Type items to add first'); return; }
-              sendToVector(`[ADD_TO_PURCHASE_LIST] ${text}`);
-            }}
+            onClick={() => handleInternalAction('add_to_list', (text) => sendToVector(`[ADD_TO_PURCHASE_LIST] ${text}`))}
             disabled={loading}
           />
           <QuickActionBtn
             label="Issue"
             icon={<Bot className="h-3 w-3" />}
-            onClick={() => {
-              const text = input.trim();
-              if (!text) { toast.error('Type item or room (e.g. "room 102 refreshed")'); return; }
-              sendToVector(text);
-            }}
+            onClick={() => handleInternalAction('issue', (text) => sendToVector(text))}
             disabled={loading}
           />
           <QuickActionBtn
