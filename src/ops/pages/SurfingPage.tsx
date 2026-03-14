@@ -143,24 +143,19 @@ function BoardRentalTab() {
 
   return (
     <div className="space-y-3">
-      {/* Amounts Owed Summary */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Amounts Owed Summary - compact inline */}
+      <div className="flex flex-wrap gap-2">
         {Object.entries(amountsOwed).map(([sid, info]) => (
-          <Card key={sid} className={info.owed > 0 ? 'border-orange-300' : ''}>
-            <CardContent className="p-3">
-              <p className="text-xs font-medium truncate">{info.schoolName}</p>
-              <p className={`text-lg font-bold ${info.owed > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
-                ₹{info.owed.toLocaleString()}
-              </p>
-              <p className="text-[10px] text-muted-foreground">owed</p>
-              {info.owed > 0 && (
-                <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px]"
-                  onClick={() => setPaymentDialog({ schoolId: sid, schoolName: info.schoolName })}>
-                  <DollarSign className="h-3 w-3 mr-1" /> Record Payment
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <div key={sid} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs ${info.owed > 0 ? 'border-orange-300 bg-orange-50' : 'border-border'}`}>
+            <span className="font-medium truncate max-w-[80px]">{info.schoolName}</span>
+            <span className={`font-bold ${info.owed > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>₹{info.owed.toLocaleString()}</span>
+            {info.owed > 0 && (
+              <button className="text-[9px] text-primary underline ml-1"
+                onClick={() => setPaymentDialog({ schoolId: sid, schoolName: info.schoolName })}>
+                Pay
+              </button>
+            )}
+          </div>
         ))}
       </div>
 
