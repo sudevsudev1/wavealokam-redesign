@@ -7,8 +7,13 @@ import NetworkStatus from './NetworkStatus';
 import NotificationBell from './NotificationBell';
 import VectorDock from './VectorDock';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X, Shirt } from 'lucide-react';
 import { useState } from 'react';
+
+declare const __BUILD_TIME__: string | undefined;
+
+const BUILD_TAG = typeof __BUILD_TIME__ === 'string' && __BUILD_TIME__.trim().length > 0 ? __BUILD_TIME__ : 'latest';
 
 const navItems = (isAdmin: boolean) => [
   { to: '/ops/home', labelKey: 'nav.home', icon: Home },
@@ -54,9 +59,11 @@ export default function OpsLayout() {
             </button>
             <span className="font-bold text-sm truncate">{profile.displayName}</span>
             <span className="text-xs text-foreground/70 capitalize shrink-0">({profile.role})</span>
-            <span className="text-[8px] text-muted-foreground/50 font-mono hidden sm:inline" title="Build time">b{__BUILD_TIME__}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <Badge variant="outline" className="h-5 px-1.5 text-[9px] font-mono leading-none" title="Build time">
+              b{BUILD_TAG}
+            </Badge>
             <NotificationBell />
             <NetworkStatus />
             <LanguageToggle />
