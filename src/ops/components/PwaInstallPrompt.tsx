@@ -8,7 +8,10 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const PREVIEW_CACHE_RESET_FLAG = 'ops-preview-cache-reset-v2';
+declare const __BUILD_TIME__: string | undefined;
+
+const PREVIEW_CACHE_RESET_BUILD_KEY = 'ops-preview-cache-reset-build';
+const PREVIEW_CACHE_BUST_PARAM = '__ops_build';
 
 function isLovablePreviewHost() {
   if (typeof window === 'undefined') return false;
