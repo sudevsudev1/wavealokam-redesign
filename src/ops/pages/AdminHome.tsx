@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import PurchasePage from './PurchasePage';
 import CreateTaskDialog from '../components/CreateTaskDialog';
 import HomeShiftWidget from '../components/HomeShiftWidget';
+import HomeSurfingWidget from '../components/HomeSurfingWidget';
 import { CONSUMABLE_CATEGORIES } from '../lib/inventoryConstants';
 import type { InventoryExpiry } from '../hooks/useInventory';
 
@@ -178,6 +179,9 @@ export default function AdminHome() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Surfing Widget */}
+      <HomeSurfingWidget />
 
       {/* Collapsible All Tasks by User */}
       <Collapsible open={tasksOpen} onOpenChange={setTasksOpen}>

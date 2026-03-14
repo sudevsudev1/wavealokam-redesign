@@ -8,7 +8,7 @@ import NotificationBell from './NotificationBell';
 import VectorDock from './VectorDock';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X, Shirt } from 'lucide-react';
+import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X, Shirt, Waves } from 'lucide-react';
 import { useState } from 'react';
 
 declare const __BUILD_TIME__: string | undefined;
@@ -23,6 +23,7 @@ const navItems = (isAdmin: boolean) => [
   { to: '/ops/shift-punch', labelKey: 'nav.shiftPunch', icon: Clock },
   { to: '/ops/daily-report', labelKey: 'nav.dailyReport', icon: FileText },
   { to: '/ops/laundry', labelKey: 'nav.laundry', icon: Shirt },
+  { to: '/ops/surfing', labelKey: 'nav.surfing', icon: Waves },
   ...(isAdmin ? [{ to: '/ops/admin', labelKey: 'nav.adminConsole', icon: Settings }] : []),
 ];
 
