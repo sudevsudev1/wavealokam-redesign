@@ -2969,6 +2969,188 @@ async function executeTool(name: string, args: Record<string, unknown>, branchId
         return JSON.stringify({ success: true, deleted: existing.title, note: "All sub-tasks also deleted" });
       }
 
+      // ═══ SURFING ═══
+      case "add_board_rental": {
+        const schoolName = (args.school_name as string || "").trim();
+        const { data: schools } = await sb.from("ops_surf_schools").select("id, name").eq("branch_id", branchId).eq("is_active", true);
+        const school = (schools || []).find(s => s.name.toLowerCase() === schoolName.toLowerCase());
+        if (!school) return `School "${schoolName}" not found. Available: ${(schools || []).map(s => s.name).join(", ")}`;
+        const { data: config } = await sb.from("ops_surf_config").select("value_json").eq("branch_id", branchId).eq("key", "board_rate").single();
+        const rate = config?.value_json?.rate ?? 500;
+        const numBoards = (args.num_boards as number) || 1;
+        const rentalDate = (args.rental_date as string) || new Date().toISOString().slice(0, 10);
+        const { data: rental, error } = await sb.from("ops_surf_board_rentals").insert({
+          branch_id: branchId, school_id: school.id, num_boards: numBoards, rate_per_board: rate,
+          rental_date: rentalDate, created_by: userId || branchId,
+          boards_returned: (args.boards_returned as number) ?? 0,
+          all_boards_good_condition: (args.all_boards_good_condition as boolean) ?? true,
+        }).select().single();
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, id: rental.id, school: school.name, boards: numBoards, amount: rental.amount_due, date: rentalDate });
+      }
+
+      case "update_board_rental": {
+        const rentalId = args.rental_id as string;
+        if (!rentalId) return "rental_id is required";
+        const updates: Record<string, unknown> = {};
+        if (args.school_name) {
+          const { data: schools } = await sb.from("ops_surf_schools").select("id, name").eq("branch_id", branchId).eq("is_active", true);
+          const school = (schools || []).find(s => s.name.toLowerCase() === (args.school_name as string).toLowerCase());
+          if (!school) return `School not found. Available: ${(schools || []).map(s => s.name).join(", ")}`;
+          updates.school_id = school.id;
+        }
+        if (args.num_boards !== undefined) updates.num_boards = args.num_boards;
+        if (args.rate_per_board !== undefined) updates.rate_per_board = args.rate_per_board;
+        if (args.rental_date) updates.rental_date = args.rental_date;
+        if (args.boards_returned !== undefined) updates.boards_returned = args.boards_returned;
+        if (args.all_boards_good_condition !== undefined) updates.all_boards_good_condition = args.all_boards_good_condition;
+        if (args.is_paid !== undefined) {
+          updates.is_paid = args.is_paid;
+          updates.paid_at = args.is_paid ? new Date().toISOString() : null;
+        }
+        // Recalculate amount_due if boards or rate changed
+        if (updates.num_boards !== undefined || updates.rate_per_board !== undefined) {
+          const { data: existing } = await sb.from("ops_surf_board_rentals").select("num_boards, rate_per_board").eq("id", rentalId).single();
+          if (existing) {
+            const boards = (updates.num_boards as number) ?? existing.num_boards;
+            const rate = (updates.rate_per_board as number) ?? existing.rate_per_board;
+            updates.amount_due = boards * rate;
+          }
+        }
+        const { error } = await sb.from("ops_surf_board_rentals").update(updates).eq("id", rentalId).eq("branch_id", branchId);
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, updated: rentalId, changes: Object.keys(updates) });
+      }
+
+      case "get_board_rentals": {
+        let query = sb.from("ops_surf_board_rentals").select("*, ops_surf_schools(name)").eq("branch_id", branchId);
+        if (!args.include_archived) query = query.eq("is_archived", false);
+        if (args.is_paid !== undefined) query = query.eq("is_paid", args.is_paid as boolean);
+        if (args.date_from) query = query.gte("rental_date", args.date_from as string);
+        if (args.date_to) query = query.lte("rental_date", args.date_to as string);
+        if (args.school_name) {
+          const { data: schools } = await sb.from("ops_surf_schools").select("id, name").eq("branch_id", branchId);
+          const school = (schools || []).find(s => s.name.toLowerCase() === (args.school_name as string).toLowerCase());
+          if (school) query = query.eq("school_id", school.id);
+        }
+        const { data, error } = await query.order("rental_date", { ascending: false });
+        if (error) return `Error: ${error.message}`;
+        const rentals = data || [];
+        const total = rentals.reduce((s, r) => s + (r.amount_due || 0), 0);
+        const unpaid = rentals.filter(r => !r.is_paid).reduce((s, r) => s + (r.amount_due || 0), 0);
+        const unreturned = rentals.filter(r => r.boards_returned < r.num_boards && !r.is_paid);
+        return JSON.stringify({
+          count: rentals.length, total_amount: total, unpaid_amount: unpaid,
+          unreturned_boards: unreturned.map(r => ({ id: r.id, school: r.ops_surf_schools?.name, date: r.rental_date, boards: r.num_boards, returned: r.boards_returned })),
+          entries: rentals.slice(0, 50).map(r => ({ id: r.id, school: r.ops_surf_schools?.name, date: r.rental_date, boards: r.num_boards, returned: r.boards_returned, condition_ok: r.all_boards_good_condition, amount: r.amount_due, paid: r.is_paid })),
+        });
+      }
+
+      case "add_surf_lesson": {
+        const stayName = (args.guest_stay_name as string || "").trim();
+        const { data: stays } = await sb.from("ops_surf_guest_stays").select("id, name, default_commission").eq("branch_id", branchId).eq("is_active", true);
+        const stay = (stays || []).find(s => s.name.toLowerCase() === stayName.toLowerCase());
+        if (!stay) return `Guest stay "${stayName}" not found. Available: ${(stays || []).map(s => s.name).join(", ")}`;
+        const numLessons = (args.num_lessons as number) || 1;
+        const feePerLesson = (args.fee_per_lesson as number) ?? 1500;
+        const commPerLesson = (args.commission_per_lesson as number) ?? stay.default_commission;
+        const autoFare = (args.auto_fare as number) ?? 0;
+        const lessonDate = (args.lesson_date as string) || new Date().toISOString().slice(0, 10);
+        const { data: lesson, error } = await sb.from("ops_surf_lessons").insert({
+          branch_id: branchId, guest_name: args.guest_name as string, guest_stay_id: stay.id,
+          num_lessons: numLessons, fee_per_lesson: feePerLesson, commission_per_lesson: commPerLesson,
+          auto_fare: autoFare, lesson_date: lessonDate, created_by: userId || branchId,
+        }).select().single();
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, id: lesson.id, guest: args.guest_name, stay: stay.name, lessons: numLessons, total_fees: lesson.total_fees, total_commission: lesson.total_commission });
+      }
+
+      case "update_surf_lesson": {
+        const lessonId = args.lesson_id as string;
+        if (!lessonId) return "lesson_id is required";
+        const updates: Record<string, unknown> = {};
+        if (args.guest_name) updates.guest_name = args.guest_name;
+        if (args.guest_stay_name) {
+          const { data: stays } = await sb.from("ops_surf_guest_stays").select("id, name").eq("branch_id", branchId).eq("is_active", true);
+          const stay = (stays || []).find(s => s.name.toLowerCase() === (args.guest_stay_name as string).toLowerCase());
+          if (!stay) return `Guest stay not found. Available: ${(stays || []).map(s => s.name).join(", ")}`;
+          updates.guest_stay_id = stay.id;
+        }
+        if (args.num_lessons !== undefined) updates.num_lessons = args.num_lessons;
+        if (args.fee_per_lesson !== undefined) updates.fee_per_lesson = args.fee_per_lesson;
+        if (args.commission_per_lesson !== undefined) updates.commission_per_lesson = args.commission_per_lesson;
+        if (args.auto_fare !== undefined) updates.auto_fare = args.auto_fare;
+        if (args.lesson_date) updates.lesson_date = args.lesson_date;
+        if (args.is_paid !== undefined) {
+          updates.is_paid = args.is_paid;
+          updates.paid_at = args.is_paid ? new Date().toISOString() : null;
+        }
+        // Recalculate totals if relevant fields changed
+        if (updates.num_lessons !== undefined || updates.fee_per_lesson !== undefined || updates.commission_per_lesson !== undefined) {
+          const { data: existing } = await sb.from("ops_surf_lessons").select("num_lessons, fee_per_lesson, commission_per_lesson").eq("id", lessonId).single();
+          if (existing) {
+            const n = (updates.num_lessons as number) ?? existing.num_lessons;
+            const f = (updates.fee_per_lesson as number) ?? existing.fee_per_lesson;
+            const c = (updates.commission_per_lesson as number) ?? existing.commission_per_lesson;
+            updates.total_fees = n * f;
+            updates.total_commission = n * c;
+          }
+        }
+        const { error } = await sb.from("ops_surf_lessons").update(updates).eq("id", lessonId).eq("branch_id", branchId);
+        if (error) return `Error: ${error.message}`;
+        return JSON.stringify({ success: true, updated: lessonId, changes: Object.keys(updates) });
+      }
+
+      case "get_surf_lessons": {
+        let query = sb.from("ops_surf_lessons").select("*, ops_surf_guest_stays(name)").eq("branch_id", branchId);
+        if (!args.include_archived) query = query.eq("is_archived", false);
+        if (args.is_paid !== undefined) query = query.eq("is_paid", args.is_paid as boolean);
+        if (args.date_from) query = query.gte("lesson_date", args.date_from as string);
+        if (args.date_to) query = query.lte("lesson_date", args.date_to as string);
+        if (args.guest_stay_name) {
+          const { data: stays } = await sb.from("ops_surf_guest_stays").select("id, name").eq("branch_id", branchId);
+          const stay = (stays || []).find(s => s.name.toLowerCase() === (args.guest_stay_name as string).toLowerCase());
+          if (stay) query = query.eq("guest_stay_id", stay.id);
+        }
+        const { data, error } = await query.order("lesson_date", { ascending: false });
+        if (error) return `Error: ${error.message}`;
+        const lessons = data || [];
+        return JSON.stringify({
+          count: lessons.length,
+          total_fees: lessons.reduce((s, l) => s + (l.total_fees || 0), 0),
+          total_commission: lessons.reduce((s, l) => s + (l.total_commission || 0), 0),
+          total_auto_fare: lessons.reduce((s, l) => s + (l.auto_fare || 0), 0),
+          entries: lessons.slice(0, 50).map(l => ({ id: l.id, guest: l.guest_name, stay: l.ops_surf_guest_stays?.name, date: l.lesson_date, lessons: l.num_lessons, fees: l.total_fees, commission: l.total_commission, auto_fare: l.auto_fare, paid: l.is_paid })),
+        });
+      }
+
+      case "get_surfing_summary": {
+        const [{ data: rentals }, { data: lessons }, { data: schools }, { data: stays }] = await Promise.all([
+          sb.from("ops_surf_board_rentals").select("school_id, amount_due, is_paid, num_boards, boards_returned, rental_date").eq("branch_id", branchId).eq("is_archived", false),
+          sb.from("ops_surf_lessons").select("guest_stay_id, total_fees, total_commission, auto_fare, is_paid").eq("branch_id", branchId).eq("is_archived", false),
+          sb.from("ops_surf_schools").select("id, name").eq("branch_id", branchId).eq("is_active", true),
+          sb.from("ops_surf_guest_stays").select("id, name").eq("branch_id", branchId).eq("is_active", true),
+        ]);
+        const schoolMap = new Map((schools || []).map(s => [s.id, s.name]));
+        const stayMap = new Map((stays || []).map(s => [s.id, s.name]));
+        const r = rentals || []; const l = lessons || [];
+        const boardIncome = r.reduce((s, x) => s + (x.amount_due || 0), 0);
+        const lessonFees = l.reduce((s, x) => s + (x.total_fees || 0), 0);
+        const commissions = l.reduce((s, x) => s + (x.total_commission || 0), 0);
+        const autoFare = l.reduce((s, x) => s + (x.auto_fare || 0), 0);
+        // Owed by school
+        const owedBySchool: Record<string, number> = {};
+        r.filter(x => !x.is_paid).forEach(x => { const n = schoolMap.get(x.school_id) || "?"; owedBySchool[n] = (owedBySchool[n] || 0) + (x.amount_due || 0); });
+        // Owed by stay
+        const owedByStay: Record<string, number> = {};
+        l.filter(x => !x.is_paid).forEach(x => { const n = stayMap.get(x.guest_stay_id) || "?"; owedByStay[n] = (owedByStay[n] || 0) + (x.total_commission || 0); });
+        // Unreturned boards > 48h
+        const now = Date.now();
+        const unreturned = r.filter(x => x.boards_returned < x.num_boards && (now - new Date(x.rental_date).getTime()) > 48 * 3600 * 1000)
+          .map(x => ({ school: schoolMap.get(x.school_id), date: x.rental_date, boards: x.num_boards, returned: x.boards_returned }));
+        return JSON.stringify({ board_income: boardIncome, lesson_fees: lessonFees, commissions, auto_fare: autoFare, total_revenue: boardIncome + lessonFees, owed_by_school: owedBySchool, owed_by_stay: owedByStay, unreturned_boards_48h: unreturned });
+      }
+
       default:
         return `Unknown tool: ${name}`;
     }
