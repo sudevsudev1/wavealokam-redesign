@@ -23,6 +23,7 @@ const navItems = (isAdmin: boolean) => [
   { to: '/ops/shift-punch', labelKey: 'nav.shiftPunch', icon: Clock },
   { to: '/ops/daily-report', labelKey: 'nav.dailyReport', icon: FileText },
   { to: '/ops/laundry', labelKey: 'nav.laundry', icon: Shirt },
+  { to: '/ops/surfing', labelKey: 'nav.surfing', icon: Waves },
   ...(isAdmin ? [{ to: '/ops/admin', labelKey: 'nav.adminConsole', icon: Settings }] : []),
 ];
 
