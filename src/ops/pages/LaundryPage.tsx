@@ -697,7 +697,7 @@ export default function LaundryPage() {
   );
 }
 
-/* ─── Linen Tracker Component ─── */
+/* ─── Linen Tracker Component (Grouped by Type) ─── */
 function LinenTracker({
   linens,
   rooms,
@@ -726,24 +726,33 @@ function LinenTracker({
     return init;
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [assignRoom, setAssignRoom] = useState('');
 
-  // Group linens by status
-  const grouped = useMemo(() => {
-    const groups: Record<string, LinenItem[]> = {
-      in_use: [],
-      need_laundry: [],
-      awaiting_return: [],
-      fresh: [],
-    };
-    for (const l of linens) {
-      if (groups[l.status]) groups[l.status].push(l);
-      else groups[l.status] = [l];
+  // Group linens by status then by type with counts
+  const groupedByStatus = useMemo(() => {
+    const result: Record<string, Record<string, LinenItem[]>> = {};
+    for (const s of LINEN_STATUSES) {
+      result[s] = {};
     }
-    return groups;
+    for (const l of linens) {
+      if (!result[l.status]) result[l.status] = {};
+      if (!result[l.status][l.item_type]) result[l.status][l.item_type] = [];
+      result[l.status][l.item_type].push(l);
+    }
+    return result;
+  }, [linens]);
+
+  // Totals per status
+  const statusTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const s of LINEN_STATUSES) {
+      totals[s] = linens.filter(l => l.status === s).length;
+    }
+    return totals;
   }, [linens]);
 
   const filteredStatuses = statusFilter === 'all' 
-    ? ['in_use', 'need_laundry', 'awaiting_return', 'fresh'] 
+    ? ['fresh', 'in_use', 'need_laundry', 'awaiting_return'] 
     : [statusFilter];
 
   const selectedCount = Object.values(batchItems).filter(v => v.selected).length;
@@ -753,11 +762,9 @@ function LinenTracker({
     if (toAdd.length === 0) { toast.error('Select at least one item'); return; }
     for (const [type, val] of toAdd) {
       for (let i = 0; i < val.quantity; i++) {
-        const label = val.quantity > 1 ? `${val.label ? val.label + ' ' : ''}#${i + 1}` : val.label || undefined;
-        onAdd({ item_type: type, item_label: label });
+        onAdd({ item_type: type });
       }
     }
-    // Reset selections
     setBatchItems(prev => {
       const reset = { ...prev };
       for (const key of Object.keys(reset)) {
@@ -769,14 +776,31 @@ function LinenTracker({
     toast.success(`Added ${toAdd.reduce((s, [, v]) => s + v.quantity, 0)} linen item(s)`);
   };
 
-  // Next status mapping for quick transitions
-  const getNextStatuses = (current: string): string[] => {
+  // Transition one item of a type from current status to next
+  const handleTransitionOne = (itemType: string, fromStatus: string, toStatus: string, roomId?: string) => {
+    const items = groupedByStatus[fromStatus]?.[itemType] || [];
+    if (items.length === 0) return;
+    const item = items[0];
+    const payload: any = { id: item.id, status: toStatus };
+    if (toStatus === 'fresh') {
+      payload.room_id = null;
+      payload.guest_id = null;
+      payload.expected_free_at = null;
+    }
+    if (toStatus === 'in_use' && roomId) {
+      payload.room_id = roomId;
+    }
+    onUpdateStatus(payload);
+  };
+
+  // Next status mapping
+  const getNextStatus = (current: string): string | null => {
     switch (current) {
-      case 'fresh': return ['in_use'];
-      case 'in_use': return ['need_laundry'];
-      case 'need_laundry': return ['awaiting_return'];
-      case 'awaiting_return': return ['fresh'];
-      default: return [];
+      case 'fresh': return 'in_use';
+      case 'in_use': return 'need_laundry';
+      case 'need_laundry': return 'awaiting_return';
+      case 'awaiting_return': return 'fresh';
+      default: return null;
     }
   };
 
@@ -792,7 +816,7 @@ function LinenTracker({
               onClick={() => setStatusFilter(prev => prev === s ? 'all' : s)}
               className={`p-2 rounded-lg text-center transition-all ${statusFilter === s ? 'ring-2 ring-primary' : ''} ${cfg.color}`}
             >
-              <div className="text-lg font-bold">{grouped[s]?.length || 0}</div>
+              <div className="text-lg font-bold">{statusTotals[s] || 0}</div>
               <div className="text-[9px] font-medium leading-tight">{cfg.label}</div>
             </button>
           );
@@ -846,30 +870,59 @@ function LinenTracker({
         </DialogContent>
       </Dialog>
 
-      {/* Grouped linen items */}
+      {/* Grouped linen items by status → type */}
       {filteredStatuses.map(status => {
-        const items = grouped[status] || [];
-        if (items.length === 0) return null;
+        const typeMap = groupedByStatus[status] || {};
+        const types = Object.entries(typeMap).filter(([, items]) => items.length > 0);
+        if (types.length === 0) return null;
         const cfg = STATUS_CONFIG[status];
+        const nextStatus = getNextStatus(status);
+        const nextCfg = nextStatus ? STATUS_CONFIG[nextStatus] : null;
 
         return (
           <div key={status}>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-sm">{cfg.emoji}</span>
               <h3 className="text-sm font-semibold">{cfg.label}</h3>
-              <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
+              <Badge variant="secondary" className="text-[10px]">{statusTotals[status]}</Badge>
             </div>
             <div className="space-y-1">
-              {items.map(item => (
-                <LinenItemCard
-                  key={item.id}
-                  item={item}
-                  nameMap={nameMap}
-                  rooms={rooms}
-                  onUpdateStatus={onUpdateStatus}
-                  onDelete={onDelete}
-                  nextStatuses={getNextStatuses(item.status)}
-                />
+              {types.map(([itemType, items]) => (
+                <Card key={itemType} className="overflow-hidden">
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-xs">{itemType}</span>
+                          <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-bold">{items.length}</Badge>
+                        </div>
+                      </div>
+
+                      {/* Quick transition: move 1 item to next status */}
+                      {nextStatus && nextCfg && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {status === 'fresh' && (
+                            <Select value={assignRoom} onValueChange={setAssignRoom}>
+                              <SelectTrigger className="h-6 text-[9px] w-16"><SelectValue placeholder="Room" /></SelectTrigger>
+                              <SelectContent>
+                                {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.id}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[9px] px-1.5 gap-0.5"
+                            onClick={() => handleTransitionOne(itemType, status, nextStatus, status === 'fresh' ? assignRoom : undefined)}
+                            title={`Move 1 to ${nextCfg.label}`}
+                          >
+                            {nextCfg.emoji} →{nextCfg.label.split(' ')[0]}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
@@ -886,135 +939,5 @@ function LinenTracker({
         </Card>
       )}
     </div>
-  );
-}
-
-/* ─── Individual Linen Item Card ─── */
-function LinenItemCard({
-  item,
-  nameMap,
-  rooms,
-  onUpdateStatus,
-  onDelete,
-  nextStatuses,
-}: {
-  item: LinenItem;
-  nameMap: Record<string, string>;
-  rooms: any[];
-  onUpdateStatus: (payload: { id: string; status: string; room_id?: string | null; guest_id?: string | null; expected_free_at?: string | null; notes?: string | null }) => void;
-  onDelete: (id: string) => void;
-  nextStatuses: string[];
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [assignRoom, setAssignRoom] = useState(item.room_id || '');
-
-  const handleQuickTransition = (newStatus: string) => {
-    const payload: any = { id: item.id, status: newStatus };
-    
-    // If transitioning to fresh, clear room assignment
-    if (newStatus === 'fresh') {
-      payload.room_id = null;
-      payload.guest_id = null;
-      payload.expected_free_at = null;
-    }
-    
-    // If assigning to in_use and a room is selected
-    if (newStatus === 'in_use' && assignRoom) {
-      payload.room_id = assignRoom;
-    }
-    
-    onUpdateStatus(payload);
-    setExpanded(false);
-  };
-
-  const handleFullStatusChange = (newStatus: string) => {
-    onUpdateStatus({ id: item.id, status: newStatus });
-  };
-
-  return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-2.5">
-        <div className="flex items-center gap-2">
-          <button className="flex-1 text-left" onClick={() => setExpanded(!expanded)}>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-xs">{item.item_type}</span>
-              {item.item_label && <span className="text-[10px] text-muted-foreground">({item.item_label})</span>}
-              {item.room_id && (
-                <Badge variant="outline" className="text-[9px] h-4 px-1">{item.room_id}</Badge>
-              )}
-            </div>
-            {item.expected_free_at && item.status === 'in_use' && (
-              <p className="text-[10px] text-muted-foreground">
-                Until {format(parseISO(item.expected_free_at), 'MMM d')}
-              </p>
-            )}
-          </button>
-
-          {/* Quick transition buttons */}
-          <div className="flex gap-1 shrink-0">
-            {nextStatuses.map(ns => {
-              const cfg = STATUS_CONFIG[ns];
-              return (
-                <Button
-                  key={ns}
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-[9px] px-1.5 gap-0.5"
-                  onClick={(e) => { e.stopPropagation(); handleQuickTransition(ns); }}
-                  title={`Move to ${cfg.label}`}
-                >
-                  {cfg.emoji} {cfg.label.split(' ')[0]}
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-
-        {expanded && (
-          <div className="mt-2 pt-2 border-t border-border space-y-2">
-            <div className="text-[10px] text-muted-foreground">
-              Last changed: {format(parseISO(item.status_changed_at), 'MMM d, h:mm a')}
-              {item.status_changed_by && ` by ${nameMap[item.status_changed_by] || '?'}`}
-            </div>
-
-            {/* Room assignment for in_use */}
-            {item.status === 'fresh' && (
-              <div className="flex gap-1 items-center">
-                <Select value={assignRoom} onValueChange={setAssignRoom}>
-                  <SelectTrigger className="h-7 text-[10px] flex-1"><SelectValue placeholder="Assign room" /></SelectTrigger>
-                  <SelectContent>
-                    {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.id}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button size="sm" className="h-7 text-[10px]" onClick={() => handleQuickTransition('in_use')}>
-                  Issue to Room
-                </Button>
-              </div>
-            )}
-
-            {/* Manual status change */}
-            <div className="flex gap-1 flex-wrap">
-              {LINEN_STATUSES.filter(s => s !== item.status).map(s => {
-                const cfg = STATUS_CONFIG[s];
-                return (
-                  <Button
-                    key={s} size="sm" variant="outline"
-                    className="h-6 text-[9px] px-2 gap-0.5"
-                    onClick={() => handleFullStatusChange(s)}
-                  >
-                    {cfg.emoji} {cfg.label}
-                  </Button>
-                );
-              })}
-              <Button size="sm" variant="ghost" className="h-6 text-[9px] px-2 text-destructive" onClick={() => onDelete(item.id)}>
-                <Trash2 className="h-3 w-3" /> Remove
-              </Button>
-            </div>
-
-            {item.notes && <p className="text-[10px] text-muted-foreground italic">{item.notes}</p>}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
