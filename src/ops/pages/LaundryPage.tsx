@@ -292,18 +292,42 @@ export default function LaundryPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Receive laundry
+  // Receive laundry — transitions awaiting_return linens back to fresh
   const receiveMutation = useMutation({
     mutationFn: async (batchId: string) => {
+      const batch = (batches || []).find(b => b.id === batchId);
+      const now = new Date().toISOString();
       const { error } = await supabase.from('ops_laundry_batches').update({
-        actual_return_at: new Date().toISOString(),
+        actual_return_at: now,
         status: 'returned',
         received_by: profile!.userId,
       } as any).eq('id', batchId);
       if (error) throw error;
+
+      // Move awaiting_return items back to fresh based on set composition
+      if (batch) {
+        for (const [itemType, perSet] of Object.entries(SET_COMPOSITION)) {
+          const needed = perSet * batch.sets_count;
+          if (needed <= 0) continue;
+          const candidates = linens
+            .filter(l => l.item_type === itemType && l.status === 'awaiting_return')
+            .slice(0, needed);
+          for (const c of candidates) {
+            await supabase.from('ops_linen_items').update({
+              status: 'fresh',
+              status_changed_at: now,
+              status_changed_by: profile!.userId,
+              room_id: null,
+              guest_id: null,
+              updated_at: now,
+            } as any).eq('id', c.id);
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_laundry_batches'] });
+      queryClient.invalidateQueries({ queryKey: ['ops_linen_items'] });
       toast.success(t('laundry.received'));
     },
     onError: (e: any) => toast.error(e.message),
