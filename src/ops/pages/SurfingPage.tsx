@@ -3,8 +3,8 @@ import { useOpsAuth } from '../contexts/OpsAuthContext';
 import {
   useSurfSchools, useGuestStays, useBoardRentals, useSurfLessons,
   useBoardPayments, useLessonPayments, useSurfConfig,
-  useAddBoardRental, useUpdateBoardRental, useApplyBoardPayment,
-  useAddSurfLesson, useUpdateSurfLesson, useApplyLessonPayment,
+  useAddBoardRental, useUpdateBoardRental, useDeleteBoardRental, useApplyBoardPayment,
+  useAddSurfLesson, useUpdateSurfLesson, useDeleteSurfLesson, useApplyLessonPayment,
   useUpsertSurfSchool, useDeleteSurfSchool, useUpsertGuestStay, useUpdateSurfConfig,
   SurfSchool, GuestStay, BoardRental, SurfLesson,
 } from '../hooks/useSurfing';
