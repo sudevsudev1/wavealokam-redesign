@@ -669,8 +669,13 @@ function LinenTracker({
   profile: any;
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [newType, setNewType] = useState('Bedsheet');
-  const [newLabel, setNewLabel] = useState('');
+  const [batchItems, setBatchItems] = useState<Record<string, { selected: boolean; quantity: number; label: string }>>(() => {
+    const init: Record<string, { selected: boolean; quantity: number; label: string }> = {};
+    for (const lt of LINEN_TYPES) {
+      init[lt] = { selected: false, quantity: 1, label: '' };
+    }
+    return init;
+  });
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Group linens by status
@@ -692,10 +697,27 @@ function LinenTracker({
     ? ['in_use', 'need_laundry', 'awaiting_return', 'fresh'] 
     : [statusFilter];
 
-  const handleAdd = () => {
-    onAdd({ item_type: newType, item_label: newLabel || undefined });
-    setNewLabel('');
+  const selectedCount = Object.values(batchItems).filter(v => v.selected).length;
+
+  const handleBatchAdd = () => {
+    const toAdd = Object.entries(batchItems).filter(([, v]) => v.selected && v.quantity > 0);
+    if (toAdd.length === 0) { toast.error('Select at least one item'); return; }
+    for (const [type, val] of toAdd) {
+      for (let i = 0; i < val.quantity; i++) {
+        const label = val.quantity > 1 ? `${val.label ? val.label + ' ' : ''}#${i + 1}` : val.label || undefined;
+        onAdd({ item_type: type, item_label: label });
+      }
+    }
+    // Reset selections
+    setBatchItems(prev => {
+      const reset = { ...prev };
+      for (const key of Object.keys(reset)) {
+        reset[key] = { selected: false, quantity: 1, label: '' };
+      }
+      return reset;
+    });
     setShowAdd(false);
+    toast.success(`Added ${toAdd.reduce((s, [, v]) => s + v.quantity, 0)} linen item(s)`);
   };
 
   // Next status mapping for quick transitions
