@@ -1087,6 +1087,136 @@ const VECTOR_TOOLS = [
       },
     },
   },
+  // ═══ SURFING TOOLS ═══
+  {
+    type: "function",
+    function: {
+      name: "add_board_rental",
+      description: "Add a board rental entry. Ask for school name, number of boards, and date if not provided.",
+      parameters: {
+        type: "object",
+        properties: {
+          school_name: { type: "string", description: "Surf school name (e.g. Paddle Cult, Elixir)" },
+          num_boards: { type: "number" },
+          rental_date: { type: "string", description: "YYYY-MM-DD, defaults to today" },
+          boards_returned: { type: "number" },
+          all_boards_good_condition: { type: "boolean" },
+        },
+        required: ["school_name", "num_boards"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_board_rental",
+      description: "Update an existing board rental entry. Can change school, boards, date, returned count, condition, paid status, and rate.",
+      parameters: {
+        type: "object",
+        properties: {
+          rental_id: { type: "string", description: "ID of the rental to update" },
+          school_name: { type: "string" },
+          num_boards: { type: "number" },
+          rate_per_board: { type: "number" },
+          rental_date: { type: "string" },
+          boards_returned: { type: "number" },
+          all_boards_good_condition: { type: "boolean" },
+          is_paid: { type: "boolean" },
+        },
+        required: ["rental_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_board_rentals",
+      description: "Query board rentals. Filter by school, date range, paid status. Returns totals and details.",
+      parameters: {
+        type: "object",
+        properties: {
+          school_name: { type: "string" },
+          date_from: { type: "string" },
+          date_to: { type: "string" },
+          is_paid: { type: "boolean" },
+          include_archived: { type: "boolean" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_surf_lesson",
+      description: "Add a surf lesson entry. Ask for guest name, guest stay, number of lessons, fee, commission, and auto fare if not provided.",
+      parameters: {
+        type: "object",
+        properties: {
+          guest_name: { type: "string" },
+          guest_stay_name: { type: "string", description: "Guest stay type (In house, Casa Maya, Kerala Cottage, Others)" },
+          num_lessons: { type: "number" },
+          fee_per_lesson: { type: "number" },
+          commission_per_lesson: { type: "number" },
+          auto_fare: { type: "number" },
+          lesson_date: { type: "string", description: "YYYY-MM-DD, defaults to today" },
+        },
+        required: ["guest_name", "guest_stay_name", "num_lessons"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_surf_lesson",
+      description: "Update an existing surf lesson entry. Can change all fields including guest name, stay, fees, commission, auto fare, paid status.",
+      parameters: {
+        type: "object",
+        properties: {
+          lesson_id: { type: "string", description: "ID of the lesson to update" },
+          guest_name: { type: "string" },
+          guest_stay_name: { type: "string" },
+          num_lessons: { type: "number" },
+          fee_per_lesson: { type: "number" },
+          commission_per_lesson: { type: "number" },
+          auto_fare: { type: "number" },
+          lesson_date: { type: "string" },
+          is_paid: { type: "boolean" },
+        },
+        required: ["lesson_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_surf_lessons",
+      description: "Query surf lessons. Filter by guest stay, date range, paid status. Returns totals and details.",
+      parameters: {
+        type: "object",
+        properties: {
+          guest_stay_name: { type: "string" },
+          date_from: { type: "string" },
+          date_to: { type: "string" },
+          is_paid: { type: "boolean" },
+          include_archived: { type: "boolean" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_surfing_summary",
+      description: "Get surfing revenue summary: total board income, lesson fees, commissions, auto fare, amounts owed by schools and guest stays, unreturned boards.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool execution ───
