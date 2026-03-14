@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import IdProofUpload, { getIdProofSlots, areRequiredSlotsFilled, IdProofSlot } from '../components/IdProofUpload';
 
 const DOMESTIC_ID_TYPES = ['Aadhaar', 'Passport', 'Driving License', 'Voter ID'];
 const INTL_ID_TYPES = ['Passport'];
@@ -25,6 +26,7 @@ export default function GuestSelfCheckIn() {
   const [rooms, setRooms] = useState<{ id: string; room_type: string }[]>([]);
   const [occupiedRoomIds, setOccupiedRoomIds] = useState<Set<string>>(new Set());
   const [guestType, setGuestType] = useState<'domestic' | 'international'>('domestic');
+  const [idProofSlots, setIdProofSlots] = useState<IdProofSlot[]>([]);
 
   const [form, setForm] = useState({
     guest_name: '', phone: '', email: '', adults: 1, children: 0,
@@ -35,7 +37,6 @@ export default function GuestSelfCheckIn() {
     date_of_birth: '', passport_number: '', evisa_number: '', nationality: '',
     payment_mode: '', transaction_id: '', number_of_nights: 1,
   });
-  const [idProofFile, setIdProofFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!branchId) return;
@@ -72,6 +73,16 @@ export default function GuestSelfCheckIn() {
   const isDomestic = guestType === 'domestic';
   const idProofTypes = isDomestic ? DOMESTIC_ID_TYPES : INTL_ID_TYPES;
 
+  const updateIdProofSlots = (idType: string, gt: 'domestic' | 'international') => {
+    if (idType) {
+      setIdProofSlots(getIdProofSlots(idType, gt));
+    } else {
+      setIdProofSlots([]);
+    }
+  };
+
+  const idProofsComplete = idProofSlots.length > 0 && areRequiredSlotsFilled(idProofSlots);
+
   const handleSubmit = async () => {
     if (!form.guest_name.trim()) { toast.error('Guest name is required'); return; }
     if (!form.phone.trim()) { toast.error('Phone number is required'); return; }
@@ -84,16 +95,23 @@ export default function GuestSelfCheckIn() {
       if (!form.nationality.trim()) { toast.error('Nationality is required'); return; }
       if (!form.passport_number.trim()) { toast.error('Passport/ID number is required'); return; }
     }
+    if (!idProofsComplete) {
+      toast.error('Please upload all required ID proof photos');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      let idProofUrl: string | null = null;
-      if (idProofFile) {
-        const filePath = `${branchId}/id-proofs/${crypto.randomUUID()}-${idProofFile.name}`;
-        const { error: uploadError } = await supabase.storage.from('ops-attachments').upload(filePath, idProofFile);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('ops-attachments').getPublicUrl(filePath);
-        idProofUrl = urlData.publicUrl;
+      // Upload ID proof files
+      const idProofUrls: { label: string; url: string }[] = [];
+      for (const slot of idProofSlots) {
+        if (slot.file) {
+          const filePath = `${branchId}/id-proofs/${crypto.randomUUID()}-${slot.file.name}`;
+          const { error: uploadError } = await supabase.storage.from('ops-attachments').upload(filePath, slot.file);
+          if (uploadError) throw uploadError;
+          const { data: urlData } = supabase.storage.from('ops-attachments').getPublicUrl(filePath);
+          idProofUrls.push({ label: slot.label, url: urlData.publicUrl });
+        }
       }
 
       const { error } = await supabase.from('ops_guest_log').insert({
@@ -106,7 +124,8 @@ export default function GuestSelfCheckIn() {
         children: form.children,
         room_id: form.room_id || null,
         id_proof_type: form.id_proof_type || null,
-        id_proof_url: idProofUrl,
+        id_proof_url: idProofUrls.length > 0 ? idProofUrls[0].url : null,
+        id_proof_urls: idProofUrls,
         purpose: form.purpose,
         source: form.source,
         expected_check_out: form.expected_check_out || null,
@@ -148,11 +167,11 @@ export default function GuestSelfCheckIn() {
           <p className="text-xs text-center text-muted-foreground">Welcome to Wavealokam! Please fill in your details below.</p>
           <div className="flex gap-2 pt-2">
             <Button variant={isDomestic ? 'default' : 'outline'} size="sm" className="flex-1"
-              onClick={() => { setGuestType('domestic'); setForm({ ...form, id_proof_type: '' }); }}>
+              onClick={() => { setGuestType('domestic'); setForm({ ...form, id_proof_type: '' }); setIdProofSlots([]); }}>
               🇮🇳 Domestic
             </Button>
             <Button variant={!isDomestic ? 'default' : 'outline'} size="sm" className="flex-1"
-              onClick={() => { setGuestType('international'); setForm({ ...form, id_proof_type: 'Passport' }); }}>
+              onClick={() => { setGuestType('international'); setForm({ ...form, id_proof_type: 'Passport' }); updateIdProofSlots('Passport', 'international'); }}>
               🌍 International
             </Button>
           </div>
@@ -256,23 +275,21 @@ export default function GuestSelfCheckIn() {
                 <Input type="number" min={1} value={form.number_of_nights} onChange={(e) => setForm({ ...form, number_of_nights: parseInt(e.target.value) || 1 })} /></div>
             )}
           </div>
-          <div className="space-y-1">
+
+          {/* ID Proof Section */}
+          <div className="space-y-2">
             <label className="text-xs font-medium">ID Proof Type *</label>
-            <Select value={form.id_proof_type} onValueChange={(val) => setForm({ ...form, id_proof_type: val })}>
+            <Select value={form.id_proof_type} onValueChange={(val) => {
+              setForm({ ...form, id_proof_type: val });
+              updateIdProofSlots(val, guestType);
+            }}>
               <SelectTrigger><SelectValue placeholder="Select ID type" /></SelectTrigger>
               <SelectContent>{idProofTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
             </Select>
-            <div className="flex gap-2">
-              <Input type="file" accept="image/*" onChange={(e) => setIdProofFile(e.target.files?.[0] || null)} className="flex-1" />
-              <Button variant="outline" size="sm" type="button" onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
-                input.onchange = (e) => setIdProofFile((e.target as HTMLInputElement).files?.[0] || null);
-                input.click();
-              }}>📷 Camera</Button>
-            </div>
-            {idProofFile && <p className="text-xs text-muted-foreground">Selected: {idProofFile.name}</p>}
+
+            <IdProofUpload slots={idProofSlots} onSlotsChange={setIdProofSlots} />
           </div>
+
           <div>
             <label className="text-xs font-medium">Notes</label>
             <Textarea
@@ -282,9 +299,12 @@ export default function GuestSelfCheckIn() {
               rows={3}
             />
           </div>
-          <Button onClick={handleSubmit} disabled={submitting} className="w-full">
+          <Button onClick={handleSubmit} disabled={submitting || (idProofSlots.length > 0 && !idProofsComplete)} className="w-full">
             {submitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Submitting...</> : 'Submit Check-In'}
           </Button>
+          {idProofSlots.length > 0 && !idProofsComplete && (
+            <p className="text-xs text-amber-600 text-center">Please upload all required ID proof photos to submit</p>
+          )}
         </CardContent>
       </Card>
     </div>
