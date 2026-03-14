@@ -14,6 +14,7 @@ import GuestSelfCheckIn from './pages/GuestSelfCheckIn';
 import ShiftPunchPage from './pages/ShiftPunchPage';
 import DailyReportPage from './pages/DailyReportPage';
 import LaundryPage from './pages/LaundryPage';
+import SurfingPage from './pages/SurfingPage';
 import AdminConsolePage from './pages/AdminConsolePage';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 
