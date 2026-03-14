@@ -8,7 +8,10 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const PREVIEW_CACHE_RESET_FLAG = 'ops-preview-cache-reset-v2';
+declare const __BUILD_TIME__: string | undefined;
+
+const PREVIEW_CACHE_RESET_BUILD_KEY = 'ops-preview-cache-reset-build';
+const PREVIEW_CACHE_BUST_PARAM = '__ops_build';
 
 function isLovablePreviewHost() {
   if (typeof window === 'undefined') return false;
@@ -161,9 +164,12 @@ export default function PwaInstallPrompt() {
 
   useEffect(() => {
     if (!isPreviewHost || typeof window === 'undefined') return;
-    if (sessionStorage.getItem(PREVIEW_CACHE_RESET_FLAG) === '1') return;
 
-    sessionStorage.setItem(PREVIEW_CACHE_RESET_FLAG, '1');
+    const buildTag = typeof __BUILD_TIME__ === 'string' && __BUILD_TIME__.trim().length > 0
+      ? __BUILD_TIME__
+      : 'preview';
+
+    if (sessionStorage.getItem(PREVIEW_CACHE_RESET_BUILD_KEY) === buildTag) return;
 
     const resetPreviewCache = async () => {
       try {
@@ -176,7 +182,10 @@ export default function PwaInstallPrompt() {
           await Promise.all(cacheKeys.map((key) => caches.delete(key)));
         }
       } finally {
-        window.location.reload();
+        sessionStorage.setItem(PREVIEW_CACHE_RESET_BUILD_KEY, buildTag);
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set(PREVIEW_CACHE_BUST_PARAM, buildTag);
+        window.location.replace(nextUrl.toString());
       }
     };
 
