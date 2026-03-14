@@ -1543,6 +1543,345 @@ export type Database = {
           },
         ]
       }
+      ops_surf_board_payments: {
+        Row: {
+          amount: number
+          branch_id: string
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          payment_date: string
+          school_id: string
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          school_id: string
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_surf_board_payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_surf_board_payments_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "ops_surf_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_surf_board_rentals: {
+        Row: {
+          all_boards_good_condition: boolean
+          amount_due: number | null
+          boards_returned: number
+          branch_id: string
+          created_at: string
+          created_by: string
+          id: string
+          is_archived: boolean
+          is_paid: boolean
+          num_boards: number
+          paid_at: string | null
+          rate_per_board: number
+          rental_date: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          all_boards_good_condition?: boolean
+          amount_due?: number | null
+          boards_returned?: number
+          branch_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_archived?: boolean
+          is_paid?: boolean
+          num_boards?: number
+          paid_at?: string | null
+          rate_per_board?: number
+          rental_date?: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          all_boards_good_condition?: boolean
+          amount_due?: number | null
+          boards_returned?: number
+          branch_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_archived?: boolean
+          is_paid?: boolean
+          num_boards?: number
+          paid_at?: string | null
+          rate_per_board?: number
+          rental_date?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_surf_board_rentals_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_surf_board_rentals_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "ops_surf_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_surf_config: {
+        Row: {
+          branch_id: string
+          key: string
+          updated_at: string
+          value_json: Json
+        }
+        Insert: {
+          branch_id: string
+          key: string
+          updated_at?: string
+          value_json?: Json
+        }
+        Update: {
+          branch_id?: string
+          key?: string
+          updated_at?: string
+          value_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_surf_config_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_surf_guest_stays: {
+        Row: {
+          branch_id: string
+          created_at: string
+          default_commission: number
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          default_commission?: number
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          default_commission?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_surf_guest_stays_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_surf_lesson_payments: {
+        Row: {
+          amount: number
+          branch_id: string
+          created_at: string
+          created_by: string
+          guest_stay_id: string
+          id: string
+          notes: string | null
+          payment_date: string
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          created_at?: string
+          created_by: string
+          guest_stay_id: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          created_at?: string
+          created_by?: string
+          guest_stay_id?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_surf_lesson_payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_surf_lesson_payments_guest_stay_id_fkey"
+            columns: ["guest_stay_id"]
+            isOneToOne: false
+            referencedRelation: "ops_surf_guest_stays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_surf_lessons: {
+        Row: {
+          auto_fare: number
+          branch_id: string
+          commission_per_lesson: number
+          created_at: string
+          created_by: string
+          fee_per_lesson: number
+          guest_name: string
+          guest_stay_id: string
+          id: string
+          is_archived: boolean
+          is_paid: boolean
+          lesson_date: string
+          num_lessons: number
+          paid_at: string | null
+          total_commission: number | null
+          total_fees: number | null
+          updated_at: string
+        }
+        Insert: {
+          auto_fare?: number
+          branch_id: string
+          commission_per_lesson?: number
+          created_at?: string
+          created_by: string
+          fee_per_lesson?: number
+          guest_name: string
+          guest_stay_id: string
+          id?: string
+          is_archived?: boolean
+          is_paid?: boolean
+          lesson_date?: string
+          num_lessons?: number
+          paid_at?: string | null
+          total_commission?: number | null
+          total_fees?: number | null
+          updated_at?: string
+        }
+        Update: {
+          auto_fare?: number
+          branch_id?: string
+          commission_per_lesson?: number
+          created_at?: string
+          created_by?: string
+          fee_per_lesson?: number
+          guest_name?: string
+          guest_stay_id?: string
+          id?: string
+          is_archived?: boolean
+          is_paid?: boolean
+          lesson_date?: string
+          num_lessons?: number
+          paid_at?: string | null
+          total_commission?: number | null
+          total_fees?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_surf_lessons_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_surf_lessons_guest_stay_id_fkey"
+            columns: ["guest_stay_id"]
+            isOneToOne: false
+            referencedRelation: "ops_surf_guest_stays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_surf_schools: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_surf_schools_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "ops_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_task_attachments: {
         Row: {
           amount: number | null
