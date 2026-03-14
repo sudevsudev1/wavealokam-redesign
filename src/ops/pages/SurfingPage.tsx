@@ -414,6 +414,7 @@ function SurfLessonsTab() {
   const { data: guestStays = [] } = useGuestStays();
   const { data: lessons = [] } = useSurfLessons();
   const addLesson = useAddSurfLesson();
+  const updateLesson = useUpdateSurfLesson();
   const applyPayment = useApplyLessonPayment();
 
   const activeStays = guestStays.filter(s => s.is_active);
@@ -441,6 +442,39 @@ function SurfLessonsTab() {
 
   // Settings
   const [showSettings, setShowSettings] = useState(false);
+
+  // Edit dialog
+  const [editLesson, setEditLesson] = useState<SurfLesson | null>(null);
+  const [editLF, setEditLF] = useState<{
+    lesson_date: string; num_lessons: number; guest_name: string; guest_stay_id: string;
+    fee_per_lesson: number; commission_per_lesson: number; auto_fare: number; is_paid: boolean;
+  }>({ lesson_date: '', num_lessons: 1, guest_name: '', guest_stay_id: '', fee_per_lesson: 0, commission_per_lesson: 0, auto_fare: 0, is_paid: false });
+
+  const openEditLesson = (l: SurfLesson) => {
+    setEditLesson(l);
+    setEditLF({
+      lesson_date: l.lesson_date, num_lessons: l.num_lessons, guest_name: l.guest_name,
+      guest_stay_id: l.guest_stay_id, fee_per_lesson: l.fee_per_lesson,
+      commission_per_lesson: l.commission_per_lesson, auto_fare: l.auto_fare, is_paid: l.is_paid,
+    });
+  };
+
+  const handleSaveEditLesson = async () => {
+    if (!editLesson) return;
+    const total_fees = editLF.num_lessons * editLF.fee_per_lesson;
+    const total_commission = editLF.num_lessons * editLF.commission_per_lesson;
+    try {
+      await updateLesson.mutateAsync({
+        id: editLesson.id,
+        ...editLF,
+        total_fees,
+        total_commission,
+        paid_at: editLF.is_paid && !editLesson.is_paid ? new Date().toISOString() : editLF.is_paid ? editLesson.paid_at : null,
+      });
+      toast.success('Lesson updated');
+      setEditLesson(null);
+    } catch { toast.error('Failed to update'); }
+  };
 
   // Update commission default when guest stay changes
   const handleStayChange = (stayId: string) => {
@@ -622,6 +656,7 @@ function SurfLessonsTab() {
       )}
 
       {/* Lessons Table */}
+      <p className="text-[10px] text-muted-foreground">Tap a row to edit</p>
       <div className="overflow-auto">
         <Table>
           <TableHeader>
@@ -641,7 +676,7 @@ function SurfLessonsTab() {
               <TableRow><TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-4">No lessons</TableCell></TableRow>
             ) : (
               filtered.map(l => (
-                <TableRow key={l.id}>
+                <TableRow key={l.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEditLesson(l)}>
                   <TableCell className="text-[11px] px-2 py-1.5">{format(parseISO(l.lesson_date), 'dd MMM')}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5 max-w-[80px] truncate">{l.guest_name}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5">{stayMap.get(l.guest_stay_id) || '?'}</TableCell>
@@ -661,7 +696,7 @@ function SurfLessonsTab() {
         </Table>
       </div>
 
-      {/* Totals without filters */}
+      {/* Totals */}
       <Card>
         <CardContent className="p-3">
           <p className="text-xs font-semibold mb-1">Totals (showing {filtered.length} entries)</p>
@@ -673,6 +708,63 @@ function SurfLessonsTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Lesson Dialog */}
+      <Dialog open={!!editLesson} onOpenChange={() => setEditLesson(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="text-sm">Edit Lesson</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Date</label>
+                <Input type="date" value={editLF.lesson_date} onChange={e => setEditLF(p => ({ ...p, lesson_date: e.target.value }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground"># Lessons</label>
+                <Input type="number" min={1} value={editLF.num_lessons} onChange={e => setEditLF(p => ({ ...p, num_lessons: parseInt(e.target.value) || 1 }))} className="h-8 text-xs" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-medium text-muted-foreground">Guest Name</label>
+                <Input value={editLF.guest_name} onChange={e => setEditLF(p => ({ ...p, guest_name: e.target.value }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Guest Stay</label>
+                <Select value={editLF.guest_stay_id} onValueChange={v => setEditLF(p => ({ ...p, guest_stay_id: v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {activeStays.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Fee/Lesson (₹)</label>
+                <Input type="number" value={editLF.fee_per_lesson} onChange={e => setEditLF(p => ({ ...p, fee_per_lesson: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Comm./Lesson (₹)</label>
+                <Input type="number" value={editLF.commission_per_lesson} onChange={e => setEditLF(p => ({ ...p, commission_per_lesson: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Auto Fare (₹)</label>
+                <Input type="number" value={editLF.auto_fare} onChange={e => setEditLF(p => ({ ...p, auto_fare: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+              </div>
+            </div>
+            <div className="text-xs font-medium">
+              Total Fees: ₹{(editLF.num_lessons * editLF.fee_per_lesson).toLocaleString()} | Commission: ₹{(editLF.num_lessons * editLF.commission_per_lesson).toLocaleString()}
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox checked={editLF.is_paid} onCheckedChange={v => setEditLF(p => ({ ...p, is_paid: !!v }))} />
+              <span className="text-xs font-medium">Paid</span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSaveEditLesson} disabled={updateLesson.isPending}>
+                {updateLesson.isPending ? 'Saving...' : 'Save'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditLesson(null)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Commission Payment Dialog */}
       <Dialog open={!!paymentDialog} onOpenChange={() => setPaymentDialog(null)}>
