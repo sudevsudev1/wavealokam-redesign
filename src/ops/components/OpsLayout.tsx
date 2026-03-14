@@ -7,8 +7,13 @@ import NetworkStatus from './NetworkStatus';
 import NotificationBell from './NotificationBell';
 import VectorDock from './VectorDock';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Home, ClipboardList, Package, ShoppingCart, Users, Clock, FileText, Settings, LogOut, Menu, X, Shirt } from 'lucide-react';
 import { useState } from 'react';
+
+declare const __BUILD_TIME__: string | undefined;
+
+const BUILD_TAG = typeof __BUILD_TIME__ === 'string' && __BUILD_TIME__.trim().length > 0 ? __BUILD_TIME__ : 'latest';
 
 const navItems = (isAdmin: boolean) => [
   { to: '/ops/home', labelKey: 'nav.home', icon: Home },
