@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useEffect } from 'react';
+import { IdProofSlot } from '../components/IdProofUpload';
 
 export interface GuestEntry {
   id: string;
@@ -14,6 +15,7 @@ export interface GuestEntry {
   room_id: string | null;
   id_proof_type: string | null;
   id_proof_url: string | null;
+  id_proof_urls: { label: string; url: string }[];
   purpose: string | null;
   source: string | null;
   check_in_at: string;
@@ -58,7 +60,10 @@ export function useGuestLog(statusFilter?: string) {
       if (statusFilter) q = q.eq('status', statusFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as unknown as GuestEntry[];
+      return ((data || []) as unknown as GuestEntry[]).map(g => ({
+        ...g,
+        id_proof_urls: Array.isArray(g.id_proof_urls) ? g.id_proof_urls : [],
+      }));
     },
     enabled: !!profile,
   });
@@ -85,7 +90,7 @@ export interface CheckInPayload {
   children: number;
   room_id?: string;
   id_proof_type?: string;
-  id_proof_file?: File;
+  id_proof_slots?: IdProofSlot[];
   purpose?: string;
   source?: string;
   expected_check_out?: string;
@@ -103,6 +108,25 @@ export interface CheckInPayload {
   payment_mode?: string;
   transaction_id?: string;
   number_of_nights?: number;
+  save_as_draft?: boolean;
+}
+
+async function uploadIdProofFiles(branchId: string, slots: IdProofSlot[]): Promise<{ label: string; url: string }[]> {
+  const results: { label: string; url: string }[] = [];
+  for (const slot of slots) {
+    if (slot.file) {
+      const filePath = `${branchId}/id-proofs/${crypto.randomUUID()}-${slot.file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('ops-attachments')
+        .upload(filePath, slot.file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('ops-attachments').getPublicUrl(filePath);
+      results.push({ label: slot.label, url: urlData.publicUrl });
+    } else if (slot.existingUrl) {
+      results.push({ label: slot.label, url: slot.existingUrl });
+    }
+  }
+  return results;
 }
 
 export function useCheckIn() {
@@ -113,16 +137,14 @@ export function useCheckIn() {
     mutationFn: async (guest: CheckInPayload) => {
       if (!profile) throw new Error('Not authenticated');
 
-      let idProofUrl: string | null = null;
-      if (guest.id_proof_file) {
-        const filePath = `${profile.branchId}/id-proofs/${crypto.randomUUID()}-${guest.id_proof_file.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('ops-attachments')
-          .upload(filePath, guest.id_proof_file);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('ops-attachments').getPublicUrl(filePath);
-        idProofUrl = urlData.publicUrl;
+      let idProofUrls: { label: string; url: string }[] = [];
+      if (guest.id_proof_slots && guest.id_proof_slots.length > 0) {
+        idProofUrls = await uploadIdProofFiles(profile.branchId, guest.id_proof_slots);
       }
+
+      // Legacy single URL for backward compat
+      const firstUrl = idProofUrls.length > 0 ? idProofUrls[0].url : null;
+      const isDraft = guest.save_as_draft === true;
 
       const { data, error } = await supabase.from('ops_guest_log').insert({
         branch_id: profile.branchId,
@@ -134,12 +156,14 @@ export function useCheckIn() {
         children: guest.children,
         room_id: guest.room_id || null,
         id_proof_type: guest.id_proof_type || null,
-        id_proof_url: idProofUrl,
+        id_proof_url: firstUrl,
+        id_proof_urls: idProofUrls,
         purpose: guest.purpose || 'Leisure',
         source: guest.source || 'Walk-in',
         expected_check_out: guest.expected_check_out || null,
         notes: guest.notes || null,
         checked_in_by: profile.userId,
+        status: isDraft ? 'draft' : 'checked_in',
         address: guest.address || null,
         city: guest.city || null,
         state: guest.state || null,
@@ -157,6 +181,43 @@ export function useCheckIn() {
 
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops_guest_log'] });
+    },
+  });
+}
+
+export function useUpdateGuestIdProofs() {
+  const queryClient = useQueryClient();
+  const { profile } = useOpsAuth();
+
+  return useMutation({
+    mutationFn: async ({ guestId, slots, idProofType }: { guestId: string; slots: IdProofSlot[]; idProofType: string }) => {
+      if (!profile) throw new Error('Not authenticated');
+
+      const idProofUrls = await uploadIdProofFiles(profile.branchId, slots);
+      const requiredFilled = slots.filter(s => s.required).every(s => s.file || s.existingUrl);
+
+      const updatePayload: any = {
+        id_proof_urls: idProofUrls,
+        id_proof_type: idProofType,
+        id_proof_url: idProofUrls.length > 0 ? idProofUrls[0].url : null,
+      };
+
+      // If all required proofs are now filled and status is draft, upgrade to checked_in
+      if (requiredFilled) {
+        // Only upgrade draft entries
+        const { data: current } = await supabase.from('ops_guest_log').select('status').eq('id', guestId).single();
+        if (current && (current as any).status === 'draft') {
+          updatePayload.status = 'checked_in';
+        }
+      }
+
+      const { error } = await supabase.from('ops_guest_log')
+        .update(updatePayload)
+        .eq('id', guestId);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops_guest_log'] });

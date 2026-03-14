@@ -548,6 +548,7 @@ export type Database = {
           id: string
           id_proof_type: string | null
           id_proof_url: string | null
+          id_proof_urls: Json | null
           nationality: string | null
           notes: string | null
           number_of_nights: number | null
@@ -591,6 +592,7 @@ export type Database = {
           id?: string
           id_proof_type?: string | null
           id_proof_url?: string | null
+          id_proof_urls?: Json | null
           nationality?: string | null
           notes?: string | null
           number_of_nights?: number | null
@@ -634,6 +636,7 @@ export type Database = {
           id?: string
           id_proof_type?: string | null
           id_proof_url?: string | null
+          id_proof_urls?: Json | null
           nationality?: string | null
           notes?: string | null
           number_of_nights?: number | null
@@ -2473,6 +2476,7 @@ export type Database = {
           id: string
           id_proof_type: string | null
           id_proof_url: string | null
+          id_proof_urls: Json | null
           nationality: string | null
           notes: string | null
           number_of_nights: number | null

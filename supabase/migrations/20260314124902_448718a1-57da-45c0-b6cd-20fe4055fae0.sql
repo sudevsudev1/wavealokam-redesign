@@ -1,0 +1,1 @@
+ALTER TABLE public.ops_guest_log ADD COLUMN IF NOT EXISTS id_proof_urls jsonb DEFAULT '[]'::jsonb;

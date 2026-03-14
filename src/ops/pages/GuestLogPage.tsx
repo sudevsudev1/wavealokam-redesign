@@ -11,11 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, UserPlus, LogOut as LogOutIcon, Search, Eye, Camera, Upload, Share2, Loader2, CheckCircle, XCircle, FileDown, BarChart3 } from 'lucide-react';
+import { Users, UserPlus, LogOut as LogOutIcon, Search, Eye, Camera, Upload, Share2, Loader2, CheckCircle, XCircle, FileDown, BarChart3, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO, differenceInHours, subDays } from 'date-fns';
 import { exportCFormPDF } from '../lib/cformExport';
 import { supabase } from '@/integrations/supabase/client';
+import IdProofUpload, { getIdProofSlots, areRequiredSlotsFilled, IdProofSlot } from '../components/IdProofUpload';
 
 const DOMESTIC_ID_TYPES = ['Aadhaar', 'Passport', 'Driving License', 'Voter ID'];
 const INTL_ID_TYPES = ['Passport'];
@@ -40,6 +41,7 @@ export default function GuestLogPage() {
 
   const [tab, setTab] = useState<'active' | 'pending' | 'history'>('active');
   const { data: activeGuests = [], isLoading: loadingActive } = useGuestLog('checked_in');
+  const { data: draftGuests = [] } = useGuestLog('draft');
   const { data: pendingGuests = [] } = useGuestLog('pending_approval');
   const { data: allGuests = [], isLoading: loadingAll } = useGuestLog();
   const checkIn = useCheckIn();
@@ -50,8 +52,7 @@ export default function GuestLogPage() {
   const [detailGuest, setDetailGuest] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [form, setForm] = useState({ ...defaultForm });
-  const [idProofFile, setIdProofFile] = useState<File | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [idProofSlots, setIdProofSlots] = useState<IdProofSlot[]>([]);
 
   const [rooms, setRooms] = useState<{ id: string; room_type: string }[]>([]);
   useState(() => {
@@ -67,16 +68,25 @@ export default function GuestLogPage() {
   };
 
   const filtered = useMemo(() => {
-    const list = tab === 'active' ? activeGuests : tab === 'pending' ? pendingGuests : allGuests;
+    const list = tab === 'active' ? [...activeGuests, ...draftGuests] : tab === 'pending' ? pendingGuests : allGuests;
     if (!search) return list;
     return list.filter((g) =>
       g.guest_name.toLowerCase().includes(search.toLowerCase()) ||
       g.phone?.includes(search) ||
       g.room_id?.toLowerCase().includes(search.toLowerCase())
     );
-  }, [tab, activeGuests, pendingGuests, allGuests, search]);
+  }, [tab, activeGuests, draftGuests, pendingGuests, allGuests, search]);
 
   const idProofTypes = form.guest_type === 'international' ? INTL_ID_TYPES : DOMESTIC_ID_TYPES;
+
+  // Update ID proof slots when type or guest type changes
+  const updateIdProofSlots = (idType: string, guestType: 'domestic' | 'international') => {
+    if (idType) {
+      setIdProofSlots(getIdProofSlots(idType, guestType));
+    } else {
+      setIdProofSlots([]);
+    }
+  };
 
   // AI OCR extraction
   const handleScanForm = async (file: File) => {
@@ -97,6 +107,7 @@ export default function GuestLogPage() {
       if (data?.error) throw new Error(data.error);
 
       const ex = data.data;
+      const newIdType = ex.id_proof_type && idProofTypes.includes(ex.id_proof_type) ? ex.id_proof_type : form.id_proof_type;
       setForm((prev) => ({
         ...prev,
         guest_name: ex.guest_name || prev.guest_name,
@@ -104,13 +115,12 @@ export default function GuestLogPage() {
         email: ex.email || prev.email,
         adults: ex.adults || prev.adults,
         children: ex.children ?? prev.children,
-        id_proof_type: ex.id_proof_type && idProofTypes.includes(ex.id_proof_type) ? ex.id_proof_type : prev.id_proof_type,
+        id_proof_type: newIdType,
         expected_check_out: ex.expected_check_out || prev.expected_check_out,
         notes: ex.notes || prev.notes,
         address: ex.address || prev.address,
         arriving_from: ex.arriving_from || prev.arriving_from,
         heading_to: ex.heading_to || ex.next_destination || prev.heading_to,
-        // International-specific
         city: ex.city || prev.city,
         state: ex.state || prev.state,
         pincode: ex.pincode || prev.pincode,
@@ -122,6 +132,9 @@ export default function GuestLogPage() {
         transaction_id: ex.transaction_id || prev.transaction_id,
         number_of_nights: ex.number_of_nights || prev.number_of_nights,
       }));
+      if (newIdType && newIdType !== form.id_proof_type) {
+        updateIdProofSlots(newIdType, form.guest_type);
+      }
       toast.success('Details extracted! Please verify and edit as needed.');
     } catch (e: any) {
       toast.error(e.message || 'Failed to extract details');
@@ -130,7 +143,10 @@ export default function GuestLogPage() {
     }
   };
 
-  const handleCheckIn = async () => {
+  const idProofsComplete = idProofSlots.length > 0 && areRequiredSlotsFilled(idProofSlots);
+  const hasAnyIdProofSlots = idProofSlots.length > 0;
+
+  const handleCheckIn = async (asDraft = false) => {
     if (!form.guest_name.trim()) { toast.error('Guest name required'); return; }
     if (!form.phone.trim()) { toast.error('Phone number required'); return; }
     if (!form.id_proof_type) { toast.error('ID proof type required'); return; }
@@ -144,6 +160,13 @@ export default function GuestLogPage() {
       if (!form.nationality.trim()) { toast.error('Nationality required'); return; }
       if (!form.passport_number.trim()) { toast.error('Passport/ID number required'); return; }
     }
+
+    // If not draft, require ID proof photos
+    if (!asDraft && !idProofsComplete) {
+      toast.error('Please upload all required ID proof photos, or save as draft');
+      return;
+    }
+
     try {
       await checkIn.mutateAsync({
         guest_name: form.guest_name,
@@ -154,7 +177,7 @@ export default function GuestLogPage() {
         children: form.children,
         room_id: form.room_id || undefined,
         id_proof_type: form.id_proof_type || undefined,
-        id_proof_file: idProofFile || undefined,
+        id_proof_slots: idProofSlots.filter(s => s.file),
         purpose: form.purpose,
         source: form.source,
         expected_check_out: form.expected_check_out || undefined,
@@ -172,11 +195,12 @@ export default function GuestLogPage() {
         payment_mode: form.payment_mode || undefined,
         transaction_id: form.transaction_id || undefined,
         number_of_nights: form.number_of_nights || undefined,
+        save_as_draft: asDraft,
       });
-      toast.success(t('guest.checkedIn'));
+      toast.success(asDraft ? 'Saved as draft — ID proof photos pending' : t('guest.checkedIn'));
       setCheckInOpen(false);
       setForm({ ...defaultForm });
-      setIdProofFile(null);
+      setIdProofSlots([]);
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -291,7 +315,10 @@ export default function GuestLogPage() {
       {/* Tabs + Actions */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-2">
-          <Button variant={tab === 'active' ? 'default' : 'outline'} size="sm" onClick={() => setTab('active')}>{t('guest.active')}</Button>
+          <Button variant={tab === 'active' ? 'default' : 'outline'} size="sm" onClick={() => setTab('active')}>
+            {t('guest.active')}
+            {draftGuests.length > 0 && <Badge variant="outline" className="ml-1 h-5 px-1.5 text-xs text-amber-600 border-amber-300">{draftGuests.length} draft</Badge>}
+          </Button>
           <Button variant={tab === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => setTab('pending')}>
             {t('guest.pending')} {pendingGuests.length > 0 && <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">{pendingGuests.length}</Badge>}
           </Button>
@@ -320,11 +347,11 @@ export default function GuestLogPage() {
               {/* Guest type toggle */}
               <div className="flex gap-2">
                 <Button variant={isDomestic ? 'default' : 'outline'} size="sm" className="flex-1"
-                  onClick={() => setForm({ ...form, guest_type: 'domestic', id_proof_type: '' })}>
+                  onClick={() => { setForm({ ...form, guest_type: 'domestic', id_proof_type: '' }); setIdProofSlots([]); }}>
                   🇮🇳 Domestic
                 </Button>
                 <Button variant={!isDomestic ? 'default' : 'outline'} size="sm" className="flex-1"
-                  onClick={() => setForm({ ...form, guest_type: 'international', id_proof_type: 'Passport' })}>
+                  onClick={() => { setForm({ ...form, guest_type: 'international', id_proof_type: 'Passport' }); updateIdProofSlots('Passport', 'international'); }}>
                   🌍 International
                 </Button>
               </div>
@@ -473,20 +500,24 @@ export default function GuestLogPage() {
                 </div>
 
                 {/* ID Proof */}
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <label className="text-xs font-medium">{t('guest.idProofType')} *</label>
-                  <Select value={form.id_proof_type} onValueChange={(val) => setForm({ ...form, id_proof_type: val })}>
+                  <Select value={form.id_proof_type} onValueChange={(val) => {
+                    setForm({ ...form, id_proof_type: val });
+                    updateIdProofSlots(val, form.guest_type as 'domestic' | 'international');
+                  }}>
                     <SelectTrigger><SelectValue placeholder={t('guest.idProofType')} /></SelectTrigger>
                     <SelectContent>{idProofTypes.map((idType) => <SelectItem key={idType} value={idType}>{idType}</SelectItem>)}</SelectContent>
                   </Select>
-                  <div className="flex gap-2">
-                    <Input type="file" accept="image/*" onChange={(e) => setIdProofFile(e.target.files?.[0] || null)} className="flex-1" />
-                    <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => setIdProofFile(e.target.files?.[0] || null)} />
-                    <Button variant="outline" size="sm" type="button" onClick={() => cameraInputRef.current?.click()}>
-                      <Camera className="h-4 w-4 mr-1" />Camera
-                    </Button>
-                  </div>
-                  {idProofFile && <p className="text-xs text-muted-foreground">Selected: {idProofFile.name}</p>}
+
+                  <IdProofUpload slots={idProofSlots} onSlotsChange={setIdProofSlots} />
+
+                  {hasAnyIdProofSlots && !idProofsComplete && (
+                    <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 rounded p-2">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      <span>Required ID proof photos are missing. You can save as draft and upload later.</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -498,9 +529,17 @@ export default function GuestLogPage() {
                     rows={3}
                   />
                 </div>
-                <Button onClick={handleCheckIn} disabled={!form.guest_name.trim() || checkIn.isPending} className="w-full">
-                  {checkIn.isPending ? '...' : t('guest.confirmCheckIn')}
-                </Button>
+
+                <div className="flex gap-2">
+                  {hasAnyIdProofSlots && !idProofsComplete && (
+                    <Button variant="outline" onClick={() => handleCheckIn(true)} disabled={!form.guest_name.trim() || checkIn.isPending} className="flex-1">
+                      {checkIn.isPending ? '...' : '💾 Save Draft'}
+                    </Button>
+                  )}
+                  <Button onClick={() => handleCheckIn(false)} disabled={!form.guest_name.trim() || checkIn.isPending || (hasAnyIdProofSlots && !idProofsComplete)} className="flex-1">
+                    {checkIn.isPending ? '...' : t('guest.confirmCheckIn')}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -530,6 +569,7 @@ export default function GuestLogPage() {
             {filtered.map((guest) => {
               const isActive = guest.status === 'checked_in';
               const isPending = guest.status === 'pending_approval';
+              const isDraft = guest.status === 'draft';
               const duration = isActive
                 ? differenceInHours(new Date(), parseISO(guest.check_in_at))
                 : guest.check_out_at
@@ -554,7 +594,11 @@ export default function GuestLogPage() {
                     {isActive && <span className="text-muted-foreground block">{duration}h</span>}
                   </TableCell>
                   <TableCell className="text-center">
-                    {isPending ? (
+                    {isDraft ? (
+                      <Badge variant="outline" className="text-xs text-amber-600 bg-amber-50">
+                        <AlertTriangle className="h-3 w-3 mr-0.5" />Draft
+                      </Badge>
+                    ) : isPending ? (
                       <Badge variant="outline" className="text-xs text-amber-600 bg-amber-50">{t('guest.pendingLabel')}</Badge>
                     ) : (
                       <Badge variant="outline" className={`text-xs ${isActive ? 'text-green-600 bg-green-50' : 'text-muted-foreground bg-muted'}`}>
@@ -603,7 +647,10 @@ export default function GuestLogPage() {
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('guest.details')}</DialogTitle>
-            {detailEntry?.guest_type === 'international' && <Badge variant="outline" className="w-fit">🌍 International Guest</Badge>}
+            <div className="flex gap-1.5">
+              {detailEntry?.guest_type === 'international' && <Badge variant="outline" className="w-fit">🌍 International Guest</Badge>}
+              {detailEntry?.status === 'draft' && <Badge variant="outline" className="w-fit text-amber-600 border-amber-300"><AlertTriangle className="h-3 w-3 mr-0.5" />Draft — ID Proof Pending</Badge>}
+            </div>
           </DialogHeader>
           {detailEntry && (
             <div className="space-y-3 text-sm">
@@ -638,11 +685,23 @@ export default function GuestLogPage() {
               {detailEntry.check_out_at && (
                 <div><span className="text-muted-foreground">{t('guest.checkOutTime')}:</span> {format(parseISO(detailEntry.check_out_at), 'dd MMM yyyy HH:mm')}</div>
               )}
+              {/* ID Proof Photos */}
               {detailEntry.id_proof_type && (
-                <div>
-                  <span className="text-muted-foreground">{t('guest.idProof')}:</span> {detailEntry.id_proof_type}
-                  {detailEntry.id_proof_url && (
-                    <a href={detailEntry.id_proof_url} target="_blank" rel="noopener noreferrer" className="text-primary ml-2 underline text-xs">{t('guest.viewProof')}</a>
+                <div className="space-y-2 border-t pt-2">
+                  <span className="text-muted-foreground text-xs font-medium">{t('guest.idProof')}: {detailEntry.id_proof_type}</span>
+                  {detailEntry.id_proof_urls && detailEntry.id_proof_urls.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {detailEntry.id_proof_urls.map((proof, idx) => (
+                        <a key={idx} href={proof.url} target="_blank" rel="noopener noreferrer" className="block">
+                          <img src={proof.url} alt={proof.label} className="w-full h-24 object-cover rounded border hover:opacity-80 transition" />
+                          <span className="text-[10px] text-muted-foreground">{proof.label}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : detailEntry.id_proof_url ? (
+                    <a href={detailEntry.id_proof_url} target="_blank" rel="noopener noreferrer" className="text-primary underline text-xs">{t('guest.viewProof')}</a>
+                  ) : (
+                    <span className="text-xs text-amber-600">No ID proof photos uploaded</span>
                   )}
                 </div>
               )}
