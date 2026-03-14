@@ -226,19 +226,6 @@ export default function VectorDock() {
     }
   }, [loading, messages, mode, profile, isAdmin, networkStatus, setMessages, language]);
 
-  // Regular send — check for pending action first
-  const sendMessage = useCallback(() => {
-    const text = replyTo ? `[Replying to: "${replyTo.slice(0, 100)}..."]\n\n${input.trim()}` : input.trim();
-    if (!text) return;
-
-    if (pendingAction && pendingAction.mode === mode) {
-      setPendingAction(null);
-      applyPendingAction(text, pendingAction.action);
-    } else {
-      sendToVector(text);
-    }
-  }, [input, replyTo, sendToVector, pendingAction, mode, applyPendingAction]);
-
   // Quick action instruction hints
   const quickActionHints: Record<string, string> = {
     en_to_ml: '📝 Paste or type the English text you want translated to Malayalam, then send.',
@@ -272,6 +259,19 @@ export default function VectorDock() {
       sendToVector(text);
     }
   }, [sendToVector]);
+
+  // Regular send — check for pending action first
+  const sendMessage = useCallback(() => {
+    const text = replyTo ? `[Replying to: "${replyTo.slice(0, 100)}..."]\n\n${input.trim()}` : input.trim();
+    if (!text) return;
+
+    if (pendingAction && pendingAction.mode === mode) {
+      setPendingAction(null);
+      applyPendingAction(text, pendingAction.action);
+    } else {
+      sendToVector(text);
+    }
+  }, [input, replyTo, sendToVector, pendingAction, mode, applyPendingAction]);
 
   // Quick action handlers
   const handleQuickAction = useCallback((action: 'en_to_ml' | 'ml_to_en' | 'guest_reply') => {
