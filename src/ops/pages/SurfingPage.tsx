@@ -776,7 +776,7 @@ function SurfLessonsTab() {
             </div>
             <div className="flex items-center gap-2">
               <Checkbox checked={editLF.is_paid} onCheckedChange={v => setEditLF(p => ({ ...p, is_paid: !!v }))} />
-              <span className="text-xs font-medium">Paid</span>
+              <span className="text-xs font-medium">Commission Paid</span>
             </div>
             <div className="flex gap-2 items-center">
               <Button size="sm" onClick={handleSaveEditLesson} disabled={updateLesson.isPending}>
