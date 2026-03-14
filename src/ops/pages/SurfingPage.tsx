@@ -76,12 +76,10 @@ function BoardRentalTab() {
 
   const handleSaveEdit = async () => {
     if (!editRental) return;
-    const amount_due = editFields.num_boards * editFields.rate_per_board;
     try {
       await updateRental.mutateAsync({
         id: editRental.id,
         ...editFields,
-        amount_due,
         paid_at: editFields.is_paid && !editRental.is_paid ? new Date().toISOString() : editFields.is_paid ? editRental.paid_at : null,
       });
       toast.success('Rental updated');
@@ -145,24 +143,19 @@ function BoardRentalTab() {
 
   return (
     <div className="space-y-3">
-      {/* Amounts Owed Summary */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Amounts Owed Summary - compact inline */}
+      <div className="flex flex-wrap gap-2">
         {Object.entries(amountsOwed).map(([sid, info]) => (
-          <Card key={sid} className={info.owed > 0 ? 'border-orange-300' : ''}>
-            <CardContent className="p-3">
-              <p className="text-xs font-medium truncate">{info.schoolName}</p>
-              <p className={`text-lg font-bold ${info.owed > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
-                ₹{info.owed.toLocaleString()}
-              </p>
-              <p className="text-[10px] text-muted-foreground">owed</p>
-              {info.owed > 0 && (
-                <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px]"
-                  onClick={() => setPaymentDialog({ schoolId: sid, schoolName: info.schoolName })}>
-                  <DollarSign className="h-3 w-3 mr-1" /> Record Payment
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <div key={sid} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs ${info.owed > 0 ? 'border-orange-300 bg-orange-50' : 'border-border'}`}>
+            <span className="font-medium truncate max-w-[80px]">{info.schoolName}</span>
+            <span className={`font-bold ${info.owed > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>₹{info.owed.toLocaleString()}</span>
+            {info.owed > 0 && (
+              <button className="text-[9px] text-primary underline ml-1"
+                onClick={() => setPaymentDialog({ schoolId: sid, schoolName: info.schoolName })}>
+                Pay
+              </button>
+            )}
+          </div>
         ))}
       </div>
 
@@ -562,21 +555,18 @@ function SurfLessonsTab() {
 
   return (
     <div className="space-y-3">
-      {/* Commissions Owed */}
+      {/* Commissions Owed - compact inline */}
       {Object.keys(commissionsOwed).length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-wrap gap-2">
           {Object.entries(commissionsOwed).map(([sid, info]) => (
-            <Card key={sid} className="border-orange-300">
-              <CardContent className="p-3">
-                <p className="text-xs font-medium">{info.name}</p>
-                <p className="text-lg font-bold text-orange-600">₹{info.owed.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground">commission owed</p>
-                <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px]"
-                  onClick={() => setPaymentDialog({ stayId: sid, stayName: info.name })}>
-                  <DollarSign className="h-3 w-3 mr-1" /> Mark Paid
-                </Button>
-              </CardContent>
-            </Card>
+            <div key={sid} className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-orange-300 bg-orange-50 text-xs">
+              <span className="font-medium truncate max-w-[80px]">{info.name}</span>
+              <span className="font-bold text-orange-600">₹{info.owed.toLocaleString()}</span>
+              <button className="text-[9px] text-primary underline ml-1"
+                onClick={() => setPaymentDialog({ stayId: sid, stayName: info.name })}>
+                Pay
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -692,7 +682,7 @@ function SurfLessonsTab() {
               <TableHead className="text-[10px] px-2">Fees</TableHead>
               <TableHead className="text-[10px] px-2">Comm.</TableHead>
               <TableHead className="text-[10px] px-2">Auto</TableHead>
-              <TableHead className="text-[10px] px-2">Status</TableHead>
+              <TableHead className="text-[10px] px-2">Comm. Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -710,7 +700,7 @@ function SurfLessonsTab() {
                   <TableCell className="text-[11px] px-2 py-1.5">₹{l.auto_fare}</TableCell>
                   <TableCell className="text-[11px] px-2 py-1.5">
                     <Badge variant={l.is_paid ? 'default' : 'outline'} className="text-[9px] h-4 px-1">
-                      {l.is_paid ? 'Paid' : 'Unpaid'}
+                      {l.is_paid ? 'Comm. Paid' : 'Comm. Owed'}
                     </Badge>
                   </TableCell>
                 </TableRow>
@@ -720,18 +710,21 @@ function SurfLessonsTab() {
         </Table>
       </div>
 
-      {/* Totals */}
-      <Card>
-        <CardContent className="p-3">
-          <p className="text-xs font-semibold mb-1">Totals (showing {filtered.length} entries)</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+      {/* Totals - collapsible */}
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center justify-between w-full text-left px-2 py-1">
+          <span className="text-[11px] font-semibold">Totals ({filtered.length} entries)</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] px-2 py-1">
             <span className="text-muted-foreground">Total Lessons:</span><span className="font-medium">{totals.lessons}</span>
             <span className="text-muted-foreground">Total Fees:</span><span className="font-medium">₹{totals.fees.toLocaleString()}</span>
             <span className="text-muted-foreground">Total Commission:</span><span className="font-medium">₹{totals.commissions.toLocaleString()}</span>
             <span className="text-muted-foreground">Total Auto Fare:</span><span className="font-medium">₹{totals.autoFare.toLocaleString()}</span>
           </div>
-        </CardContent>
-      </Card>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Edit Lesson Dialog */}
       <Dialog open={!!editLesson} onOpenChange={() => setEditLesson(null)}>
@@ -778,7 +771,7 @@ function SurfLessonsTab() {
             </div>
             <div className="flex items-center gap-2">
               <Checkbox checked={editLF.is_paid} onCheckedChange={v => setEditLF(p => ({ ...p, is_paid: !!v }))} />
-              <span className="text-xs font-medium">Paid</span>
+              <span className="text-xs font-medium">Commission Paid</span>
             </div>
             <div className="flex gap-2 items-center">
               <Button size="sm" onClick={handleSaveEditLesson} disabled={updateLesson.isPending}>
@@ -954,7 +947,15 @@ export default function SurfingPage() {
         <h1 className="text-base font-bold">Surfing</h1>
       </div>
 
-      <RevenueSummary />
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center justify-between w-full text-left">
+          <span className="text-xs font-semibold flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Revenue Summary</span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <RevenueSummary />
+        </CollapsibleContent>
+      </Collapsible>
 
       <Tabs defaultValue="board-rental">
         <TabsList className="w-full">
