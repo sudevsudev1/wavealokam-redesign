@@ -180,6 +180,9 @@ export default function AdminHome() {
         </Card>
       </div>
 
+      {/* Surfing Widget */}
+      <HomeSurfingWidget />
+
       {/* Collapsible All Tasks by User */}
       <Collapsible open={tasksOpen} onOpenChange={setTasksOpen}>
         <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
