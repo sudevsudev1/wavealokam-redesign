@@ -597,7 +597,7 @@ function SurfLessonsTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground"># Lessons</label>
-                <Input type="number" min={1} value={numLessons} onChange={e => setNumLessons(parseInt(e.target.value) || 1)} className="h-8 text-xs" />
+                <Input type="number" min={1} value={numLessons} onChange={e => setNumLessons(e.target.value)} className="h-8 text-xs" />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-medium text-muted-foreground">Guest Name</label>
