@@ -44,7 +44,7 @@ export default function GuestLogPage() {
   const { data: activeGuests = [], isLoading: loadingActive } = useGuestLog('checked_in');
   const { data: draftGuests = [] } = useGuestLog('draft');
   const { data: pendingGuests = [] } = useGuestLog('pending_approval');
-  const { data: allGuests = [], isLoading: loadingAll } = useGuestLog();
+  const guestSearch = useGuestSearch();
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
 
