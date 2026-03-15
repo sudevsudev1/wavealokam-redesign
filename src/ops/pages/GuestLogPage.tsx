@@ -71,15 +71,31 @@ export default function GuestLogPage() {
     return p?.display_name || userId.slice(0, 8);
   };
 
+  // Load history on tab switch
+  useEffect(() => {
+    if (tab === 'history') {
+      guestSearch.search({ query: '', dateFrom: null, dateTo: null });
+    }
+  }, [tab]);
+
+  const handleHistorySearch = () => {
+    guestSearch.search({
+      query: historySearch.trim(),
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+    });
+  };
+
   const filtered = useMemo(() => {
-    const list = tab === 'active' ? [...activeGuests, ...draftGuests] : tab === 'pending' ? pendingGuests : allGuests;
+    const list = tab === 'active' ? [...activeGuests, ...draftGuests] : tab === 'pending' ? pendingGuests : guestSearch.results;
+    if (tab === 'history') return list; // already server-filtered
     if (!search) return list;
     return list.filter((g) =>
       g.guest_name.toLowerCase().includes(search.toLowerCase()) ||
       g.phone?.includes(search) ||
       g.room_id?.toLowerCase().includes(search.toLowerCase())
     );
-  }, [tab, activeGuests, draftGuests, pendingGuests, allGuests, search]);
+  }, [tab, activeGuests, draftGuests, pendingGuests, guestSearch.results, search]);
 
   const idProofTypes = form.guest_type === 'international' ? INTL_ID_TYPES : DOMESTIC_ID_TYPES;
 
