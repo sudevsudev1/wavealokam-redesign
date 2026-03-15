@@ -40,7 +40,7 @@ function BoardRentalTab() {
 
   // Form state
   const [schoolId, setSchoolId] = useState('');
-  const [numBoards, setNumBoards] = useState(1);
+  const [numBoards, setNumBoards] = useState('1');
   const [rentalDate, setRentalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [showAddForm, setShowAddForm] = useState(false);
 
