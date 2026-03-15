@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useGuestLog, useCheckIn, useCheckOut, GuestEntry } from '../hooks/useGuestLog';
+import { useGuestSearch } from '../hooks/useGuestSearch';
 import { useOpsProfiles } from '../hooks/useTasks';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, UserPlus, LogOut as LogOutIcon, Search, Eye, Camera, Upload, Share2, Loader2, CheckCircle, XCircle, FileDown, BarChart3, AlertTriangle } from 'lucide-react';
+import { Users, UserPlus, LogOut as LogOutIcon, Search, Eye, Camera, Upload, Share2, Loader2, CheckCircle, XCircle, FileDown, BarChart3, AlertTriangle, ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO, differenceInHours, subDays } from 'date-fns';
 import { exportCFormPDF } from '../lib/cformExport';
@@ -43,11 +44,14 @@ export default function GuestLogPage() {
   const { data: activeGuests = [], isLoading: loadingActive } = useGuestLog('checked_in');
   const { data: draftGuests = [] } = useGuestLog('draft');
   const { data: pendingGuests = [] } = useGuestLog('pending_approval');
-  const { data: allGuests = [], isLoading: loadingAll } = useGuestLog();
+  const guestSearch = useGuestSearch();
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
 
   const [search, setSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [detailGuest, setDetailGuest] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
@@ -67,15 +71,31 @@ export default function GuestLogPage() {
     return p?.display_name || userId.slice(0, 8);
   };
 
+  // Load history on tab switch
+  useEffect(() => {
+    if (tab === 'history') {
+      guestSearch.search({ query: '', dateFrom: null, dateTo: null });
+    }
+  }, [tab]);
+
+  const handleHistorySearch = () => {
+    guestSearch.search({
+      query: historySearch.trim(),
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+    });
+  };
+
   const filtered = useMemo(() => {
-    const list = tab === 'active' ? [...activeGuests, ...draftGuests] : tab === 'pending' ? pendingGuests : allGuests;
+    const list = tab === 'active' ? [...activeGuests, ...draftGuests] : tab === 'pending' ? pendingGuests : guestSearch.results;
+    if (tab === 'history') return list; // already server-filtered
     if (!search) return list;
     return list.filter((g) =>
       g.guest_name.toLowerCase().includes(search.toLowerCase()) ||
       g.phone?.includes(search) ||
       g.room_id?.toLowerCase().includes(search.toLowerCase())
     );
-  }, [tab, activeGuests, draftGuests, pendingGuests, allGuests, search]);
+  }, [tab, activeGuests, draftGuests, pendingGuests, guestSearch.results, search]);
 
   const idProofTypes = form.guest_type === 'international' ? INTL_ID_TYPES : DOMESTIC_ID_TYPES;
 
@@ -247,8 +267,8 @@ export default function GuestLogPage() {
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
 
-  const detailEntry = detailGuest ? [...allGuests, ...pendingGuests].find((g) => g.id === detailGuest) : null;
-  const isLoading = loadingActive || loadingAll;
+  const detailEntry = detailGuest ? [...activeGuests, ...draftGuests, ...pendingGuests, ...guestSearch.results].find((g) => g.id === detailGuest) : null;
+  const isLoading = loadingActive;
 
   if (isLoading) {
     return (
@@ -287,7 +307,7 @@ export default function GuestLogPage() {
           <div>
             <p className="text-2xl font-bold">{(() => {
               const last7 = subDays(new Date(), 7);
-              return allGuests.filter(g => new Date(g.check_in_at) >= last7).length;
+              return activeGuests.filter(g => new Date(g.check_in_at) >= last7).length;
             })()}</p>
             <p className="text-xs text-muted-foreground">Last 7 days</p>
           </div>
@@ -295,14 +315,14 @@ export default function GuestLogPage() {
       </div>
 
       {/* Source breakdown */}
-      {allGuests.length > 0 && (
+      {activeGuests.length > 0 && (
         <Card>
           <CardContent className="py-3 px-3">
-            <p className="text-[10px] font-semibold text-foreground/50 uppercase mb-2">Booking Sources (All Time)</p>
+            <p className="text-[10px] font-semibold text-foreground/50 uppercase mb-2">Booking Sources (Active)</p>
             <div className="flex flex-wrap gap-2">
               {(() => {
                 const sourceCounts: Record<string, number> = {};
-                allGuests.forEach(g => { sourceCounts[g.source || 'Direct'] = (sourceCounts[g.source || 'Direct'] || 0) + 1; });
+                activeGuests.forEach(g => { sourceCounts[g.source || 'Direct'] = (sourceCounts[g.source || 'Direct'] || 0) + 1; });
                 return Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]).map(([src, count]) => (
                   <Badge key={src} variant="outline" className="text-xs">{src}: {count}</Badge>
                 ));
@@ -326,8 +346,8 @@ export default function GuestLogPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => {
-            const checkedOut = allGuests.filter(g => g.status === 'checked_out');
-            if (checkedOut.length === 0) { toast.error('No checked-out guests to export'); return; }
+            const checkedOut = guestSearch.results.filter(g => g.status === 'checked_out');
+            if (checkedOut.length === 0) { toast.error('No checked-out guests to export. Search in History tab first.'); return; }
             exportCFormPDF(checkedOut);
             toast.success('C-Form PDF downloaded');
           }}>
@@ -546,11 +566,56 @@ export default function GuestLogPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input placeholder={t('guest.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
-      </div>
+      {/* Search — different for active/pending vs history */}
+      {tab !== 'history' ? (
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder={t('guest.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-xs font-medium text-muted-foreground">Search name, phone, or room</label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Guest name, phone, room..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="pl-8"
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleHistorySearch(); }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">From</label>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[140px]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">To</label>
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
+              </div>
+              <Button size="sm" onClick={handleHistorySearch} disabled={guestSearch.isSearching}>
+                {guestSearch.isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
+                Search
+              </Button>
+              {(historySearch || dateFrom || dateTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setHistorySearch(''); setDateFrom(''); setDateTo(''); guestSearch.search({ query: '', dateFrom: null, dateTo: null }); }}>
+                  Clear
+                </Button>
+              )}
+            </div>
+            {guestSearch.totalCount !== null && (
+              <p className="text-xs text-muted-foreground">
+                {guestSearch.totalCount} record{guestSearch.totalCount !== 1 ? 's' : ''} found
+                {guestSearch.totalPages > 1 && ` · Page ${guestSearch.page + 1} of ${guestSearch.totalPages}`}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Guest table */}
       <Card>
@@ -591,6 +656,7 @@ export default function GuestLogPage() {
                   <TableCell className="hidden sm:table-cell text-sm">{guest.adults}A{guest.children > 0 ? ` + ${guest.children}C` : ''}</TableCell>
                   <TableCell className="text-xs">
                     {format(parseISO(guest.check_in_at), 'dd MMM HH:mm')}
+                    {tab === 'history' && <span className="text-muted-foreground block">{format(parseISO(guest.check_in_at), 'yyyy')}</span>}
                     {isActive && <span className="text-muted-foreground block">{duration}h</span>}
                   </TableCell>
                   <TableCell className="text-center">
@@ -641,6 +707,21 @@ export default function GuestLogPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Pagination for history */}
+      {tab === 'history' && guestSearch.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button variant="outline" size="sm" disabled={guestSearch.page === 0} onClick={guestSearch.prevPage}>
+            <ChevronLeft className="h-4 w-4 mr-1" />Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {guestSearch.page + 1} of {guestSearch.totalPages}
+          </span>
+          <Button variant="outline" size="sm" disabled={!guestSearch.hasMore} onClick={guestSearch.nextPage}>
+            Next<ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={!!detailGuest} onOpenChange={(open) => { if (!open) setDetailGuest(null); }}>
