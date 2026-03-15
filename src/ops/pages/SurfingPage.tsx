@@ -626,7 +626,7 @@ function SurfLessonsTab() {
               </div>
             </div>
             <div className="text-xs font-medium">
-              Total Fees: ₹{(numLessons * Number(feePerLesson)).toLocaleString()} | Commission: ₹{(numLessons * Number(commissionPerLesson)).toLocaleString()}
+              Total Fees: ₹{((Number(numLessons) || 0) * Number(feePerLesson)).toLocaleString()} | Commission: ₹{((Number(numLessons) || 0) * Number(commissionPerLesson)).toLocaleString()}
             </div>
             <Button size="sm" onClick={handleAddLesson} disabled={addLesson.isPending}>
               {addLesson.isPending ? 'Adding...' : 'Add'}
