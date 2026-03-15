@@ -194,7 +194,7 @@ function BoardRentalTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Boards</label>
-                <Input type="number" min={1} value={numBoards} onChange={e => setNumBoards(parseInt(e.target.value) || 1)} className="h-8 text-xs" />
+                <Input type="number" min={1} value={numBoards} onChange={e => setNumBoards(e.target.value)} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Amount</label>
