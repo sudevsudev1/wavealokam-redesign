@@ -531,14 +531,14 @@ function SurfLessonsTab() {
     if (!guestName || !guestStayId) { toast.error('Fill required fields'); return; }
     try {
       await addLesson.mutateAsync({
-        lesson_date: lessonDate, num_lessons: numLessons, guest_name: guestName,
+        lesson_date: lessonDate, num_lessons: Number(numLessons) || 1, guest_name: guestName,
         guest_stay_id: guestStayId, fee_per_lesson: Number(feePerLesson),
         commission_per_lesson: Number(commissionPerLesson), auto_fare: Number(autoFare),
       });
       toast.success('Lesson added');
       setShowAddForm(false);
       setGuestName('');
-      setNumLessons(1);
+      setNumLessons('1');
       setAutoFare('0');
     } catch { toast.error('Failed to add lesson'); }
   };
