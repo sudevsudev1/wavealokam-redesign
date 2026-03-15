@@ -307,7 +307,7 @@ export default function GuestLogPage() {
           <div>
             <p className="text-2xl font-bold">{(() => {
               const last7 = subDays(new Date(), 7);
-              return allGuests.filter(g => new Date(g.check_in_at) >= last7).length;
+              return activeGuests.filter(g => new Date(g.check_in_at) >= last7).length;
             })()}</p>
             <p className="text-xs text-muted-foreground">Last 7 days</p>
           </div>
