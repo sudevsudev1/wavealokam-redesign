@@ -346,8 +346,8 @@ export default function GuestLogPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => {
-            const checkedOut = allGuests.filter(g => g.status === 'checked_out');
-            if (checkedOut.length === 0) { toast.error('No checked-out guests to export'); return; }
+            const checkedOut = guestSearch.results.filter(g => g.status === 'checked_out');
+            if (checkedOut.length === 0) { toast.error('No checked-out guests to export. Search in History tab first.'); return; }
             exportCFormPDF(checkedOut);
             toast.success('C-Form PDF downloaded');
           }}>
