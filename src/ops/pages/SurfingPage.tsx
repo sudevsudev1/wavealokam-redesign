@@ -763,7 +763,7 @@ function SurfLessonsTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Auto Fare (₹)</label>
-                <Input type="number" value={editLF.auto_fare} onChange={e => setEditLF(p => ({ ...p, auto_fare: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" value={editLF.auto_fare} onChange={e => setEditLF(p => ({ ...p, auto_fare: e.target.value === '' ? '' as any : Number(e.target.value) }))} className="h-8 text-xs" />
               </div>
             </div>
             <div className="text-xs font-medium">
