@@ -297,7 +297,7 @@ function BoardRentalTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Boards</label>
-                <Input type="number" min={1} value={editFields.num_boards} onChange={e => setEditFields(p => ({ ...p, num_boards: parseInt(e.target.value) || 1 }))} className="h-8 text-xs" />
+                <Input type="number" min={1} value={editFields.num_boards} onChange={e => setEditFields(p => ({ ...p, num_boards: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Rate/Board (₹)</label>
