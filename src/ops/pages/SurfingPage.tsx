@@ -431,7 +431,7 @@ function SurfLessonsTab() {
   // Form
   const [showAddForm, setShowAddForm] = useState(false);
   const [lessonDate, setLessonDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [numLessons, setNumLessons] = useState(1);
+  const [numLessons, setNumLessons] = useState('1');
   const [guestName, setGuestName] = useState('');
   const [guestStayId, setGuestStayId] = useState('');
   const [feePerLesson, setFeePerLesson] = useState('1500');
