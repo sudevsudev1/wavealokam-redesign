@@ -123,10 +123,10 @@ function BoardRentalTab() {
   const handleAddRental = async () => {
     if (!schoolId) { toast.error('Select a school'); return; }
     try {
-      await addRental.mutateAsync({ school_id: schoolId, rental_date: rentalDate, num_boards: numBoards, rate_per_board: boardRate });
+      await addRental.mutateAsync({ school_id: schoolId, rental_date: rentalDate, num_boards: Number(numBoards) || 1, rate_per_board: boardRate });
       toast.success('Board rental added');
       setShowAddForm(false);
-      setNumBoards(1);
+      setNumBoards('1');
     } catch { toast.error('Failed to add rental'); }
   };
 
