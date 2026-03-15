@@ -301,7 +301,7 @@ function BoardRentalTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Rate/Board (₹)</label>
-                <Input type="number" value={editFields.rate_per_board} onChange={e => setEditFields(p => ({ ...p, rate_per_board: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" value={editFields.rate_per_board} onChange={e => setEditFields(p => ({ ...p, rate_per_board: e.target.value === '' ? '' as any : Number(e.target.value) }))} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Returned</label>
