@@ -315,14 +315,14 @@ export default function GuestLogPage() {
       </div>
 
       {/* Source breakdown */}
-      {allGuests.length > 0 && (
+      {activeGuests.length > 0 && (
         <Card>
           <CardContent className="py-3 px-3">
-            <p className="text-[10px] font-semibold text-foreground/50 uppercase mb-2">Booking Sources (All Time)</p>
+            <p className="text-[10px] font-semibold text-foreground/50 uppercase mb-2">Booking Sources (Active)</p>
             <div className="flex flex-wrap gap-2">
               {(() => {
                 const sourceCounts: Record<string, number> = {};
-                allGuests.forEach(g => { sourceCounts[g.source || 'Direct'] = (sourceCounts[g.source || 'Direct'] || 0) + 1; });
+                activeGuests.forEach(g => { sourceCounts[g.source || 'Direct'] = (sourceCounts[g.source || 'Direct'] || 0) + 1; });
                 return Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]).map(([src, count]) => (
                   <Badge key={src} variant="outline" className="text-xs">{src}: {count}</Badge>
                 ));
