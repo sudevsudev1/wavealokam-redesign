@@ -3383,7 +3383,7 @@ serve(async (req) => {
     }
 
     if (systemPrompt && ui_language === 'ml') {
-      systemPrompt += `\n\n═══ LANGUAGE ═══\nUser's UI is Malayalam. Respond in Malayalam unless task requires English.`;
+      systemPrompt += `\n\n═══ LANGUAGE (MANDATORY) ═══\nThe user's interface is set to MALAYALAM. You MUST respond in Malayalam (using Malayalam script: മലയാളം) for ALL responses. This is non-negotiable. Only use English for proper nouns, technical terms, or when the user explicitly writes in English. Default language for ALL your replies = Malayalam.`;
     }
 
     const aiMessages = isDirectMode
