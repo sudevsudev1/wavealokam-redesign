@@ -49,6 +49,9 @@ export default function GuestLogPage() {
   const checkOut = useCheckOut();
 
   const [search, setSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [detailGuest, setDetailGuest] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
