@@ -755,7 +755,7 @@ function SurfLessonsTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Fee/Lesson (₹)</label>
-                <Input type="number" value={editLF.fee_per_lesson} onChange={e => setEditLF(p => ({ ...p, fee_per_lesson: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" value={editLF.fee_per_lesson} onChange={e => setEditLF(p => ({ ...p, fee_per_lesson: e.target.value === '' ? '' as any : Number(e.target.value) }))} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Comm./Lesson (₹)</label>
