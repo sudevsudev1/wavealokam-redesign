@@ -40,7 +40,7 @@ function BoardRentalTab() {
 
   // Form state
   const [schoolId, setSchoolId] = useState('');
-  const [numBoards, setNumBoards] = useState(1);
+  const [numBoards, setNumBoards] = useState('1');
   const [rentalDate, setRentalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -123,10 +123,10 @@ function BoardRentalTab() {
   const handleAddRental = async () => {
     if (!schoolId) { toast.error('Select a school'); return; }
     try {
-      await addRental.mutateAsync({ school_id: schoolId, rental_date: rentalDate, num_boards: numBoards, rate_per_board: boardRate });
+      await addRental.mutateAsync({ school_id: schoolId, rental_date: rentalDate, num_boards: Number(numBoards) || 1, rate_per_board: boardRate });
       toast.success('Board rental added');
       setShowAddForm(false);
-      setNumBoards(1);
+      setNumBoards('1');
     } catch { toast.error('Failed to add rental'); }
   };
 
@@ -194,11 +194,11 @@ function BoardRentalTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Boards</label>
-                <Input type="number" min={1} value={numBoards} onChange={e => setNumBoards(parseInt(e.target.value) || 1)} className="h-8 text-xs" />
+                <Input type="number" min={1} value={numBoards} onChange={e => setNumBoards(e.target.value)} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Amount</label>
-                <div className="h-8 flex items-center text-xs font-medium">₹{(numBoards * boardRate).toLocaleString()}</div>
+                <div className="h-8 flex items-center text-xs font-medium">₹{((Number(numBoards) || 0) * boardRate).toLocaleString()}</div>
               </div>
             </div>
             <Button size="sm" onClick={handleAddRental} disabled={addRental.isPending}>
@@ -297,15 +297,15 @@ function BoardRentalTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Boards</label>
-                <Input type="number" min={1} value={editFields.num_boards} onChange={e => setEditFields(p => ({ ...p, num_boards: parseInt(e.target.value) || 1 }))} className="h-8 text-xs" />
+                <Input type="number" min={1} value={editFields.num_boards} onChange={e => setEditFields(p => ({ ...p, num_boards: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Rate/Board (₹)</label>
-                <Input type="number" value={editFields.rate_per_board} onChange={e => setEditFields(p => ({ ...p, rate_per_board: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" value={editFields.rate_per_board} onChange={e => setEditFields(p => ({ ...p, rate_per_board: e.target.value === '' ? '' as any : Number(e.target.value) }))} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Returned</label>
-                <Input type="number" min={0} max={editFields.num_boards} value={editFields.boards_returned} onChange={e => setEditFields(p => ({ ...p, boards_returned: parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" min={0} max={editFields.num_boards} value={editFields.boards_returned} onChange={e => setEditFields(p => ({ ...p, boards_returned: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
               <div className="flex items-center gap-2 pt-4">
                 <Checkbox checked={editFields.all_boards_good_condition} onCheckedChange={v => setEditFields(p => ({ ...p, all_boards_good_condition: !!v }))} />
@@ -431,7 +431,7 @@ function SurfLessonsTab() {
   // Form
   const [showAddForm, setShowAddForm] = useState(false);
   const [lessonDate, setLessonDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [numLessons, setNumLessons] = useState(1);
+  const [numLessons, setNumLessons] = useState('1');
   const [guestName, setGuestName] = useState('');
   const [guestStayId, setGuestStayId] = useState('');
   const [feePerLesson, setFeePerLesson] = useState('1500');
@@ -531,14 +531,14 @@ function SurfLessonsTab() {
     if (!guestName || !guestStayId) { toast.error('Fill required fields'); return; }
     try {
       await addLesson.mutateAsync({
-        lesson_date: lessonDate, num_lessons: numLessons, guest_name: guestName,
+        lesson_date: lessonDate, num_lessons: Number(numLessons) || 1, guest_name: guestName,
         guest_stay_id: guestStayId, fee_per_lesson: Number(feePerLesson),
         commission_per_lesson: Number(commissionPerLesson), auto_fare: Number(autoFare),
       });
       toast.success('Lesson added');
       setShowAddForm(false);
       setGuestName('');
-      setNumLessons(1);
+      setNumLessons('1');
       setAutoFare('0');
     } catch { toast.error('Failed to add lesson'); }
   };
@@ -597,7 +597,7 @@ function SurfLessonsTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground"># Lessons</label>
-                <Input type="number" min={1} value={numLessons} onChange={e => setNumLessons(parseInt(e.target.value) || 1)} className="h-8 text-xs" />
+                <Input type="number" min={1} value={numLessons} onChange={e => setNumLessons(e.target.value)} className="h-8 text-xs" />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-medium text-muted-foreground">Guest Name</label>
@@ -626,7 +626,7 @@ function SurfLessonsTab() {
               </div>
             </div>
             <div className="text-xs font-medium">
-              Total Fees: ₹{(numLessons * Number(feePerLesson)).toLocaleString()} | Commission: ₹{(numLessons * Number(commissionPerLesson)).toLocaleString()}
+              Total Fees: ₹{((Number(numLessons) || 0) * Number(feePerLesson)).toLocaleString()} | Commission: ₹{((Number(numLessons) || 0) * Number(commissionPerLesson)).toLocaleString()}
             </div>
             <Button size="sm" onClick={handleAddLesson} disabled={addLesson.isPending}>
               {addLesson.isPending ? 'Adding...' : 'Add'}
@@ -738,7 +738,7 @@ function SurfLessonsTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground"># Lessons</label>
-                <Input type="number" min={1} value={editLF.num_lessons} onChange={e => setEditLF(p => ({ ...p, num_lessons: parseInt(e.target.value) || 1 }))} className="h-8 text-xs" />
+                <Input type="number" min={1} value={editLF.num_lessons} onChange={e => setEditLF(p => ({ ...p, num_lessons: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-medium text-muted-foreground">Guest Name</label>
@@ -755,15 +755,15 @@ function SurfLessonsTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Fee/Lesson (₹)</label>
-                <Input type="number" value={editLF.fee_per_lesson} onChange={e => setEditLF(p => ({ ...p, fee_per_lesson: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" value={editLF.fee_per_lesson} onChange={e => setEditLF(p => ({ ...p, fee_per_lesson: e.target.value === '' ? '' as any : Number(e.target.value) }))} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Comm./Lesson (₹)</label>
-                <Input type="number" value={editLF.commission_per_lesson} onChange={e => setEditLF(p => ({ ...p, commission_per_lesson: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" value={editLF.commission_per_lesson} onChange={e => setEditLF(p => ({ ...p, commission_per_lesson: e.target.value === '' ? '' as any : Number(e.target.value) }))} className="h-8 text-xs" />
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Auto Fare (₹)</label>
-                <Input type="number" value={editLF.auto_fare} onChange={e => setEditLF(p => ({ ...p, auto_fare: Number(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" value={editLF.auto_fare} onChange={e => setEditLF(p => ({ ...p, auto_fare: e.target.value === '' ? '' as any : Number(e.target.value) }))} className="h-8 text-xs" />
               </div>
             </div>
             <div className="text-xs font-medium">
