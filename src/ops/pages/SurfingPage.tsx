@@ -738,7 +738,7 @@ function SurfLessonsTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground"># Lessons</label>
-                <Input type="number" min={1} value={editLF.num_lessons} onChange={e => setEditLF(p => ({ ...p, num_lessons: parseInt(e.target.value) || 1 }))} className="h-8 text-xs" />
+                <Input type="number" min={1} value={editLF.num_lessons} onChange={e => setEditLF(p => ({ ...p, num_lessons: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-medium text-muted-foreground">Guest Name</label>
