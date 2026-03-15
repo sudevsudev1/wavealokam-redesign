@@ -267,8 +267,8 @@ export default function GuestLogPage() {
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
 
-  const detailEntry = detailGuest ? [...allGuests, ...pendingGuests].find((g) => g.id === detailGuest) : null;
-  const isLoading = loadingActive || loadingAll;
+  const detailEntry = detailGuest ? [...activeGuests, ...draftGuests, ...pendingGuests, ...guestSearch.results].find((g) => g.id === detailGuest) : null;
+  const isLoading = loadingActive;
 
   if (isLoading) {
     return (
