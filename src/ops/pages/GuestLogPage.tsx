@@ -566,11 +566,56 @@ export default function GuestLogPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input placeholder={t('guest.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
-      </div>
+      {/* Search — different for active/pending vs history */}
+      {tab !== 'history' ? (
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder={t('guest.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-xs font-medium text-muted-foreground">Search name, phone, or room</label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Guest name, phone, room..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="pl-8"
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleHistorySearch(); }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">From</label>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[140px]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">To</label>
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
+              </div>
+              <Button size="sm" onClick={handleHistorySearch} disabled={guestSearch.isSearching}>
+                {guestSearch.isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
+                Search
+              </Button>
+              {(historySearch || dateFrom || dateTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setHistorySearch(''); setDateFrom(''); setDateTo(''); guestSearch.search({ query: '', dateFrom: null, dateTo: null }); }}>
+                  Clear
+                </Button>
+              )}
+            </div>
+            {guestSearch.totalCount !== null && (
+              <p className="text-xs text-muted-foreground">
+                {guestSearch.totalCount} record{guestSearch.totalCount !== 1 ? 's' : ''} found
+                {guestSearch.totalPages > 1 && ` · Page ${guestSearch.page + 1} of ${guestSearch.totalPages}`}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Guest table */}
       <Card>
@@ -611,6 +656,7 @@ export default function GuestLogPage() {
                   <TableCell className="hidden sm:table-cell text-sm">{guest.adults}A{guest.children > 0 ? ` + ${guest.children}C` : ''}</TableCell>
                   <TableCell className="text-xs">
                     {format(parseISO(guest.check_in_at), 'dd MMM HH:mm')}
+                    {tab === 'history' && <span className="text-muted-foreground block">{format(parseISO(guest.check_in_at), 'yyyy')}</span>}
                     {isActive && <span className="text-muted-foreground block">{duration}h</span>}
                   </TableCell>
                   <TableCell className="text-center">
@@ -661,6 +707,21 @@ export default function GuestLogPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Pagination for history */}
+      {tab === 'history' && guestSearch.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button variant="outline" size="sm" disabled={guestSearch.page === 0} onClick={guestSearch.prevPage}>
+            <ChevronLeft className="h-4 w-4 mr-1" />Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {guestSearch.page + 1} of {guestSearch.totalPages}
+          </span>
+          <Button variant="outline" size="sm" disabled={!guestSearch.hasMore} onClick={guestSearch.nextPage}>
+            Next<ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={!!detailGuest} onOpenChange={(open) => { if (!open) setDetailGuest(null); }}>
