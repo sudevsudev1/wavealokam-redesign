@@ -198,7 +198,7 @@ function BoardRentalTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Amount</label>
-                <div className="h-8 flex items-center text-xs font-medium">₹{(numBoards * boardRate).toLocaleString()}</div>
+                <div className="h-8 flex items-center text-xs font-medium">₹{((Number(numBoards) || 0) * boardRate).toLocaleString()}</div>
               </div>
             </div>
             <Button size="sm" onClick={handleAddRental} disabled={addRental.isPending}>
