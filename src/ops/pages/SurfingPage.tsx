@@ -305,7 +305,7 @@ function BoardRentalTab() {
               </div>
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground">Returned</label>
-                <Input type="number" min={0} max={editFields.num_boards} value={editFields.boards_returned} onChange={e => setEditFields(p => ({ ...p, boards_returned: parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
+                <Input type="number" min={0} max={editFields.num_boards} value={editFields.boards_returned} onChange={e => setEditFields(p => ({ ...p, boards_returned: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
               <div className="flex items-center gap-2 pt-4">
                 <Checkbox checked={editFields.all_boards_good_condition} onCheckedChange={v => setEditFields(p => ({ ...p, all_boards_good_condition: !!v }))} />
