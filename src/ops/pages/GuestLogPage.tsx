@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useOpsLanguage } from '../contexts/OpsLanguageContext';
 import { useOpsAuth } from '../contexts/OpsAuthContext';
 import { useGuestLog, useCheckIn, useCheckOut, GuestEntry } from '../hooks/useGuestLog';
+import { useGuestSearch } from '../hooks/useGuestSearch';
 import { useOpsProfiles } from '../hooks/useTasks';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, UserPlus, LogOut as LogOutIcon, Search, Eye, Camera, Upload, Share2, Loader2, CheckCircle, XCircle, FileDown, BarChart3, AlertTriangle } from 'lucide-react';
+import { Users, UserPlus, LogOut as LogOutIcon, Search, Eye, Camera, Upload, Share2, Loader2, CheckCircle, XCircle, FileDown, BarChart3, AlertTriangle, ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO, differenceInHours, subDays } from 'date-fns';
 import { exportCFormPDF } from '../lib/cformExport';
