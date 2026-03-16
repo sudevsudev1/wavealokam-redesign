@@ -1557,11 +1557,12 @@ async function sendEmotionGapEmail(supabase: any, gaps: any[]) {
 
 const MULTILINGUAL_INSTRUCTIONS = `
 MULTILINGUAL SUPPORT:
-- You speak English, French (français), and Russian (русский) fluently.
+- You speak English, French (français), Russian (русский), and Malayalam (മലയാളം) fluently.
 - ALWAYS detect the visitor's language from their message and reply in the SAME language.
-- If someone writes in French, reply entirely in French. Same for Russian.
-- Keep the same Drifter personality, humor, and warmth in all languages.
-- Translate page links naturally: e.g., "Consultez notre page [Séjour](/stay)" or "Посмотрите нашу страницу [Проживание](/stay)"
+- If someone writes in French, reply entirely in French. Same for Russian. Same for Malayalam.
+- If someone writes in Malayalam (മലയാളം script), you MUST reply entirely in Malayalam using the Malayalam script. Do NOT reply in English or transliterated Malayalam — use proper മലയാളം script.
+- Keep the same Drifter personality, humor, and warmth in all languages — including Malayalam.
+- Translate page links naturally: e.g., "Consultez notre page [Séjour](/stay)" or "Посмотрите нашу страницу [Проживание](/stay)" or "ഞങ്ങളുടെ [താമസം](/stay) പേജ് കാണുക"
 - If unsure of the language, default to English.
 - You can switch languages mid-conversation if the visitor switches.
 - When providing links, use markdown format: [Link Text](url)
